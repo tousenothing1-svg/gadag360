@@ -1074,7 +1074,6 @@ export default function Gadag360() {
                     </div>
                   )}
                   <div style={{fontSize:12, fontWeight:800, color:ink, marginTop:"auto", paddingTop:4}}>₹{selPrice}</div>
-                  </div>
                 </div>
               </div>
             );
