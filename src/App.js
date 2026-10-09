@@ -1044,12 +1044,12 @@ export default function Gadag360() {
         <div className="px-3 text-xs mb-1" style={{color: soil}}>{filtered.length} items{bulkMode ? " · Bulk prices" : ""}</div>
 
         {/* ── PRODUCT GRID (F11 vendor photo, F14 bulk) ── */}
-        <div className="grid grid-cols-2 gap-1 px-1 pb-28">
+        <div className="grid grid-cols-2 pb-28" style={{gap:"0px", padding:"0 0 112px 0"}}>
           {filtered.map(p => {
             const qty = cart[p.id] || 0;
             const bulkPrice = bulkMode ? Math.round(p.price * 0.88) : p.price;
             return (
-              <div key={p.id} className="rounded-xl overflow-hidden flex flex-col" style={{backgroundColor: panel, border:`1px solid ${line}`}}>
+              <div key={p.id} className="overflow-hidden flex flex-col" style={{backgroundColor: panel, borderRight:`1px solid ${line}`, borderBottom:`1px solid ${line}`}}>
                 <div style={{position:"relative", paddingTop:"65%", overflow:"hidden"}}>
                   <div style={{position:"absolute", inset:0}}><ProductImage p={p}/></div>
                   {bulkMode && <div className="absolute top-1 left-1 px-1 rounded text-white" style={{fontSize:9, backgroundColor:"#1565C0", fontWeight:700}}>BULK</div>}
