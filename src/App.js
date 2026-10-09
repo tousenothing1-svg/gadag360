@@ -1007,95 +1007,86 @@ export default function Gadag360() {
         )}
 
         {/* ── SEARCH + VOICE ── */}
-        <div className="px-4 py-2 mt-1">
+        <div style={{padding:"6px 8px 4px 8px"}}>
           <div className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{backgroundColor: panel, border:`1px solid ${line}`}}>
-            <Search size={15} style={{color: soil}}/>
-            <input value={query} onChange={e => setQuery(e.target.value)} placeholder={t.searchPlaceholder} className="flex-1 outline-none bg-transparent text-sm"/>
-            {query && <button onClick={() => setQuery("")}><X size={13} style={{color: soil}}/></button>}
-            {/* ── F13 VOICE SEARCH ── */}
+            <Search size={14} style={{color: soil}}/>
+            <input value={query} onChange={e => setQuery(e.target.value)} placeholder={t.searchPlaceholder} className="flex-1 outline-none bg-transparent" style={{fontSize:13}}/>
+            {query && <button onClick={() => setQuery("")}><X size={12} style={{color: soil}}/></button>}
             <button onClick={startVoice} className="p-1 rounded-full transition-all" style={{backgroundColor: voiceActive ? chili : "transparent"}}>
-              <span style={{fontSize:14}}>{voiceActive ? "🎤" : "🎙️"}</span>
+              <span style={{fontSize:13}}>{voiceActive ? "🎤" : "🎙️"}</span>
             </button>
           </div>
-          {voiceActive && <div className="text-xs mt-1 text-center animate-pulse" style={{color: chili}}>🎤 {lang==="kn" ? "ಮಾತನಾಡಿ..." : "Listening... speak now"}</div>}
-          {voiceError && <div className="text-xs mt-1 px-1" style={{color: chili}}>⚠️ {voiceError}</div>}
+          {voiceActive && <div className="text-xs mt-1 text-center animate-pulse" style={{color: chili}}>🎤 {lang==="kn" ? "ಮಾತನಾಡಿ..." : "Listening..."}</div>}
+          {voiceError && <div className="text-xs mt-1" style={{color: chili}}>⚠️ {voiceError}</div>}
         </div>
 
-        {/* ── F14 BULK MODE TOGGLE LABEL ── */}
-        {bulkMode && (
-          <div className="mx-4 px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1" style={{backgroundColor:"#E3F2FD", color:"#1565C0"}}>
-            🔢 {lang==="kn" ? "ಬಲ್ಕ್ ಮೋಡ್ ಆನ್ — ದೊಡ್ಡ ಪ್ಯಾಕ್ಗಳು ಮತ್ತು ಸ್ಲ್ಯಾಬ್ ರಿಯಾಯಿತಿ" : "Bulk mode ON — larger packs & slab discounts"}
-          </div>
-        )}
-
-        {/* ── CATEGORY FILTER ── */}
-        <div className="px-4 flex gap-2 overflow-x-auto pb-2" style={{scrollbarWidth:"none"}}>
+        {/* ── CATEGORY PILLS ── */}
+        <div className="flex gap-1.5 overflow-x-auto" style={{padding:"2px 8px 6px 8px", scrollbarWidth:"none"}}>
           {CATS.map(c => {
             const active = activeCat === c.id;
             return (
-              <button key={c.id} onClick={() => setActiveCat(c.id)} className="px-3 py-1 rounded-full text-xs whitespace-nowrap font-semibold"
-                style={{backgroundColor: active ? basil : panel, color: active ? "white" : ink, border:`1px solid ${active ? basil : line}`}}>
+              <button key={c.id} onClick={() => setActiveCat(c.id)}
+                className="whitespace-nowrap font-semibold rounded-full"
+                style={{fontSize:11, padding:"3px 10px", backgroundColor: active ? basil : panel, color: active ? "white" : ink, border:`1px solid ${active ? basil : line}`, flexShrink:0}}>
                 {c[lang]}
               </button>
             );
           })}
         </div>
 
-        <div className="px-3 text-xs mb-1" style={{color: soil}}>{filtered.length} items{bulkMode ? " · Bulk prices" : ""}</div>
+        {bulkMode && (
+          <div style={{margin:"0 8px 4px", padding:"4px 8px", borderRadius:8, fontSize:10, fontWeight:600, backgroundColor:"#E3F2FD", color:"#1565C0"}}>
+            🔢 {lang==="kn" ? "ಬಲ್ಕ್ ಮೋಡ್ ಆನ್" : "Bulk mode ON — 12% off"}
+          </div>
+        )}
 
-        {/* ── PRODUCT GRID (F11 vendor photo, F14 bulk) ── */}
-        <div className="grid grid-cols-2 pb-28" style={{gap:"0px", padding:"0 0 112px 0"}}>
+        {/* ── PRODUCT GRID — 3 columns, square images, no gaps ── */}
+        <div style={{display:"grid", gridTemplateColumns:"repeat(3,1fr)", borderTop:`1px solid ${line}`, paddingBottom:112}}>
           {filtered.map(p => {
             const qty = cart[p.id] || 0;
             const bulkPrice = bulkMode ? Math.round(p.price * 0.88) : p.price;
+            const sel = selectedVariant[p.id] || (p.variants ? p.variants[0].label : null);
+            const selPrice = sel && p.variants ? (p.variants.find(v=>v.label===sel)?.price || bulkPrice) : bulkPrice;
             return (
-              <div key={p.id} className="overflow-hidden flex flex-col" style={{backgroundColor: panel, borderRight:`1px solid ${line}`, borderBottom:`1px solid ${line}`}}>
-                <div style={{position:"relative", paddingTop:"65%", overflow:"hidden"}}>
+              <div key={p.id} style={{backgroundColor: panel, borderRight:`1px solid ${line}`, borderBottom:`1px solid ${line}`, display:"flex", flexDirection:"column"}}>
+                {/* Square image */}
+                <div style={{position:"relative", paddingTop:"100%", overflow:"hidden", backgroundColor:"#f9f7f2"}}>
                   <div style={{position:"absolute", inset:0}}><ProductImage p={p}/></div>
-                  {bulkMode && <div className="absolute top-1 left-1 px-1 rounded text-white" style={{fontSize:9, backgroundColor:"#1565C0", fontWeight:700}}>BULK</div>}
-                  <button onClick={()=>toggleWishlist(p.id)} className="absolute top-1 right-1 w-7 h-7 rounded-full flex items-center justify-center" style={{backgroundColor:"rgba(255,255,255,0.85)"}}>
-                    <Heart size={13} fill={wishlist[p.id]?chili:"none"} color={wishlist[p.id]?chili:soil}/>
+                  {bulkMode && <div style={{position:"absolute",top:3,left:3,backgroundColor:"#1565C0",color:"white",fontSize:7,fontWeight:700,padding:"1px 4px",borderRadius:3}}>BULK</div>}
+                  <button onClick={()=>toggleWishlist(p.id)} style={{position:"absolute",top:3,right:3,width:22,height:22,borderRadius:"50%",backgroundColor:"rgba(255,255,255,0.9)",display:"flex",alignItems:"center",justifyContent:"center",border:"none",cursor:"pointer"}}>
+                    <Heart size={11} fill={wishlist[p.id]?chili:"none"} color={wishlist[p.id]?chili:soil}/>
                   </button>
                 </div>
-                <div className="p-2 flex flex-col flex-1">
-                  <div className="text-xs font-semibold leading-tight" style={{minHeight:30}}>{lang==="kn" ? (KN_NAMES[p.name]||p.name) : p.name}</div>
-                  <div className="text-xs mt-0.5" style={{color: soil, fontSize:10}}>{p.unit}</div>
-                  {/* F11 vendor photo */}
-                  <div className="flex items-center gap-1 mt-0.5 mb-2">
-                    <span style={{fontSize:10}}>{VENDOR_PHOTOS[p.vendor]}</span>
-                    <div className="text-xs truncate" style={{color: soil, fontSize:9}}>{vendorName(p.vendor, lang)}</div>
-                  </div>
-                  {/* Weight/size toggle bar */}
-                  {p.variants && p.variants.length > 0 && (() => {
-                    const sel = selectedVariant[p.id] || p.variants[0].label;
-                    const selVar = p.variants.find(v=>v.label===sel) || p.variants[0];
-                    return (
-                      <div className="flex gap-1 mt-1 mb-1.5">
-                        {p.variants.map(v => (
-                          <button key={v.label}
-                            onClick={() => setSelectedVariant(sv=>({...sv,[p.id]:v.label}))}
-                            className="flex-1 py-0.5 rounded-md text-center font-semibold"
-                            style={{fontSize:9, backgroundColor: sel===v.label ? basil : "#F0EDE4", color: sel===v.label ? "white" : soil, border:`1px solid ${sel===v.label ? basil : line}`}}>
-                            {v.label}
-                          </button>
-                        ))}
-                      </div>
-                    );
-                  })()}
-                  <div className="flex items-center justify-between mt-auto">
-                    <div>
-                      {p.variants && p.variants.length > 0
-                        ? <span className="font-bold text-sm">₹{(p.variants.find(v=>v.label===(selectedVariant[p.id]||p.variants[0].label))||p.variants[0]).price}</span>
-                        : <span className="font-bold text-sm">₹{bulkPrice}</span>
-                      }
-                      {bulkMode && !p.variants && <span className="text-xs line-through ml-1" style={{color: soil}}>₹{p.price}</span>}
+                {/* Card content */}
+                <div style={{padding:"5px 5px 6px", display:"flex", flexDirection:"column", flex:1}}>
+                  <div style={{fontSize:11, fontWeight:600, lineHeight:1.3, minHeight:28, color:ink}}>{lang==="kn" ? (KN_NAMES[p.name]||p.name) : p.name}</div>
+                  <div style={{fontSize:9, color:soil, marginTop:1}}>{p.unit}</div>
+                  {/* Variant pills */}
+                  {p.variants && p.variants.length > 0 && (
+                    <div style={{display:"flex", gap:2, marginTop:4, flexWrap:"wrap"}}>
+                      {p.variants.slice(0,3).map(v => (
+                        <button key={v.label} onClick={()=>setSelectedVariant(sv=>({...sv,[p.id]:v.label}))}
+                          style={{fontSize:8, padding:"1px 4px", borderRadius:4, fontWeight:600, cursor:"pointer",
+                            backgroundColor: sel===v.label ? basil : "#F0EDE4",
+                            color: sel===v.label ? "white" : soil,
+                            border:`1px solid ${sel===v.label ? basil : line}`}}>
+                          {v.label}
+                        </button>
+                      ))}
                     </div>
+                  )}
+                  {/* Price + Add */}
+                  <div style={{display:"flex", alignItems:"center", justifyContent:"space-between", marginTop:"auto", paddingTop:4}}>
+                    <div style={{fontSize:12, fontWeight:700, color:ink}}>₹{selPrice}</div>
                     {qty === 0
-                      ? <button onClick={() => addToCart(p.id)} className="text-xs font-bold px-2.5 py-1 rounded-lg" style={{backgroundColor: mango, color: basilDark}}>+ {t.addToCart}</button>
-                      : <div className="flex items-center gap-1 rounded-lg px-1 py-0.5" style={{backgroundColor: basil}}>
-                          <button onClick={() => removeFromCart(p.id)} className="text-white"><Minus size={12}/></button>
-                          <span className="text-white text-xs font-bold w-4 text-center">{qty}</span>
-                          <button onClick={() => addToCart(p.id)} className="text-white"><Plus size={12}/></button>
+                      ? <button onClick={()=>addToCart(p.id)}
+                          style={{fontSize:11, fontWeight:700, padding:"3px 8px", borderRadius:6, backgroundColor:mango, color:basilDark, border:"none", cursor:"pointer"}}>
+                          + {t.addToCart}
+                        </button>
+                      : <div style={{display:"flex", alignItems:"center", gap:4, backgroundColor:basil, borderRadius:6, padding:"2px 5px"}}>
+                          <button onClick={()=>removeFromCart(p.id)} style={{color:"white",background:"none",border:"none",cursor:"pointer",lineHeight:1}}><Minus size={11}/></button>
+                          <span style={{color:"white",fontSize:11,fontWeight:700,minWidth:12,textAlign:"center"}}>{qty}</span>
+                          <button onClick={()=>addToCart(p.id)} style={{color:"white",background:"none",border:"none",cursor:"pointer",lineHeight:1}}><Plus size={11}/></button>
                         </div>
                     }
                   </div>
