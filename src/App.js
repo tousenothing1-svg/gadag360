@@ -9,10 +9,12 @@ const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 import { MapPin, Search, ShoppingCart, Plus, Minus, ArrowLeft, Check, Store, X, Globe, Bike, Star, Gift, Clock, Package, Copy, Tag, Zap, Users, ThumbsUp, History, Bell, ChevronRight, Award, Repeat, RotateCcw, User, Heart, CreditCard, HelpCircle, RefreshCcw, Home, LogOut, Phone, Mail, Edit3, Lightbulb, Info } from "lucide-react";
 
-const basil = "#1F4D36", basilDark = "#153726", mango = "#F2A33B";
-const chili = "#C0392B", soil = "#6B4226", ink = "#241F18", line = "#E1DACB";
-const bg = "#F2EFE1", panel = "#FFFFFF";
-const display = "'Georgia', serif", body = "system-ui, sans-serif";
+// ── HANDPICKD-INSPIRED DESIGN TOKENS ──
+const basil = "#1A6B3C", basilDark = "#124D2A", mango = "#FF6B35";
+const chili = "#E53935", soil = "#888888", ink = "#1A1A1A", line = "#F0F0F0";
+const bg = "#FFFFFF", panel = "#FFFFFF";
+const display = "'Inter', 'SF Pro Display', system-ui, sans-serif";
+const body = "'Inter', system-ui, sans-serif";
 
 const VENDORS = [
   { id: "v1", name: "Sasnur Bakery" },
@@ -613,35 +615,35 @@ export default function Gadag360() {
   };
 
   const Header = ({ showBack, onBack, title }) => {
-   return (
-    <div className="flex items-center justify-between px-4 py-3 sticky top-0 z-10" style={{backgroundColor: basil}}>
-      <div className="flex items-center gap-2">
-        {showBack && <button onClick={onBack} className="text-white p-1 -ml-1"><ArrowLeft size={20}/></button>}
-        {title
-          ? <span style={{fontFamily: display, color:"white", fontSize:17}}>{title}</span>
-          : <div>
-              <div style={{fontFamily: display, color:"white", fontSize:21, fontWeight:"bold", lineHeight:1.2}}>{t.appName}</div>
-              <div className="flex items-center gap-1" style={{color: mango, fontSize:11}}><MapPin size={10}/> {t.tagline}</div>
-            </div>
-        }
-      </div>
-      <div className="flex items-center gap-2">
-        <button
-          onClick={() => setLang(l => l === "en" ? "kn" : "en")}
-          className="flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full"
-          style={{backgroundColor: "rgba(255,255,255,0.18)", color:"white", fontSize:11}}
-          title="Switch to Kannada / English"
-        >
-          <Globe size={11}/> {lang === "en" ? "ಕನ್ನಡ" : "EN"}
-        </button>
-        {screen === "home" && (
-          <button onClick={() => setScreen("vendor")} className="flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full" style={{backgroundColor: mango, color: basilDark}}>
-            <Store size={11}/> {t.shopView}
+    return (
+      <div className="flex items-center justify-between px-4 sticky top-0 z-10"
+        style={{backgroundColor:"#fff", borderBottom:`1px solid ${line}`, height:56, minHeight:56}}>
+        <div className="flex items-center gap-3">
+          {showBack
+            ? <button onClick={onBack} style={{color:ink, background:"none", border:"none", cursor:"pointer", padding:4}}><ArrowLeft size={20}/></button>
+            : <div>
+                <div style={{fontFamily:display, color:ink, fontSize:18, fontWeight:800, letterSpacing:-0.5, lineHeight:1}}>{t.appName}</div>
+                <div className="flex items-center gap-1" style={{color:basil, fontSize:11, fontWeight:500, marginTop:1}}>
+                  <MapPin size={9}/> {t.tagline}
+                </div>
+              </div>
+          }
+          {title && <span style={{fontFamily:display, color:ink, fontSize:17, fontWeight:700}}>{title}</span>}
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={()=>setLang(l=>l==="en"?"kn":"en")}
+            style={{fontSize:11, fontWeight:700, padding:"4px 10px", borderRadius:20, backgroundColor:"#f5f5f5", color:ink, border:"none", cursor:"pointer"}}>
+            <Globe size={10} style={{display:"inline", marginRight:3}}/>{lang==="en"?"ಕನ್ನಡ":"EN"}
           </button>
-        )}
+          {screen==="home" && (
+            <button onClick={()=>setScreen("vendor")}
+              style={{fontSize:11, fontWeight:700, padding:"4px 10px", borderRadius:20, backgroundColor:basil, color:"white", border:"none", cursor:"pointer"}}>
+              <Store size={10} style={{display:"inline", marginRight:3}}/>{t.shopView}
+            </button>
+          )}
+        </div>
       </div>
-    </div>
-   );
+    );
   };
 
   // ── OTP SEND (simulated) ──
@@ -683,17 +685,16 @@ export default function Gadag360() {
   // ── BOTTOM NAV ──
   const BottomNav = () => {
     return (
-      <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto z-40 flex" style={{backgroundColor: panel, borderTop:`1px solid ${line}`, paddingBottom:"env(safe-area-inset-bottom,0)"}}>
+      <div style={{position:"fixed", bottom:0, left:0, right:0, maxWidth:448, margin:"0 auto", zIndex:40, display:"flex", backgroundColor:"white", borderTop:`1px solid ${line}`, paddingBottom:"env(safe-area-inset-bottom,0)"}}>
         {[
-          {id:"home", icon:<Home size={20}/>, label: lang==="kn"?"ಮುಖಪುಟ":"Home"},
-          {id:"profile", icon:<User size={20}/>, label: lang==="kn"?"ಖಾತೆ":"Account"},
+          {id:"home", icon:<Home size={22}/>, label:lang==="kn"?"ಮುಖಪುಟ":"Home"},
+          {id:"profile", icon:<User size={22}/>, label:lang==="kn"?"ಖಾತೆ":"Account"},
         ].map(tab=>(
-          <button key={tab.id} onClick={()=>{setActiveTab(tab.id); if(tab.id==="home"){setScreen("home"); setProfileSection(null);}}}
-            className="flex-1 flex flex-col items-center py-2 gap-0.5 text-xs font-semibold"
-            style={{color: activeTab===tab.id ? basil : soil}}>
+          <button key={tab.id} onClick={()=>{setActiveTab(tab.id);if(tab.id==="home"){setScreen("home");setProfileSection(null);}}}
+            style={{flex:1, display:"flex", flexDirection:"column", alignItems:"center", padding:"8px 0 6px", gap:3, background:"none", border:"none", cursor:"pointer", color:activeTab===tab.id?basil:soil}}>
             {tab.icon}
-            <span style={{fontSize:10}}>{tab.label}</span>
-            {activeTab===tab.id && <div className="w-4 h-0.5 rounded-full" style={{backgroundColor:basil}}/>}
+            <span style={{fontSize:10, fontWeight:activeTab===tab.id?700:500}}>{tab.label}</span>
+            {activeTab===tab.id && <div style={{width:20, height:2, borderRadius:2, backgroundColor:basil}}/>}
           </button>
         ))}
       </div>
@@ -945,150 +946,134 @@ export default function Gadag360() {
       {screen === "home" && activeTab === "home" && <>
         <Header/>
 
-        {/* ── F11 FRESHNESS GUARANTEE ── */}
-        <div className="mx-4 mt-2 px-3 py-2 rounded-xl flex items-center gap-2 text-xs font-semibold" style={{backgroundColor:"#e8f5e9", color: basil}}>
-          🌿 {lang==="kn" ? "ಇಂದು ಬೆಳಿಗ್ಗೆ ಕೊಯ್ಲು · 2 ಗಂಟೆಯಲ್ಲಿ ಡೆಲಿವರಿ" : "Harvested this morning · Delivered in 2 hours"}
-        </div>
-
-        {/* ── F2 LOYALTY COINS ── */}
-        <div className="mx-4 mt-2 rounded-xl px-3 py-2 flex items-center justify-between" style={{backgroundColor:"#FFF8E1", border:`1px solid ${mango}`}}>
-          <div className="flex items-center gap-2">
-            <span className="text-lg">🪙</span>
-            <div>
-              <div className="text-xs font-bold" style={{color:"#8B5E00"}}>{lang==="kn" ? `${coins} ಗದಗ 360 ಕಾಯಿನ್ಸ್` : `${coins} GADAG 360 Coins`}</div>
-              <div className="text-xs" style={{color: soil}}>{lang==="kn" ? "₹10 ಖರ್ಚಿಗೆ 1 ಕಾಯಿನ್" : "1 coin per ₹10 spent"}</div>
-            </div>
+        {/* ── HERO BANNER ── */}
+        <div style={{margin:"10px 12px 0", borderRadius:16, background:`linear-gradient(120deg,${basil},#2d9e5f)`, padding:"14px 16px", display:"flex", alignItems:"center", justifyContent:"space-between"}}>
+          <div>
+            <div style={{color:"white", fontSize:15, fontWeight:800, letterSpacing:-0.3}}>{lang==="kn" ? "ತಾಜಾ · ತ್ವರಿತ · ಸ್ಥಳೀಯ" : "Fresh · Fast · Local"}</div>
+            <div style={{color:"rgba(255,255,255,0.85)", fontSize:11, marginTop:3}}>{lang==="kn" ? "2 ಗಂಟೆಯಲ್ಲಿ ಡೆಲಿವರಿ · ಗದಗ" : "Delivered in 2 hrs · Gadag"}</div>
+            {coins > 0 && <div style={{color:mango, fontSize:10, fontWeight:700, marginTop:4}}>🪙 {coins} coins = ₹{Math.floor(coins/10)} off</div>}
           </div>
-          <div className="text-xs font-bold px-2 py-1 rounded-lg" style={{backgroundColor: mango, color: basilDark}}>₹{Math.floor(coins/10)} {lang==="kn" ? "ರಿಡೀಮ್" : "Redeem"}</div>
+          <div style={{fontSize:36}}>🛒</div>
         </div>
 
-        {/* ── F1 FLASH DEAL ── */}
+        {/* ── FLASH DEAL ── */}
         {!flashDismissed && (
-          <div className="mx-4 mt-2 rounded-xl px-3 py-2 flex items-center justify-between" style={{backgroundColor: chili}}>
-            <div className="flex items-center gap-2">
-              <Zap size={14} color="white"/>
+          <div style={{margin:"8px 12px 0", borderRadius:12, backgroundColor:"#FFF3E0", padding:"8px 12px", display:"flex", alignItems:"center", justifyContent:"space-between"}}>
+            <div style={{display:"flex", alignItems:"center", gap:8}}>
+              <span style={{fontSize:16}}>⚡</span>
               <div>
-                <div className="text-xs font-bold text-white">{lang==="kn" ? "ಇಂದಿನ ಆಫರ್" : "Flash Deal"} · {FLASH.ends}</div>
-                <div className="text-xs text-white opacity-90">{FLASH.icon} {lang==="kn" ? FLASH.nameKn : FLASH.name} — ₹{FLASH.discount} {lang==="kn" ? "ರಿಯಾಯಿತಿ" : "off"}</div>
+                <div style={{fontSize:11, fontWeight:700, color:"#E65100"}}>{lang==="kn" ? "ಇಂದಿನ ಆಫರ್" : "Flash Deal"} · {FLASH.ends}</div>
+                <div style={{fontSize:10, color:"#BF360C"}}>{FLASH.icon} {lang==="kn" ? FLASH.nameKn : FLASH.name} — ₹{FLASH.discount} {lang==="kn" ? "ರಿಯಾಯಿತಿ" : "off"}</div>
               </div>
             </div>
-            <button onClick={() => setFlashDismissed(true)} className="text-white opacity-70 ml-2"><X size={14}/></button>
+            <button onClick={()=>setFlashDismissed(true)} style={{background:"none", border:"none", cursor:"pointer", color:soil}}><X size={13}/></button>
           </div>
         )}
 
-        {/* ── QUICK ACTION PILLS ── */}
-        <div className="px-4 mt-3 flex gap-2 overflow-x-auto pb-1" style={{scrollbarWidth:"none"}}>
+        {/* ── MIN ORDER NUDGE ── */}
+        {subtotal > 0 && subtotal < 299 && (
+          <div style={{margin:"6px 12px 0", borderRadius:10, backgroundColor:"#EDE7F6", padding:"6px 12px", fontSize:11, fontWeight:600, color:"#5E35B1", textAlign:"center"}}>
+            🎁 {lang==="kn" ? `₹${299-subtotal} ಹೆಚ್ಚು → ₹20 ರಿಯಾಯಿತಿ` : `Add ₹${299-subtotal} more → get ₹20 off`}
+          </div>
+        )}
+
+        {/* ── QUICK ACTIONS ── */}
+        <div style={{display:"flex", gap:8, overflowX:"auto", padding:"10px 12px 4px", scrollbarWidth:"none"}}>
           {[
-            {icon:"📦", label: lang==="kn" ? "ಕಾಂಬೊ" : "Bundles",   action:() => setShowBundles(true)},
-            {icon:"🪔", label: lang==="kn" ? "ಹಬ್ಬ" : "Festival",    action:() => setShowFestival(true)},
-            {icon:"📋", label: lang==="kn" ? "ಹಿಸ್ಟರಿ" : "History",  action:() => setShowHistory(true)},
-            {icon:"🔗", label: lang==="kn" ? "ರೆಫರ್" : "Refer",      action:() => setShowReferral(true)},
-            {icon:"📍", label: userArea,                                action:() => setShowAreaPicker(true)},
-            {icon:"🔢", label: lang==="kn" ? "ಬಲ್ಕ್" : "Bulk",       action:() => setBulkMode(b => !b)},
-          ].map((p,i) => (
-            <button key={i} onClick={p.action} className="flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl text-xs font-semibold"
-              style={{backgroundColor: panel, border:`1px solid ${line}`, minWidth:64}}>
-              <span className="text-lg">{p.icon}</span>
-              <span style={{color: ink, fontSize:9}}>{p.label}</span>
+            {icon:"📦", label: lang==="kn"?"ಕಾಂಬೊ":"Bundles",   action:()=>setShowBundles(true)},
+            {icon:"🪔", label: lang==="kn"?"ಹಬ್ಬ":"Festival",   action:()=>setShowFestival(true)},
+            {icon:"📋", label: lang==="kn"?"ಹಿಸ್ಟರಿ":"History", action:()=>setShowHistory(true)},
+            {icon:"🔗", label: lang==="kn"?"ರೆಫರ್":"Refer",     action:()=>setShowReferral(true)},
+            {icon:"📍", label: userArea,                          action:()=>setShowAreaPicker(true)},
+            {icon:"🔢", label: lang==="kn"?"ಬಲ್ಕ್":"Bulk",      action:()=>setBulkMode(b=>!b)},
+          ].map((a,i)=>(
+            <button key={i} onClick={a.action} style={{flexShrink:0, display:"flex", flexDirection:"column", alignItems:"center", gap:4, padding:"8px 10px", borderRadius:12, backgroundColor: i===5&&bulkMode?"#E3F2FD":"#f7f7f7", border:`1px solid ${line}`, cursor:"pointer", minWidth:58}}>
+              <span style={{fontSize:18}}>{a.icon}</span>
+              <span style={{fontSize:9, fontWeight:600, color: i===5&&bulkMode?"#1565C0":soil, whiteSpace:"nowrap"}}>{a.label}</span>
             </button>
           ))}
         </div>
 
-        {/* ── F6 MIN ORDER BANNER ── */}
-        {subtotal > 0 && subtotal < 299 && (
-          <div className="mx-4 mt-2 px-3 py-2 rounded-xl text-xs text-center font-semibold" style={{backgroundColor:"#EDE7F6", color:"#5E35B1"}}>
-            🎁 {lang==="kn" ? `₹${299-subtotal} ಹೆಚ್ಚು ಖರ್ಚು ಮಾಡಿ → ₹20 ಡಿಸ್ಕೌಂಟ್ ಪಡೆಯಿರಿ` : `Spend ₹${299-subtotal} more → get ₹20 off!`}
-          </div>
-        )}
-        {minOrderDiscount > 0 && (
-          <div className="mx-4 mt-2 px-3 py-2 rounded-xl text-xs font-semibold" style={{backgroundColor:"#E8F5E9", color: basil}}>
-            ✅ {lang==="kn" ? "₹20 ರಿಯಾಯಿತಿ ಅನ್ವಯವಾಗಿದೆ!" : "₹20 discount applied!"}
-          </div>
-        )}
-
-        {/* ── SEARCH + VOICE ── */}
-        <div style={{padding:"6px 8px 4px 8px"}}>
-          <div className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{backgroundColor: panel, border:`1px solid ${line}`}}>
-            <Search size={14} style={{color: soil}}/>
-            <input value={query} onChange={e => setQuery(e.target.value)} placeholder={t.searchPlaceholder} className="flex-1 outline-none bg-transparent" style={{fontSize:13}}/>
-            {query && <button onClick={() => setQuery("")}><X size={12} style={{color: soil}}/></button>}
-            <button onClick={startVoice} className="p-1 rounded-full transition-all" style={{backgroundColor: voiceActive ? chili : "transparent"}}>
-              <span style={{fontSize:13}}>{voiceActive ? "🎤" : "🎙️"}</span>
+        {/* ── SEARCH ── */}
+        <div style={{padding:"8px 12px 4px"}}>
+          <div style={{display:"flex", alignItems:"center", gap:8, backgroundColor:"#f7f7f7", borderRadius:12, padding:"10px 14px"}}>
+            <Search size={15} style={{color:soil, flexShrink:0}}/>
+            <input value={query} onChange={e=>setQuery(e.target.value)} placeholder={t.searchPlaceholder}
+              style={{flex:1, border:"none", background:"none", outline:"none", fontSize:13, color:ink}}/>
+            {query && <button onClick={()=>setQuery("")} style={{background:"none",border:"none",cursor:"pointer"}}><X size={13} style={{color:soil}}/></button>}
+            <button onClick={startVoice} style={{background:"none",border:"none",cursor:"pointer",fontSize:14}}>
+              {voiceActive?"🎤":"🎙️"}
             </button>
           </div>
-          {voiceActive && <div className="text-xs mt-1 text-center animate-pulse" style={{color: chili}}>🎤 {lang==="kn" ? "ಮಾತನಾಡಿ..." : "Listening..."}</div>}
-          {voiceError && <div className="text-xs mt-1" style={{color: chili}}>⚠️ {voiceError}</div>}
+          {voiceActive && <div style={{fontSize:10,color:chili,textAlign:"center",marginTop:3}}>🎤 {lang==="kn"?"ಮಾತನಾಡಿ...":"Listening..."}</div>}
+          {voiceError && <div style={{fontSize:10,color:chili,marginTop:3}}>⚠️ {voiceError}</div>}
         </div>
 
         {/* ── CATEGORY PILLS ── */}
-        <div className="flex gap-1.5 overflow-x-auto" style={{padding:"2px 8px 6px 8px", scrollbarWidth:"none"}}>
-          {CATS.map(c => {
-            const active = activeCat === c.id;
-            return (
-              <button key={c.id} onClick={() => setActiveCat(c.id)}
-                className="whitespace-nowrap font-semibold rounded-full"
-                style={{fontSize:11, padding:"3px 10px", backgroundColor: active ? basil : panel, color: active ? "white" : ink, border:`1px solid ${active ? basil : line}`, flexShrink:0}}>
+        <div style={{display:"flex", gap:6, overflowX:"auto", padding:"4px 12px 8px", scrollbarWidth:"none"}}>
+          {CATS.map(c=>{
+            const active = activeCat===c.id;
+            return(
+              <button key={c.id} onClick={()=>setActiveCat(c.id)} style={{flexShrink:0, fontSize:12, fontWeight:600, padding:"5px 14px", borderRadius:20, cursor:"pointer",
+                backgroundColor: active?basil:"#f7f7f7", color: active?"white":soil, border:"none"}}>
                 {c[lang]}
               </button>
             );
           })}
         </div>
 
-        {bulkMode && (
-          <div style={{margin:"0 8px 4px", padding:"4px 8px", borderRadius:8, fontSize:10, fontWeight:600, backgroundColor:"#E3F2FD", color:"#1565C0"}}>
-            🔢 {lang==="kn" ? "ಬಲ್ಕ್ ಮೋಡ್ ಆನ್" : "Bulk mode ON — 12% off"}
-          </div>
-        )}
+        {/* ── SECTION HEADER ── */}
+        <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", padding:"0 12px 6px"}}>
+          <div style={{fontSize:13, fontWeight:700, color:ink}}>{activeCat==="all"?(lang==="kn"?"ಎಲ್ಲಾ ಉತ್ಪನ್ನಗಳು":"All Products"):CATS.find(c=>c.id===activeCat)?.[lang]}</div>
+          <div style={{fontSize:11, color:soil}}>{filtered.length} {lang==="kn"?"ವಸ್ತುಗಳು":"items"}{bulkMode?" · 🔢 Bulk":""}</div>
+        </div>
 
-        {/* ── PRODUCT GRID — 3 columns, square images, no gaps ── */}
-        <div style={{display:"grid", gridTemplateColumns:"repeat(3,1fr)", borderTop:`1px solid ${line}`, paddingBottom:112}}>
+        {/* ── PRODUCT GRID — Handpickd style ── */}
+        <div style={{display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:1, backgroundColor:line, paddingBottom:112}}>
           {filtered.map(p => {
             const qty = cart[p.id] || 0;
             const bulkPrice = bulkMode ? Math.round(p.price * 0.88) : p.price;
             const sel = selectedVariant[p.id] || (p.variants ? p.variants[0].label : null);
             const selPrice = sel && p.variants ? (p.variants.find(v=>v.label===sel)?.price || bulkPrice) : bulkPrice;
             return (
-              <div key={p.id} style={{backgroundColor: panel, borderRight:`1px solid ${line}`, borderBottom:`1px solid ${line}`, display:"flex", flexDirection:"column"}}>
+              <div key={p.id} style={{backgroundColor:"#fff", display:"flex", flexDirection:"column"}}>
                 {/* Square image */}
-                <div style={{position:"relative", paddingTop:"100%", overflow:"hidden", backgroundColor:"#f9f7f2"}}>
+                <div style={{position:"relative", paddingTop:"100%", overflow:"hidden", backgroundColor:"#fafafa"}}>
                   <div style={{position:"absolute", inset:0}}><ProductImage p={p}/></div>
-                  {bulkMode && <div style={{position:"absolute",top:3,left:3,backgroundColor:"#1565C0",color:"white",fontSize:7,fontWeight:700,padding:"1px 4px",borderRadius:3}}>BULK</div>}
-                  <button onClick={()=>toggleWishlist(p.id)} style={{position:"absolute",top:3,right:3,width:22,height:22,borderRadius:"50%",backgroundColor:"rgba(255,255,255,0.9)",display:"flex",alignItems:"center",justifyContent:"center",border:"none",cursor:"pointer"}}>
-                    <Heart size={11} fill={wishlist[p.id]?chili:"none"} color={wishlist[p.id]?chili:soil}/>
+                  {bulkMode && <div style={{position:"absolute",top:4,left:4,backgroundColor:basil,color:"white",fontSize:7,fontWeight:800,padding:"2px 5px",borderRadius:4}}>BULK</div>}
+                  <button onClick={()=>toggleWishlist(p.id)} style={{position:"absolute",top:4,right:4,width:24,height:24,borderRadius:"50%",backgroundColor:"white",display:"flex",alignItems:"center",justifyContent:"center",border:"none",cursor:"pointer",boxShadow:"0 1px 4px rgba(0,0,0,0.12)"}}>
+                    <Heart size={12} fill={wishlist[p.id]?chili:"none"} color={wishlist[p.id]?chili:"#ccc"}/>
                   </button>
+                  {/* Add button floating on image bottom right */}
+                  <div style={{position:"absolute", bottom:6, right:6}}>
+                    {qty===0
+                      ? <button onClick={()=>addToCart(p.id)} style={{width:28,height:28,borderRadius:"50%",backgroundColor:basil,color:"white",border:"none",cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 6px rgba(0,0,0,0.2)"}}>+</button>
+                      : <div style={{display:"flex",alignItems:"center",gap:2,backgroundColor:basil,borderRadius:14,padding:"3px 6px",boxShadow:"0 2px 6px rgba(0,0,0,0.2)"}}>
+                          <button onClick={()=>removeFromCart(p.id)} style={{color:"white",background:"none",border:"none",cursor:"pointer",fontSize:14,lineHeight:1}}>−</button>
+                          <span style={{color:"white",fontSize:11,fontWeight:700,minWidth:14,textAlign:"center"}}>{qty}</span>
+                          <button onClick={()=>addToCart(p.id)} style={{color:"white",background:"none",border:"none",cursor:"pointer",fontSize:14,lineHeight:1}}>+</button>
+                        </div>
+                    }
+                  </div>
                 </div>
                 {/* Card content */}
-                <div style={{padding:"5px 5px 6px", display:"flex", flexDirection:"column", flex:1}}>
-                  <div style={{fontSize:11, fontWeight:600, lineHeight:1.3, minHeight:28, color:ink}}>{lang==="kn" ? (KN_NAMES[p.name]||p.name) : p.name}</div>
-                  <div style={{fontSize:9, color:soil, marginTop:1}}>{p.unit}</div>
+                <div style={{padding:"6px 6px 8px", display:"flex", flexDirection:"column", flex:1}}>
+                  <div style={{fontSize:11, fontWeight:600, lineHeight:1.3, color:ink, minHeight:26}}>{lang==="kn"?(KN_NAMES[p.name]||p.name):p.name}</div>
+                  <div style={{fontSize:9, color:soil, marginTop:2}}>{p.unit}</div>
                   {/* Variant pills */}
-                  {p.variants && p.variants.length > 0 && (
+                  {p.variants && p.variants.length>0 && (
                     <div style={{display:"flex", gap:2, marginTop:4, flexWrap:"wrap"}}>
-                      {p.variants.slice(0,3).map(v => (
+                      {p.variants.slice(0,3).map(v=>(
                         <button key={v.label} onClick={()=>setSelectedVariant(sv=>({...sv,[p.id]:v.label}))}
-                          style={{fontSize:8, padding:"1px 4px", borderRadius:4, fontWeight:600, cursor:"pointer",
-                            backgroundColor: sel===v.label ? basil : "#F0EDE4",
-                            color: sel===v.label ? "white" : soil,
-                            border:`1px solid ${sel===v.label ? basil : line}`}}>
+                          style={{fontSize:8,padding:"2px 5px",borderRadius:4,fontWeight:600,cursor:"pointer",border:"none",
+                            backgroundColor:sel===v.label?basil:"#f0f0f0",
+                            color:sel===v.label?"white":soil}}>
                           {v.label}
                         </button>
                       ))}
                     </div>
                   )}
-                  {/* Price + Add */}
-                  <div style={{display:"flex", alignItems:"center", justifyContent:"space-between", marginTop:"auto", paddingTop:4}}>
-                    <div style={{fontSize:12, fontWeight:700, color:ink}}>₹{selPrice}</div>
-                    {qty === 0
-                      ? <button onClick={()=>addToCart(p.id)}
-                          style={{fontSize:11, fontWeight:700, padding:"3px 8px", borderRadius:6, backgroundColor:mango, color:basilDark, border:"none", cursor:"pointer"}}>
-                          + {t.addToCart}
-                        </button>
-                      : <div style={{display:"flex", alignItems:"center", gap:4, backgroundColor:basil, borderRadius:6, padding:"2px 5px"}}>
-                          <button onClick={()=>removeFromCart(p.id)} style={{color:"white",background:"none",border:"none",cursor:"pointer",lineHeight:1}}><Minus size={11}/></button>
-                          <span style={{color:"white",fontSize:11,fontWeight:700,minWidth:12,textAlign:"center"}}>{qty}</span>
-                          <button onClick={()=>addToCart(p.id)} style={{color:"white",background:"none",border:"none",cursor:"pointer",lineHeight:1}}><Plus size={11}/></button>
-                        </div>
-                    }
+                  <div style={{fontSize:12, fontWeight:800, color:ink, marginTop:"auto", paddingTop:4}}>₹{selPrice}</div>
                   </div>
                 </div>
               </div>
@@ -1098,10 +1083,13 @@ export default function Gadag360() {
 
         {/* ── CART BAR ── */}
         {itemCount > 0 && (
-          <div className="fixed bottom-16 left-0 right-0 px-4 max-w-md mx-auto" style={{zIndex:35}}>
-            <button onClick={() => setScreen("cart")} className="w-full flex items-center justify-between px-5 py-3 rounded-2xl shadow-lg" style={{backgroundColor: basil, color:"white"}}>
-              <span className="flex items-center gap-2 text-sm font-semibold"><ShoppingCart size={14}/>{itemCount} items</span>
-              <span className="text-sm font-bold">View cart · ₹{finalTotal}</span>
+          <div style={{position:"fixed", bottom:56, left:0, right:0, padding:"0 12px 8px", zIndex:35, maxWidth:448, margin:"0 auto"}}>
+            <button onClick={()=>setScreen("cart")} style={{width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between", padding:"14px 18px", borderRadius:16, backgroundColor:basil, color:"white", border:"none", cursor:"pointer", boxShadow:"0 4px 20px rgba(26,107,60,0.4)"}}>
+              <div style={{display:"flex", alignItems:"center", gap:8}}>
+                <div style={{backgroundColor:"rgba(255,255,255,0.2)", borderRadius:8, padding:"2px 8px", fontSize:12, fontWeight:700}}>{itemCount}</div>
+                <span style={{fontSize:13, fontWeight:600}}>{lang==="kn"?"ಬುಟ್ಟಿ ನೋಡಿ":"View Cart"}</span>
+              </div>
+              <span style={{fontSize:14, fontWeight:800}}>₹{finalTotal} →</span>
             </button>
           </div>
         )}
