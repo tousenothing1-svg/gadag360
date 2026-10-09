@@ -337,6 +337,169 @@ function LeafletMap({ riderPos, orderStatusIdx, basil }) {
   );
 }
 
+// ── HANDPICKD LAYOUT COMPONENT ──
+function HandpickdLayout({ filtered, activeCat, setActiveCat, cart, addToCart, removeFromCart,
+  selectedVariant, setSelectedVariant, wishlist, toggleWishlist, bulkMode, lang, query,
+  CATS, CAT_EMOJI, KN_NAMES, basil, soil, ink, line, chili }) {
+
+  const [selectedGroup, setSelectedGroup] = useState(null); // {cat, key, products}
+
+  // Build groups: cat → group name → [products]
+  const grouped = useMemo(() => {
+    const result = {};
+    filtered.forEach(p => {
+      const cat = p.cat;
+      if (!result[cat]) result[cat] = {};
+      const firstName = p.name.split(/[\s(]/)[0];
+      const key = firstName;
+      if (!result[cat][key]) result[cat][key] = [];
+      result[cat][key].push(p);
+    });
+    return result;
+  }, [filtered]);
+
+  // Categories that have products
+  const activeCats = CATS.filter(c => c.id !== "all" && grouped[c.id]);
+  const displayCat = activeCat === "all" ? (activeCats[0]?.id || "") : activeCat;
+  const [sidebarCat, setSidebarCat] = useState(displayCat);
+
+  useEffect(() => {
+    setSidebarCat(activeCat === "all" ? (activeCats[0]?.id || "") : activeCat);
+  }, [activeCat, filtered.length]);
+
+  const currentGroups = grouped[sidebarCat] || {};
+
+  return (
+    <>
+      {/* Product group detail modal */}
+      {selectedGroup && (
+        <div style={{position:"fixed",inset:0,zIndex:50,backgroundColor:"white",display:"flex",flexDirection:"column"}}>
+          {/* Header */}
+          <div style={{display:"flex",alignItems:"center",gap:12,padding:"14px 16px",borderBottom:`1px solid ${line}`,backgroundColor:"white"}}>
+            <button onClick={()=>setSelectedGroup(null)} style={{background:"none",border:"none",cursor:"pointer",color:ink}}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+            </button>
+            <div>
+              <div style={{fontSize:16,fontWeight:800,color:ink}}>{selectedGroup.key}</div>
+              <div style={{fontSize:11,color:soil}}>{selectedGroup.products.length} {lang==="kn"?"ಆಯ್ಕೆಗಳು":"varieties"}</div>
+            </div>
+          </div>
+          {/* Product list */}
+          <div style={{flex:1,overflowY:"auto",padding:"8px 0"}}>
+            {selectedGroup.products.map(p => {
+              const qty = cart[p.id] || 0;
+              const sel = selectedVariant[p.id] || (p.variants?.[0]?.label);
+              const selPrice = sel && p.variants ? (p.variants.find(v=>v.label===sel)?.price || p.price) : p.price;
+              const bulkPrice = bulkMode ? Math.round(selPrice*0.88) : selPrice;
+              return (
+                <div key={p.id} style={{display:"flex",alignItems:"center",padding:"10px 16px",borderBottom:`1px solid ${line}`,gap:12}}>
+                  {/* Image */}
+                  <div style={{width:72,height:72,borderRadius:12,overflow:"hidden",flexShrink:0,backgroundColor:"#fafafa"}}>
+                    <ProductImage p={p}/>
+                  </div>
+                  {/* Info */}
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:13,fontWeight:600,color:ink,lineHeight:1.3}}>{lang==="kn"?(KN_NAMES[p.name]||p.name):p.name}</div>
+                    <div style={{fontSize:10,color:soil,marginTop:2}}>{p.unit}</div>
+                    {/* Variants */}
+                    {p.variants && p.variants.length>0 && (
+                      <div style={{display:"flex",gap:4,marginTop:6,flexWrap:"wrap"}}>
+                        {p.variants.slice(0,4).map(v=>(
+                          <button key={v.label} onClick={()=>setSelectedVariant(sv=>({...sv,[p.id]:v.label}))}
+                            style={{fontSize:9,padding:"3px 7px",borderRadius:6,fontWeight:600,cursor:"pointer",border:"none",
+                              backgroundColor:sel===v.label?basil:"#f0f0f0",color:sel===v.label?"white":soil}}>
+                            {v.label} · ₹{v.price}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    <div style={{fontSize:14,fontWeight:800,color:ink,marginTop:4}}>₹{bulkPrice}</div>
+                  </div>
+                  {/* Add/stepper */}
+                  <div style={{flexShrink:0}}>
+                    {qty===0
+                      ? <button onClick={()=>addToCart(p.id)} style={{width:32,height:32,borderRadius:"50%",backgroundColor:basil,color:"white",border:"none",cursor:"pointer",fontSize:20,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 8px rgba(0,0,0,0.15)"}}>+</button>
+                      : <div style={{display:"flex",alignItems:"center",gap:6,backgroundColor:basil,borderRadius:16,padding:"5px 10px"}}>
+                          <button onClick={()=>removeFromCart(p.id)} style={{color:"white",background:"none",border:"none",cursor:"pointer",fontSize:16,lineHeight:1}}>−</button>
+                          <span style={{color:"white",fontSize:13,fontWeight:700,minWidth:16,textAlign:"center"}}>{qty}</span>
+                          <button onClick={()=>addToCart(p.id)} style={{color:"white",background:"none",border:"none",cursor:"pointer",fontSize:16,lineHeight:1}}>+</button>
+                        </div>
+                    }
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Main layout: sidebar + products */}
+      <div style={{display:"flex", flex:1, overflow:"hidden", height:"calc(100vh - 175px)"}}>
+
+        {/* LEFT SIDEBAR — categories */}
+        <div style={{width:76,flexShrink:0,overflowY:"auto",backgroundColor:"#fafafa",borderRight:`1px solid ${line}`,scrollbarWidth:"none"}}>
+          {activeCats.map(c => {
+            const active = sidebarCat===c.id;
+            return (
+              <button key={c.id} onClick={()=>setSidebarCat(c.id)}
+                style={{width:"100%",display:"flex",flexDirection:"column",alignItems:"center",padding:"12px 4px",gap:3,border:"none",cursor:"pointer",
+                  borderLeft:active?`3px solid ${basil}`:"3px solid transparent",
+                  backgroundColor:active?"white":"transparent"}}>
+                <span style={{fontSize:24}}>{CAT_EMOJI[c.id]||"🛒"}</span>
+                <span style={{fontSize:9,fontWeight:active?700:400,color:active?basil:soil,textAlign:"center",lineHeight:1.3,wordBreak:"break-word",maxWidth:64}}>{c[lang]}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* RIGHT — grouped product cards */}
+        <div style={{flex:1,overflowY:"auto",backgroundColor:"white",scrollbarWidth:"none"}}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:"1px",backgroundColor:line,paddingBottom:120}}>
+            {Object.entries(currentGroups).map(([key, products]) => {
+              const first = products[0];
+              const hasMany = products.length > 1;
+              const qty = !hasMany ? (cart[first.id]||0) : 0;
+              return (
+                <div key={key} onClick={()=>hasMany&&setSelectedGroup({key,products})}
+                  style={{backgroundColor:"white",display:"flex",flexDirection:"column",cursor:hasMany?"pointer":"default"}}>
+                  {/* Square image */}
+                  <div style={{position:"relative",paddingTop:"100%",overflow:"hidden",backgroundColor:"#f8f8f8"}}>
+                    <div style={{position:"absolute",inset:0}}><ProductImage p={first}/></div>
+                    {hasMany && (
+                      <div style={{position:"absolute",top:5,right:5,backgroundColor:"rgba(0,0,0,0.6)",borderRadius:8,padding:"1px 6px",fontSize:9,color:"white",fontWeight:700}}>
+                        +{products.length}
+                      </div>
+                    )}
+                    {/* Add/stepper for single items */}
+                    {!hasMany && (
+                      <div style={{position:"absolute",bottom:5,right:5}} onClick={e=>e.stopPropagation()}>
+                        {qty===0
+                          ? <button onClick={()=>addToCart(first.id)} style={{width:26,height:26,borderRadius:"50%",backgroundColor:basil,color:"white",border:"none",cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 1px 4px rgba(0,0,0,0.25)"}}>+</button>
+                          : <div style={{display:"flex",alignItems:"center",gap:1,backgroundColor:basil,borderRadius:12,padding:"2px 6px",boxShadow:"0 1px 4px rgba(0,0,0,0.25)"}}>
+                              <button onClick={()=>removeFromCart(first.id)} style={{color:"white",background:"none",border:"none",cursor:"pointer",fontSize:13,lineHeight:1,padding:"0 1px"}}>−</button>
+                              <span style={{color:"white",fontSize:11,fontWeight:700,minWidth:12,textAlign:"center"}}>{qty}</span>
+                              <button onClick={()=>addToCart(first.id)} style={{color:"white",background:"none",border:"none",cursor:"pointer",fontSize:13,lineHeight:1,padding:"0 1px"}}>+</button>
+                            </div>
+                        }
+                      </div>
+                    )}
+                  </div>
+                  {/* Compact info */}
+                  <div style={{padding:"6px 7px 8px"}}>
+                    <div style={{fontSize:11,fontWeight:700,color:ink,lineHeight:1.3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{key}</div>
+                    <div style={{fontSize:9,color:soil,marginTop:1}}>{hasMany?`${products.length} ${lang==="kn"?"ಆಯ್ಕೆ":"types"}`:first.unit}</div>
+                    <div style={{fontSize:12,fontWeight:800,color:ink,marginTop:3}}>{hasMany?`from ₹${Math.min(...products.map(p=>p.price))}`:`₹${first.price}`}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 // ── VENDOR MODEL: Orders routed to individual kirana partners ──
 export default function Gadag360() {
   const [screen, setScreen] = useState("home");
@@ -946,139 +1109,62 @@ export default function Gadag360() {
       {screen === "home" && activeTab === "home" && <>
         <Header/>
 
-        {/* ── HERO BANNER ── */}
-        <div style={{margin:"10px 12px 0", borderRadius:16, background:`linear-gradient(120deg,${basil},#2d9e5f)`, padding:"14px 16px", display:"flex", alignItems:"center", justifyContent:"space-between"}}>
-          <div>
-            <div style={{color:"white", fontSize:15, fontWeight:800, letterSpacing:-0.3}}>{lang==="kn" ? "ತಾಜಾ · ತ್ವರಿತ · ಸ್ಥಳೀಯ" : "Fresh · Fast · Local"}</div>
-            <div style={{color:"rgba(255,255,255,0.85)", fontSize:11, marginTop:3}}>{lang==="kn" ? "2 ಗಂಟೆಯಲ್ಲಿ ಡೆಲಿವರಿ · ಗದಗ" : "Delivered in 2 hrs · Gadag"}</div>
-            {coins > 0 && <div style={{color:mango, fontSize:10, fontWeight:700, marginTop:4}}>🪙 {coins} coins = ₹{Math.floor(coins/10)} off</div>}
+        {/* ── SLIM DELIVERY BAR ── */}
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"6px 14px",backgroundColor:"#f0faf4",borderBottom:`1px solid ${line}`}}>
+          <div style={{display:"flex",alignItems:"center",gap:6}}>
+            <span style={{fontSize:13}}>⚡</span>
+            <span style={{fontSize:11,fontWeight:700,color:basil}}>{lang==="kn"?"2 ಗಂಟೆಯಲ್ಲಿ ಡೆಲಿವರಿ":"Delivery in 2 hrs"}</span>
+            <span style={{fontSize:10,color:soil}}>· {userArea}</span>
           </div>
-          <div style={{fontSize:36}}>🛒</div>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            {coins>0 && <span style={{fontSize:10,fontWeight:600,color:basil}}>🪙{coins}</span>}
+            {!flashDismissed && <span style={{fontSize:10,fontWeight:700,color:"#E65100"}}>⚡{FLASH.icon}₹{FLASH.discount} off</span>}
+            {subtotal>0&&subtotal<299 && <span style={{fontSize:10,fontWeight:600,color:"#5E35B1"}}>🎁₹{299-subtotal} more</span>}
+          </div>
         </div>
 
-        {/* ── FLASH DEAL ── */}
-        {!flashDismissed && (
-          <div style={{margin:"8px 12px 0", borderRadius:12, backgroundColor:"#FFF3E0", padding:"8px 12px", display:"flex", alignItems:"center", justifyContent:"space-between"}}>
-            <div style={{display:"flex", alignItems:"center", gap:8}}>
-              <span style={{fontSize:16}}>⚡</span>
-              <div>
-                <div style={{fontSize:11, fontWeight:700, color:"#E65100"}}>{lang==="kn" ? "ಇಂದಿನ ಆಫರ್" : "Flash Deal"} · {FLASH.ends}</div>
-                <div style={{fontSize:10, color:"#BF360C"}}>{FLASH.icon} {lang==="kn" ? FLASH.nameKn : FLASH.name} — ₹{FLASH.discount} {lang==="kn" ? "ರಿಯಾಯಿತಿ" : "off"}</div>
-              </div>
-            </div>
-            <button onClick={()=>setFlashDismissed(true)} style={{background:"none", border:"none", cursor:"pointer", color:soil}}><X size={13}/></button>
+        {/* ── SEARCH ── */}
+        <div style={{padding:"8px 10px 4px",backgroundColor:"white"}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,backgroundColor:"#f7f7f7",borderRadius:10,padding:"9px 12px"}}>
+            <Search size={14} style={{color:soil,flexShrink:0}}/>
+            <input value={query} onChange={e=>setQuery(e.target.value)} placeholder={t.searchPlaceholder}
+              style={{flex:1,border:"none",background:"none",outline:"none",fontSize:13,color:ink}}/>
+            {query && <button onClick={()=>setQuery("")} style={{background:"none",border:"none",cursor:"pointer"}}><X size={12} style={{color:soil}}/></button>}
+            <button onClick={startVoice} style={{background:"none",border:"none",cursor:"pointer",fontSize:13}}>
+              {voiceActive?"🎤":"🎙️"}
+            </button>
           </div>
-        )}
+          {voiceActive && <div style={{fontSize:10,color:chili,textAlign:"center",marginTop:2}}>🎤 {lang==="kn"?"ಮಾತನಾಡಿ...":"Listening..."}</div>}
+          {voiceError && <div style={{fontSize:10,color:chili,marginTop:2}}>⚠️ {voiceError}</div>}
+        </div>
 
-        {/* ── MIN ORDER NUDGE ── */}
-        {subtotal > 0 && subtotal < 299 && (
-          <div style={{margin:"6px 12px 0", borderRadius:10, backgroundColor:"#EDE7F6", padding:"6px 12px", fontSize:11, fontWeight:600, color:"#5E35B1", textAlign:"center"}}>
-            🎁 {lang==="kn" ? `₹${299-subtotal} ಹೆಚ್ಚು → ₹20 ರಿಯಾಯಿತಿ` : `Add ₹${299-subtotal} more → get ₹20 off`}
-          </div>
-        )}
-
-        {/* ── QUICK ACTIONS ── */}
-        <div style={{display:"flex", gap:8, overflowX:"auto", padding:"10px 12px 4px", scrollbarWidth:"none"}}>
+        {/* ── QUICK ACTIONS ROW ── */}
+        <div style={{display:"flex",gap:6,overflowX:"auto",padding:"4px 10px 6px",scrollbarWidth:"none",backgroundColor:"white",borderBottom:`1px solid ${line}`}}>
           {[
-            {icon:"📦", label: lang==="kn"?"ಕಾಂಬೊ":"Bundles",   action:()=>setShowBundles(true)},
-            {icon:"🪔", label: lang==="kn"?"ಹಬ್ಬ":"Festival",   action:()=>setShowFestival(true)},
-            {icon:"📋", label: lang==="kn"?"ಹಿಸ್ಟರಿ":"History", action:()=>setShowHistory(true)},
-            {icon:"🔗", label: lang==="kn"?"ರೆಫರ್":"Refer",     action:()=>setShowReferral(true)},
-            {icon:"📍", label: userArea,                          action:()=>setShowAreaPicker(true)},
-            {icon:"🔢", label: lang==="kn"?"ಬಲ್ಕ್":"Bulk",      action:()=>setBulkMode(b=>!b)},
+            {icon:"📦",label:lang==="kn"?"ಕಾಂಬೊ":"Bundles",  action:()=>setShowBundles(true)},
+            {icon:"🪔",label:lang==="kn"?"ಹಬ್ಬ":"Festival",  action:()=>setShowFestival(true)},
+            {icon:"📋",label:lang==="kn"?"ಹಿಸ್ಟರಿ":"History",action:()=>setShowHistory(true)},
+            {icon:"🔗",label:lang==="kn"?"ರೆಫರ್":"Refer",    action:()=>setShowReferral(true)},
+            {icon:"🔢",label:lang==="kn"?"ಬಲ್ಕ್":"Bulk",     action:()=>setBulkMode(b=>!b)},
+            {icon:"📍",label:userArea,                         action:()=>setShowAreaPicker(true)},
           ].map((a,i)=>(
-            <button key={i} onClick={a.action} style={{flexShrink:0, display:"flex", flexDirection:"column", alignItems:"center", gap:4, padding:"8px 10px", borderRadius:12, backgroundColor: i===5&&bulkMode?"#E3F2FD":"#f7f7f7", border:`1px solid ${line}`, cursor:"pointer", minWidth:58}}>
-              <span style={{fontSize:18}}>{a.icon}</span>
-              <span style={{fontSize:9, fontWeight:600, color: i===5&&bulkMode?"#1565C0":soil, whiteSpace:"nowrap"}}>{a.label}</span>
+            <button key={i} onClick={a.action} style={{flexShrink:0,display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"5px 8px",borderRadius:8,backgroundColor:i===4&&bulkMode?"#E3F2FD":"transparent",border:"none",cursor:"pointer",minWidth:48}}>
+              <span style={{fontSize:16}}>{a.icon}</span>
+              <span style={{fontSize:8,fontWeight:600,color:i===4&&bulkMode?"#1565C0":soil,whiteSpace:"nowrap"}}>{a.label}</span>
             </button>
           ))}
         </div>
 
-        {/* ── SEARCH ── */}
-        <div style={{padding:"8px 12px 4px"}}>
-          <div style={{display:"flex", alignItems:"center", gap:8, backgroundColor:"#f7f7f7", borderRadius:12, padding:"10px 14px"}}>
-            <Search size={15} style={{color:soil, flexShrink:0}}/>
-            <input value={query} onChange={e=>setQuery(e.target.value)} placeholder={t.searchPlaceholder}
-              style={{flex:1, border:"none", background:"none", outline:"none", fontSize:13, color:ink}}/>
-            {query && <button onClick={()=>setQuery("")} style={{background:"none",border:"none",cursor:"pointer"}}><X size={13} style={{color:soil}}/></button>}
-            <button onClick={startVoice} style={{background:"none",border:"none",cursor:"pointer",fontSize:14}}>
-              {voiceActive?"🎤":"🎙️"}
-            </button>
-          </div>
-          {voiceActive && <div style={{fontSize:10,color:chili,textAlign:"center",marginTop:3}}>🎤 {lang==="kn"?"ಮಾತನಾಡಿ...":"Listening..."}</div>}
-          {voiceError && <div style={{fontSize:10,color:chili,marginTop:3}}>⚠️ {voiceError}</div>}
-        </div>
-
-        {/* ── CATEGORY PILLS ── */}
-        <div style={{display:"flex", gap:6, overflowX:"auto", padding:"4px 12px 8px", scrollbarWidth:"none"}}>
-          {CATS.map(c=>{
-            const active = activeCat===c.id;
-            return(
-              <button key={c.id} onClick={()=>setActiveCat(c.id)} style={{flexShrink:0, fontSize:12, fontWeight:600, padding:"5px 14px", borderRadius:20, cursor:"pointer",
-                backgroundColor: active?basil:"#f7f7f7", color: active?"white":soil, border:"none"}}>
-                {c[lang]}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* ── SECTION HEADER ── */}
-        <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", padding:"0 12px 6px"}}>
-          <div style={{fontSize:13, fontWeight:700, color:ink}}>{activeCat==="all"?(lang==="kn"?"ಎಲ್ಲಾ ಉತ್ಪನ್ನಗಳು":"All Products"):CATS.find(c=>c.id===activeCat)?.[lang]}</div>
-          <div style={{fontSize:11, color:soil}}>{filtered.length} {lang==="kn"?"ವಸ್ತುಗಳು":"items"}{bulkMode?" · 🔢 Bulk":""}</div>
-        </div>
-
-        {/* ── PRODUCT GRID — Handpickd style ── */}
-        <div style={{display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:1, backgroundColor:line, paddingBottom:112}}>
-          {filtered.map(p => {
-            const qty = cart[p.id] || 0;
-            const bulkPrice = bulkMode ? Math.round(p.price * 0.88) : p.price;
-            const sel = selectedVariant[p.id] || (p.variants ? p.variants[0].label : null);
-            const selPrice = sel && p.variants ? (p.variants.find(v=>v.label===sel)?.price || bulkPrice) : bulkPrice;
-            return (
-              <div key={p.id} style={{backgroundColor:"#fff", display:"flex", flexDirection:"column"}}>
-                {/* Square image */}
-                <div style={{position:"relative", paddingTop:"100%", overflow:"hidden", backgroundColor:"#fafafa"}}>
-                  <div style={{position:"absolute", inset:0}}><ProductImage p={p}/></div>
-                  {bulkMode && <div style={{position:"absolute",top:4,left:4,backgroundColor:basil,color:"white",fontSize:7,fontWeight:800,padding:"2px 5px",borderRadius:4}}>BULK</div>}
-                  <button onClick={()=>toggleWishlist(p.id)} style={{position:"absolute",top:4,right:4,width:24,height:24,borderRadius:"50%",backgroundColor:"white",display:"flex",alignItems:"center",justifyContent:"center",border:"none",cursor:"pointer",boxShadow:"0 1px 4px rgba(0,0,0,0.12)"}}>
-                    <Heart size={12} fill={wishlist[p.id]?chili:"none"} color={wishlist[p.id]?chili:"#ccc"}/>
-                  </button>
-                  {/* Add button floating on image bottom right */}
-                  <div style={{position:"absolute", bottom:6, right:6}}>
-                    {qty===0
-                      ? <button onClick={()=>addToCart(p.id)} style={{width:28,height:28,borderRadius:"50%",backgroundColor:basil,color:"white",border:"none",cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 6px rgba(0,0,0,0.2)"}}>+</button>
-                      : <div style={{display:"flex",alignItems:"center",gap:2,backgroundColor:basil,borderRadius:14,padding:"3px 6px",boxShadow:"0 2px 6px rgba(0,0,0,0.2)"}}>
-                          <button onClick={()=>removeFromCart(p.id)} style={{color:"white",background:"none",border:"none",cursor:"pointer",fontSize:14,lineHeight:1}}>−</button>
-                          <span style={{color:"white",fontSize:11,fontWeight:700,minWidth:14,textAlign:"center"}}>{qty}</span>
-                          <button onClick={()=>addToCart(p.id)} style={{color:"white",background:"none",border:"none",cursor:"pointer",fontSize:14,lineHeight:1}}>+</button>
-                        </div>
-                    }
-                  </div>
-                </div>
-                {/* Card content */}
-                <div style={{padding:"6px 6px 8px", display:"flex", flexDirection:"column", flex:1}}>
-                  <div style={{fontSize:11, fontWeight:600, lineHeight:1.3, color:ink, minHeight:26}}>{lang==="kn"?(KN_NAMES[p.name]||p.name):p.name}</div>
-                  <div style={{fontSize:9, color:soil, marginTop:2}}>{p.unit}</div>
-                  {/* Variant pills */}
-                  {p.variants && p.variants.length>0 && (
-                    <div style={{display:"flex", gap:2, marginTop:4, flexWrap:"wrap"}}>
-                      {p.variants.slice(0,3).map(v=>(
-                        <button key={v.label} onClick={()=>setSelectedVariant(sv=>({...sv,[p.id]:v.label}))}
-                          style={{fontSize:8,padding:"2px 5px",borderRadius:4,fontWeight:600,cursor:"pointer",border:"none",
-                            backgroundColor:sel===v.label?basil:"#f0f0f0",
-                            color:sel===v.label?"white":soil}}>
-                          {v.label}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  <div style={{fontSize:12, fontWeight:800, color:ink, marginTop:"auto", paddingTop:4}}>₹{selPrice}</div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        {/* ── HANDPICKD LAYOUT: LEFT SIDEBAR + GROUPED PRODUCTS ── */}
+        <HandpickdLayout
+          filtered={filtered} activeCat={activeCat} setActiveCat={setActiveCat}
+          cart={cart} addToCart={addToCart} removeFromCart={removeFromCart}
+          selectedVariant={selectedVariant} setSelectedVariant={setSelectedVariant}
+          wishlist={wishlist} toggleWishlist={toggleWishlist}
+          bulkMode={bulkMode} lang={lang} query={query}
+          CATS={CATS} CAT_EMOJI={CAT_EMOJI} KN_NAMES={KN_NAMES}
+          basil={basil} soil={soil} ink={ink} line={line} chili={chili}
+        />
 
         {/* ── CART BAR ── */}
         {itemCount > 0 && (
