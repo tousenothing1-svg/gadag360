@@ -263,7 +263,7 @@ function ProductImage({ p }) {
       {CAT_EMOJI[p.cat] || "🛒"}
     </div>
   );
-  return <img src={p.img} alt={p.name} className="w-full h-full object-cover" onError={() => setErr(true)} loading="lazy" />;
+  return <img src={p.img} alt={p.name} style={{width:"100%",height:"100%",objectFit:"contain",objectPosition:"center"}} onError={() => setErr(true)} loading="lazy" />;
 }
 
 // Gadag centre + route waypoints [lat, lng]
@@ -342,7 +342,10 @@ function HandpickdLayout({ filtered, activeCat, setActiveCat, cart, addToCart, r
   selectedVariant, setSelectedVariant, wishlist, toggleWishlist, bulkMode, lang, query,
   CATS, CAT_EMOJI, KN_NAMES, basil, soil, ink, line, chili }) {
 
-  const [selectedGroup, setSelectedGroup] = useState(null); // {cat, key, products}
+  const [selectedGroup, setSelectedGroup] = useState(null); // kept for back-compat
+  const [expandedGroup, setExpandedGroup] = useState(null); // inline dropdown key
+  const [selectedProduct, setSelectedProduct] = useState(null); // for slider modal
+  const [sliderQty, setSliderQty] = useState(0);
 
   // Build groups: cat → group name → [products]
   const grouped = useMemo(() => {
@@ -369,132 +372,213 @@ function HandpickdLayout({ filtered, activeCat, setActiveCat, cart, addToCart, r
 
   const currentGroups = grouped[sidebarCat] || {};
 
+  // Product slider modal (img5)
+  const ProductSliderModal = ({p, onClose}) => {
+    const [qty, setQty] = useState(cart[p.id]||0);
+    const sel = selectedVariant[p.id]||p.variants?.[0]?.label;
+    const selVar = p.variants?.find(v=>v.label===sel)||p.variants?.[0];
+    const price = selVar?.price||p.price;
+    return (
+      <div style={{position:"fixed",inset:0,zIndex:60,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-end",backgroundColor:"rgba(0,0,0,0.4)"}} onClick={onClose}>
+        <div style={{width:"100%",maxWidth:448,backgroundColor:"white",borderRadius:"24px 24px 0 0",padding:"0 0 24px"}} onClick={e=>e.stopPropagation()}>
+          {/* Blurred product image header */}
+          <div style={{position:"relative",borderRadius:"24px 24px 0 0",overflow:"hidden",height:200,backgroundColor:"#f0f0f0"}}>
+            <div style={{position:"absolute",inset:0,filter:"blur(20px)",opacity:0.4,transform:"scale(1.2)"}}><ProductImage p={p}/></div>
+            <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+              <div style={{width:130,height:130,borderRadius:16,overflow:"hidden",backgroundColor:"white",boxShadow:"0 4px 20px rgba(0,0,0,0.15)"}}>
+                <ProductImage p={p}/>
+              </div>
+            </div>
+            <button onClick={onClose} style={{position:"absolute",top:12,right:12,width:30,height:30,borderRadius:"50%",backgroundColor:"white",border:"none",cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 8px rgba(0,0,0,0.2)"}}>✕</button>
+          </div>
+          {/* Content */}
+          <div style={{padding:"16px 20px"}}>
+            <div style={{fontSize:17,fontWeight:800,color:ink}}>{lang==="kn"?(KN_NAMES[p.name]||p.name):p.name}</div>
+            {/* Variant selector */}
+            {p.variants && p.variants.length>0 && (
+              <div style={{display:"flex",gap:6,marginTop:10,flexWrap:"wrap"}}>
+                {p.variants.map(v=>(
+                  <button key={v.label} onClick={()=>setSelectedVariant(sv=>({...sv,[p.id]:v.label}))}
+                    style={{padding:"5px 12px",borderRadius:20,fontSize:11,fontWeight:600,cursor:"pointer",border:`1.5px solid ${sel===v.label?basil:line}`,backgroundColor:sel===v.label?"#f0faf4":"white",color:sel===v.label?basil:soil}}>
+                    {v.label} · ₹{v.price}
+                  </button>
+                ))}
+              </div>
+            )}
+            {/* Price */}
+            <div style={{display:"flex",alignItems:"baseline",gap:6,marginTop:12}}>
+              <span style={{fontSize:22,fontWeight:800,color:ink}}>₹{price}</span>
+              <span style={{fontSize:12,color:soil}}>/{sel||p.unit}</span>
+            </div>
+            {/* Slider quantity */}
+            <div style={{marginTop:16}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                <span style={{fontSize:12,color:soil}}>{qty===0?"Select quantity":`${qty} ${sel||"pack"}`}</span>
+                <span style={{fontSize:12,fontWeight:700,color:basil}}>₹{qty*price}</span>
+              </div>
+              <input type="range" min="0" max="10" value={qty} onChange={e=>setQty(Number(e.target.value))}
+                style={{width:"100%",accentColor:basil,height:6,cursor:"pointer"}}/>
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:soil,marginTop:4}}>
+                <span>0</span><span>5</span><span>10</span>
+              </div>
+            </div>
+            {/* Add button */}
+            <button onClick={()=>{
+                for(let i=0;i<qty;i++) addToCart(p.id);
+                if(cart[p.id]>0) for(let i=0;i<cart[p.id];i++) removeFromCart(p.id);
+                for(let i=0;i<qty;i++) addToCart(p.id);
+                onClose();
+              }}
+              disabled={qty===0}
+              style={{width:"100%",marginTop:16,padding:"14px",borderRadius:12,backgroundColor:qty===0?"#ccc":basil,color:"white",border:"none",cursor:qty===0?"not-allowed":"pointer",fontSize:15,fontWeight:800}}>
+              {qty===0?"Select quantity to add":`Add ${qty} · ₹${qty*price}`}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <>
+      {/* Product slider modal */}
+      {selectedProduct && <ProductSliderModal p={selectedProduct} onClose={()=>setSelectedProduct(null)}/>}
+
       {/* Product group detail modal */}
       {selectedGroup && (
-        <div style={{position:"fixed",inset:0,zIndex:50,backgroundColor:"white",display:"flex",flexDirection:"column"}}>
-          {/* Header */}
-          <div style={{display:"flex",alignItems:"center",gap:12,padding:"14px 16px",borderBottom:`1px solid ${line}`,backgroundColor:"white"}}>
-            <button onClick={()=>setSelectedGroup(null)} style={{background:"none",border:"none",cursor:"pointer",color:ink}}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        <div style={{position:"fixed",inset:0,zIndex:50,backgroundColor:"#f8f8f6",display:"flex",flexDirection:"column"}}>
+          {/* Back button */}
+          <div style={{display:"flex",alignItems:"center",gap:10,padding:"12px 16px",backgroundColor:"white",borderBottom:`1px solid ${line}`}}>
+            <button onClick={()=>setSelectedGroup(null)} style={{background:"none",border:"none",cursor:"pointer",color:ink,padding:4}}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
             </button>
-            <div>
-              <div style={{fontSize:16,fontWeight:800,color:ink}}>{selectedGroup.key}</div>
-              <div style={{fontSize:11,color:soil}}>{selectedGroup.products.length} {lang==="kn"?"ಆಯ್ಕೆಗಳು":"varieties"}</div>
-            </div>
+            <span style={{fontSize:16,fontWeight:800,color:ink}}>{selectedGroup.key}</span>
+            <span style={{fontSize:12,color:soil,marginLeft:4}}>{selectedGroup.products.length} {lang==="kn"?"ಆಯ್ಕೆಗಳು":"varieties"}</span>
           </div>
-          {/* Product list */}
-          <div style={{flex:1,overflowY:"auto",padding:"8px 0"}}>
-            {selectedGroup.products.map(p => {
-              const qty = cart[p.id] || 0;
-              const sel = selectedVariant[p.id] || (p.variants?.[0]?.label);
-              const selPrice = sel && p.variants ? (p.variants.find(v=>v.label===sel)?.price || p.price) : p.price;
-              const bulkPrice = bulkMode ? Math.round(selPrice*0.88) : selPrice;
-              return (
-                <div key={p.id} style={{display:"flex",alignItems:"center",padding:"10px 16px",borderBottom:`1px solid ${line}`,gap:12}}>
-                  {/* Image */}
-                  <div style={{width:72,height:72,borderRadius:12,overflow:"hidden",flexShrink:0,backgroundColor:"#fafafa"}}>
-                    <ProductImage p={p}/>
+
+          <div style={{flex:1,overflowY:"auto",padding:"12px 0 100px"}}>
+            {/* 3-column grid of varieties */}
+            <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,padding:"0 10px"}}>
+              {selectedGroup.products.map(p=>{
+                const qty = cart[p.id]||0;
+                const price = p.variants?.[0]?.price||p.price;
+                return (
+                  <div key={p.id} onClick={()=>setSelectedProduct(p)}
+                    style={{backgroundColor:"white",borderRadius:16,overflow:"hidden",cursor:"pointer",boxShadow:"0 1px 6px rgba(0,0,0,0.07)"}}>
+                    {/* Image */}
+                    <div style={{position:"relative",paddingTop:"100%",backgroundColor:"#fafafa"}}>
+                      <div style={{position:"absolute",inset:0,padding:8}}><ProductImage p={p}/></div>
+                      {qty>0 && <div style={{position:"absolute",top:6,right:6,width:20,height:20,borderRadius:"50%",backgroundColor:basil,color:"white",fontSize:10,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center"}}>{qty}</div>}
+                    </div>
+                    {/* Info */}
+                    <div style={{padding:"8px 8px 10px"}}>
+                      <div style={{fontSize:10,color:soil}}>₹{price}/{p.variants?.[0]?.label||p.unit}</div>
+                      <div style={{fontSize:11,fontWeight:700,color:ink,marginTop:2,lineHeight:1.3}}>{lang==="kn"?(KN_NAMES[p.name]||p.name):p.name}</div>
+                    </div>
                   </div>
-                  {/* Info */}
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontSize:13,fontWeight:600,color:ink,lineHeight:1.3}}>{lang==="kn"?(KN_NAMES[p.name]||p.name):p.name}</div>
-                    <div style={{fontSize:10,color:soil,marginTop:2}}>{p.unit}</div>
-                    {/* Variants */}
-                    {p.variants && p.variants.length>0 && (
-                      <div style={{display:"flex",gap:4,marginTop:6,flexWrap:"wrap"}}>
-                        {p.variants.slice(0,4).map(v=>(
-                          <button key={v.label} onClick={()=>setSelectedVariant(sv=>({...sv,[p.id]:v.label}))}
-                            style={{fontSize:9,padding:"3px 7px",borderRadius:6,fontWeight:600,cursor:"pointer",border:"none",
-                              backgroundColor:sel===v.label?basil:"#f0f0f0",color:sel===v.label?"white":soil}}>
-                            {v.label} · ₹{v.price}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                    <div style={{fontSize:14,fontWeight:800,color:ink,marginTop:4}}>₹{bulkPrice}</div>
-                  </div>
-                  {/* Add/stepper */}
-                  <div style={{flexShrink:0}}>
-                    {qty===0
-                      ? <button onClick={()=>addToCart(p.id)} style={{width:32,height:32,borderRadius:"50%",backgroundColor:basil,color:"white",border:"none",cursor:"pointer",fontSize:20,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 8px rgba(0,0,0,0.15)"}}>+</button>
-                      : <div style={{display:"flex",alignItems:"center",gap:6,backgroundColor:basil,borderRadius:16,padding:"5px 10px"}}>
-                          <button onClick={()=>removeFromCart(p.id)} style={{color:"white",background:"none",border:"none",cursor:"pointer",fontSize:16,lineHeight:1}}>−</button>
-                          <span style={{color:"white",fontSize:13,fontWeight:700,minWidth:16,textAlign:"center"}}>{qty}</span>
-                          <button onClick={()=>addToCart(p.id)} style={{color:"white",background:"none",border:"none",cursor:"pointer",fontSize:16,lineHeight:1}}>+</button>
-                        </div>
-                    }
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
       )}
 
-      {/* Main layout: sidebar + products */}
-      <div style={{display:"flex", flex:1, overflow:"hidden", height:"calc(100vh - 175px)"}}>
+      {/* Main layout: full width scrollable */}
+      <div style={{flex:1,overflowY:"auto",backgroundColor:"#f8f8f6",paddingBottom:120,scrollbarWidth:"none"}}>
 
-        {/* LEFT SIDEBAR — categories */}
-        <div style={{width:76,flexShrink:0,overflowY:"auto",backgroundColor:"#fafafa",borderRight:`1px solid ${line}`,scrollbarWidth:"none"}}>
-          {activeCats.map(c => {
-            const active = sidebarCat===c.id;
-            return (
-              <button key={c.id} onClick={()=>setSidebarCat(c.id)}
-                style={{width:"100%",display:"flex",flexDirection:"column",alignItems:"center",padding:"12px 4px",gap:3,border:"none",cursor:"pointer",
-                  borderLeft:active?`3px solid ${basil}`:"3px solid transparent",
-                  backgroundColor:active?"white":"transparent"}}>
-                <span style={{fontSize:24}}>{CAT_EMOJI[c.id]||"🛒"}</span>
-                <span style={{fontSize:9,fontWeight:active?700:400,color:active?basil:soil,textAlign:"center",lineHeight:1.3,wordBreak:"break-word",maxWidth:64}}>{c[lang]}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* RIGHT — grouped product cards */}
-        <div style={{flex:1,overflowY:"auto",backgroundColor:"white",scrollbarWidth:"none"}}>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:"1px",backgroundColor:line,paddingBottom:120}}>
-            {Object.entries(currentGroups).map(([key, products]) => {
-              const first = products[0];
-              const hasMany = products.length > 1;
-              const qty = !hasMany ? (cart[first.id]||0) : 0;
-              return (
-                <div key={key} onClick={()=>hasMany&&setSelectedGroup({key,products})}
-                  style={{backgroundColor:"white",display:"flex",flexDirection:"column",cursor:hasMany?"pointer":"default"}}>
-                  {/* Square image */}
-                  <div style={{position:"relative",paddingTop:"100%",overflow:"hidden",backgroundColor:"#f8f8f8"}}>
-                    <div style={{position:"absolute",inset:0}}><ProductImage p={first}/></div>
-                    {hasMany && (
-                      <div style={{position:"absolute",top:5,right:5,backgroundColor:"rgba(0,0,0,0.6)",borderRadius:8,padding:"1px 6px",fontSize:9,color:"white",fontWeight:700}}>
-                        +{products.length}
-                      </div>
-                    )}
-                    {/* Add/stepper for single items */}
-                    {!hasMany && (
-                      <div style={{position:"absolute",bottom:5,right:5}} onClick={e=>e.stopPropagation()}>
-                        {qty===0
-                          ? <button onClick={()=>addToCart(first.id)} style={{width:26,height:26,borderRadius:"50%",backgroundColor:basil,color:"white",border:"none",cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 1px 4px rgba(0,0,0,0.25)"}}>+</button>
-                          : <div style={{display:"flex",alignItems:"center",gap:1,backgroundColor:basil,borderRadius:12,padding:"2px 6px",boxShadow:"0 1px 4px rgba(0,0,0,0.25)"}}>
-                              <button onClick={()=>removeFromCart(first.id)} style={{color:"white",background:"none",border:"none",cursor:"pointer",fontSize:13,lineHeight:1,padding:"0 1px"}}>−</button>
-                              <span style={{color:"white",fontSize:11,fontWeight:700,minWidth:12,textAlign:"center"}}>{qty}</span>
-                              <button onClick={()=>addToCart(first.id)} style={{color:"white",background:"none",border:"none",cursor:"pointer",fontSize:13,lineHeight:1,padding:"0 1px"}}>+</button>
-                            </div>
-                        }
-                      </div>
-                    )}
-                  </div>
-                  {/* Compact info */}
-                  <div style={{padding:"6px 7px 8px"}}>
-                    <div style={{fontSize:11,fontWeight:700,color:ink,lineHeight:1.3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{key}</div>
-                    <div style={{fontSize:9,color:soil,marginTop:1}}>{hasMany?`${products.length} ${lang==="kn"?"ಆಯ್ಕೆ":"types"}`:first.unit}</div>
-                    <div style={{fontSize:12,fontWeight:800,color:ink,marginTop:3}}>{hasMany?`from ₹${Math.min(...products.map(p=>p.price))}`:`₹${first.price}`}</div>
-                  </div>
+        {/* Each category as a section */}
+        {activeCats.map(cat => {
+          const catGroups = grouped[cat.id];
+          if (!catGroups || Object.keys(catGroups).length===0) return null;
+          return (
+            <div key={cat.id} style={{marginBottom:8}}>
+              {/* Category label — like "≡ Dairy" in Handpickd */}
+              <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 14px 8px",backgroundColor:"#f8f8f6"}}>
+                <div style={{display:"flex",alignItems:"center",gap:6,backgroundColor:basil,borderRadius:20,padding:"4px 12px"}}>
+                  <span style={{fontSize:12}}>≡</span>
+                  <span style={{fontSize:12,fontWeight:700,color:"white"}}>{cat[lang]}</span>
                 </div>
-              );
-            })}
-          </div>
-        </div>
+              </div>
+              {/* 3-column product grid with inline dropdown like img4 */}
+              <div style={{padding:"0 10px 4px"}}>
+                {(() => {
+                  const entries = Object.entries(catGroups);
+                  const rows = [];
+                  for(let i=0; i<entries.length; i+=3){
+                    const rowItems = entries.slice(i, i+3);
+                    const rowKey = `row-${i}`;
+                    // Check if any item in this row is expanded
+                    const expandedItem = rowItems.find(([key])=>expandedGroup===`${cat.id}::${key}`);
+                    rows.push(
+                      <div key={rowKey}>
+                        {/* Row of 3 cards */}
+                        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:expandedItem?0:8}}>
+                          {rowItems.map(([key, products])=>{
+                            const first = products[0];
+                            const hasMany = products.length>1;
+                            const qty = !hasMany?(cart[first.id]||0):0;
+                            const price = first.variants?.[0]?.price||first.price;
+                            const minPrice = hasMany?Math.min(...products.map(p=>p.price)):price;
+                            const maxPrice = hasMany?Math.max(...products.map(p=>p.variants?.[0]?.price||p.price)):price;
+                            const groupKey = `${cat.id}::${key}`;
+                            const isExpanded = expandedGroup===groupKey;
+                            return (
+                              <div key={key}
+                                onClick={()=>{ if(hasMany){setExpandedGroup(isExpanded?null:groupKey);} else setSelectedProduct(first); }}
+                                style={{backgroundColor:"white",borderRadius:14,overflow:"hidden",cursor:"pointer",boxShadow:isExpanded?"0 2px 12px rgba(26,107,60,0.2)":"0 1px 4px rgba(0,0,0,0.06)",border:isExpanded?`1.5px solid ${basil}`:"1.5px solid transparent"}}>
+                                <div style={{position:"relative",paddingTop:"100%",backgroundColor:"#fafafa"}}>
+                                  <div style={{position:"absolute",inset:"8px"}}><ProductImage p={first}/></div>
+                                  {hasMany&&<div style={{position:"absolute",top:5,right:5,backgroundColor:"rgba(26,107,60,0.85)",borderRadius:8,padding:"1px 5px",fontSize:8,color:"white",fontWeight:700}}>+{products.length}</div>}
+                                  {qty>0&&!hasMany&&<div style={{position:"absolute",top:5,right:5,width:18,height:18,borderRadius:"50%",backgroundColor:basil,color:"white",fontSize:9,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center"}}>{qty}</div>}
+                                </div>
+                                <div style={{padding:"6px 8px 10px"}}>
+                                  <div style={{fontSize:9,color:soil,marginBottom:2}}>{hasMany?`₹${minPrice}–₹${maxPrice}`:`₹${price}/${first.variants?.[0]?.label||first.unit}`}</div>
+                                  <div style={{fontSize:11,fontWeight:700,color:ink,lineHeight:1.3}}>{key}</div>
+                                  {hasMany&&<div style={{fontSize:9,color:basil,marginTop:2,fontWeight:600}}>{products.length} varieties {isExpanded?"▲":"▼"}</div>}
+                                </div>
+                              </div>
+                            );
+                          })}
+                          {/* Fill empty slots */}
+                          {rowItems.length<3 && Array(3-rowItems.length).fill(0).map((_,i)=><div key={`empty-${i}`}/>)}
+                        </div>
+                        {/* Inline dropdown — horizontal scroll of varieties */}
+                        {expandedItem && (()=>{
+                          const [key, products] = expandedItem;
+                          return (
+                            <div style={{backgroundColor:"#f0faf4",borderRadius:12,padding:"12px 10px",marginBottom:8,border:`1px solid ${basil}20`}}>
+                              <div style={{fontSize:11,fontWeight:700,color:basil,marginBottom:8}}>{key} — {products.length} {lang==="kn"?"ಆಯ್ಕೆಗಳು":"varieties"}</div>
+                              <div style={{display:"flex",gap:10,overflowX:"auto",scrollbarWidth:"none",paddingBottom:4}}>
+                                {products.map(p=>{
+                                  const qty = cart[p.id]||0;
+                                  const price = p.variants?.[0]?.price||p.price;
+                                  return (
+                                    <div key={p.id} onClick={e=>{e.stopPropagation();setSelectedProduct(p);}}
+                                      style={{flexShrink:0,width:90,backgroundColor:"white",borderRadius:12,overflow:"hidden",cursor:"pointer",boxShadow:"0 1px 4px rgba(0,0,0,0.08)"}}>
+                                      <div style={{position:"relative",paddingTop:"100%",backgroundColor:"#fafafa"}}>
+                                        <div style={{position:"absolute",inset:"6px"}}><ProductImage p={p}/></div>
+                                        {qty>0&&<div style={{position:"absolute",top:4,right:4,width:16,height:16,borderRadius:"50%",backgroundColor:basil,color:"white",fontSize:8,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center"}}>{qty}</div>}
+                                      </div>
+                                      <div style={{padding:"5px 6px 7px"}}>
+                                        <div style={{fontSize:8,color:soil}}>₹{price}/{p.variants?.[0]?.label||p.unit}</div>
+                                        <div style={{fontSize:9,fontWeight:700,color:ink,lineHeight:1.3,marginTop:1}}>{lang==="kn"?(KN_NAMES[p.name]||p.name):p.name}</div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    );
+                  }
+                  return rows;
+                })()}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </>
   );
@@ -779,31 +863,37 @@ export default function Gadag360() {
 
   const Header = ({ showBack, onBack, title }) => {
     return (
-      <div className="flex items-center justify-between px-4 sticky top-0 z-10"
-        style={{backgroundColor:"#fff", borderBottom:`1px solid ${line}`, height:56, minHeight:56}}>
-        <div className="flex items-center gap-3">
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0 14px",backgroundColor:"white",borderBottom:`1px solid ${line}`,height:52,position:"sticky",top:0,zIndex:10}}>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
           {showBack
-            ? <button onClick={onBack} style={{color:ink, background:"none", border:"none", cursor:"pointer", padding:4}}><ArrowLeft size={20}/></button>
-            : <div>
-                <div style={{fontFamily:display, color:ink, fontSize:18, fontWeight:800, letterSpacing:-0.5, lineHeight:1}}>{t.appName}</div>
-                <div className="flex items-center gap-1" style={{color:basil, fontSize:11, fontWeight:500, marginTop:1}}>
-                  <MapPin size={9}/> {t.tagline}
+            ? <button onClick={onBack} style={{color:ink,background:"none",border:"none",cursor:"pointer",padding:4,display:"flex"}}><ArrowLeft size={20}/></button>
+            : <button onClick={()=>setActiveTab("profile")} style={{background:"none",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                <div style={{width:34,height:34,borderRadius:"50%",backgroundColor:"#e8f5e9",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                  <User size={18} style={{color:basil}}/>
                 </div>
-              </div>
+              </button>
           }
-          {title && <span style={{fontFamily:display, color:ink, fontSize:17, fontWeight:700}}>{title}</span>}
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={()=>setLang(l=>l==="en"?"kn":"en")}
-            style={{fontSize:11, fontWeight:700, padding:"4px 10px", borderRadius:20, backgroundColor:"#f5f5f5", color:ink, border:"none", cursor:"pointer"}}>
-            <Globe size={10} style={{display:"inline", marginRight:3}}/>{lang==="en"?"ಕನ್ನಡ":"EN"}
-          </button>
-          {screen==="home" && (
-            <button onClick={()=>setScreen("vendor")}
-              style={{fontSize:11, fontWeight:700, padding:"4px 10px", borderRadius:20, backgroundColor:basil, color:"white", border:"none", cursor:"pointer"}}>
-              <Store size={10} style={{display:"inline", marginRight:3}}/>{t.shopView}
-            </button>
+          {title && <span style={{fontSize:16,fontWeight:800,color:ink}}>{title}</span>}
+          {!showBack && !title && (
+            <div style={{fontSize:15,fontWeight:800,color:ink,letterSpacing:-0.3}}>{t.appName}</div>
           )}
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <button onClick={()=>setLang(l=>l==="en"?"kn":"en")}
+            style={{fontSize:11,fontWeight:700,padding:"3px 8px",borderRadius:12,backgroundColor:"#f5f5f5",color:ink,border:"none",cursor:"pointer",display:"flex",alignItems:"center",gap:3}}>
+            <Globe size={10}/>{lang==="en"?"ಕನ್ನಡ":"EN"}
+          </button>
+          {screen==="home"
+            ? <button onClick={()=>setScreen("cart")} style={{position:"relative",background:"none",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",width:36,height:36,borderRadius:"50%",backgroundColor:"#f5f5f5"}}>
+                <ShoppingCart size={18} style={{color:ink}}/>
+                {itemCount>0 && <div style={{position:"absolute",top:0,right:0,width:16,height:16,borderRadius:"50%",backgroundColor:chili,color:"white",fontSize:9,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center"}}>{itemCount}</div>}
+              </button>
+            : screen==="vendor"
+              ? null
+              : <button onClick={()=>setScreen("vendor")} style={{fontSize:10,fontWeight:700,padding:"3px 8px",borderRadius:12,backgroundColor:basil,color:"white",border:"none",cursor:"pointer"}}>
+                  {t.shopView}
+                </button>
+          }
         </div>
       </div>
     );
@@ -846,23 +936,8 @@ export default function Gadag360() {
   const toggleWishlist = (id) => setWishlist(w=>({...w,[id]:!w[id]}));
 
   // ── BOTTOM NAV ──
-  const BottomNav = () => {
-    return (
-      <div style={{position:"fixed", bottom:0, left:0, right:0, maxWidth:448, margin:"0 auto", zIndex:40, display:"flex", backgroundColor:"white", borderTop:`1px solid ${line}`, paddingBottom:"env(safe-area-inset-bottom,0)"}}>
-        {[
-          {id:"home", icon:<Home size={22}/>, label:lang==="kn"?"ಮುಖಪುಟ":"Home"},
-          {id:"profile", icon:<User size={22}/>, label:lang==="kn"?"ಖಾತೆ":"Account"},
-        ].map(tab=>(
-          <button key={tab.id} onClick={()=>{setActiveTab(tab.id);if(tab.id==="home"){setScreen("home");setProfileSection(null);}}}
-            style={{flex:1, display:"flex", flexDirection:"column", alignItems:"center", padding:"8px 0 6px", gap:3, background:"none", border:"none", cursor:"pointer", color:activeTab===tab.id?basil:soil}}>
-            {tab.icon}
-            <span style={{fontSize:10, fontWeight:activeTab===tab.id?700:500}}>{tab.label}</span>
-            {activeTab===tab.id && <div style={{width:20, height:2, borderRadius:2, backgroundColor:basil}}/>}
-          </button>
-        ))}
-      </div>
-    );
-  };
+  // BottomNav removed — profile accessed via header avatar
+  const BottomNav = () => null;
 
   return (
     <div className="w-full max-w-md mx-auto min-h-screen flex flex-col" style={{backgroundColor: bg, fontFamily: body, color: ink}}>
@@ -871,46 +946,81 @@ export default function Gadag360() {
       {activeTab==="profile" && !profileSection && <>
         {isLoggedIn ? (
           <>
-            <div className="px-4 pt-5 pb-4" style={{backgroundColor: basil}}>
-              <div className="flex items-center gap-3">
-                <div className="w-14 h-14 rounded-full flex items-center justify-center text-2xl font-bold" style={{backgroundColor: mango, color: basilDark}}>
-                  {userProfile.name ? userProfile.name[0].toUpperCase() : "👤"}
+            <div style={{flex:1,overflowY:"auto",backgroundColor:"#f8f8f6",paddingBottom:80}}>
+              {/* Profile header — centered like Handpickd */}
+              <div style={{backgroundColor:"white",padding:"24px 20px 20px",textAlign:"center",borderBottom:`1px solid ${line}`}}>
+                <button onClick={()=>setIsLoggedIn(false)} style={{position:"absolute",right:16,top:60,fontSize:12,fontWeight:600,padding:"5px 14px",borderRadius:20,backgroundColor:"#f0f0f0",color:ink,border:"none",cursor:"pointer"}}>Sign Out</button>
+                {/* Avatar */}
+                <div style={{width:64,height:64,borderRadius:"50%",backgroundColor:"#e8f0e4",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 10px",fontSize:28}}>
+                  {userProfile.name?userProfile.name[0].toUpperCase():"👤"}
                 </div>
-                <div>
-                  <div className="text-white font-bold text-base">{userProfile.name||"My Account"}</div>
-                  <div className="text-xs mt-0.5" style={{color: mango}}>📞 {userProfile.phone} {userProfile.email && `· ${userProfile.email}`}</div>
-                  <div className="text-xs mt-0.5" style={{color:"rgba(255,255,255,0.7)"}}>🪙 {coins} coins · {lang==="kn"?"ಗ್ಯಾಡಗ್ 360 ಸದಸ್ಯ":"GADAG 360 Member"}</div>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+                  <span style={{fontSize:16,fontWeight:800,color:ink}}>Dear {userProfile.name||"Friend"}</span>
+                  <button onClick={()=>setProfileSection("editprofile")} style={{background:"none",border:"none",cursor:"pointer",color:soil}}><Edit3 size={13}/></button>
+                </div>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:4,marginTop:4,color:soil,fontSize:12}}>
+                  <Phone size={11}/> {userProfile.phone}
+                </div>
+                {/* Delivery address */}
+                <div style={{marginTop:14,padding:"10px 14px",backgroundColor:"#f8f8f6",borderRadius:12,textAlign:"left"}}>
+                  <div style={{fontSize:11,fontWeight:600,color:soil,marginBottom:4}}>{lang==="kn"?"ಡೆಲಿವರಿ ವಿಳಾಸ":"Your Delivery Address"}</div>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:6,fontSize:12,color:ink}}>
+                      <MapPin size={12} style={{color:basil}}/>{savedAddresses[0]||"Add address"}
+                    </div>
+                    <button onClick={()=>setProfileSection("addresses")} style={{background:"none",border:"none",cursor:"pointer",color:soil}}><Edit3 size={12}/></button>
+                  </div>
+                </div>
+                {/* Delivery slot */}
+                <div style={{marginTop:8,padding:"10px 14px",backgroundColor:"#f8f8f6",borderRadius:12,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,fontSize:12,color:ink}}>
+                    <Clock size={14} style={{color:basil}}/>
+                    <span>{lang==="kn"?"ಡೆಲಿವರಿ ಸ್ಲಾಟ್":"Delivery Slot:"}</span>
+                    <span style={{fontWeight:700,color:basil,backgroundColor:"#e8f5e9",padding:"2px 8px",borderRadius:10}}>7AM-9AM</span>
+                  </div>
+                  <ChevronRight size={14} style={{color:soil}}/>
                 </div>
               </div>
-            </div>
-            <div className="flex-1 overflow-y-auto pb-24 px-4 pt-4 space-y-2">
-              {[
-                {icon:<Package size={16}/>,  label: lang==="kn"?"ನನ್ನ ಆರ್ಡರ್‌ಗಳು":"My Orders",          sub: lang==="kn"?"ಹಿಂದಿನ ಆರ್ಡರ್, ಇನ್‌ವಾಯ್ಸ್":"Past orders & invoices",  id:"orders"},
-                {icon:<CreditCard size={16}/>,label: lang==="kn"?"ಪಾವತಿ ನಿರ್ವಹಣೆ":"Payment Management",   sub: lang==="kn"?"UPI, ಕಾರ್ಡ್, COD":"UPI, Cards, COD",              id:"payments"},
-                {icon:<Heart size={16}/>,    label: lang==="kn"?"ವಿಶ್‌ಲಿಸ್ಟ್":"Wishlist",               sub: lang==="kn"?`${Object.values(wishlist).filter(Boolean).length} ಉತ್ಪನ್ನಗಳು`:`${Object.values(wishlist).filter(Boolean).length} saved items`, id:"wishlist"},
-                {icon:<Home size={16}/>,     label: lang==="kn"?"ಉಳಿಸಿದ ವಿಳಾಸ":"Saved Addresses",        sub: lang==="kn"?`${savedAddresses.length} ವಿಳಾಸ`:`${savedAddresses.length} address(es)`, id:"addresses"},
-                {icon:<Award size={16}/>,    label: lang==="kn"?"ರಿವಾರ್ಡ್ಸ್":"Rewards & Coins",         sub: `${coins} coins = ₹${Math.floor(coins/10)} off`,              id:"rewards"},
-                {icon:<RefreshCcw size={16}/>,label:lang==="kn"?"ರಿಫಂಡ್":"Refunds & Returns",            sub: lang==="kn"?"ರಿಫಂಡ್ ಸ್ಥಿತಿ":"Refund status & history",          id:"refunds"},
-                {icon:<Edit3 size={16}/>,    label: lang==="kn"?"ಪ್ರೊಫೈಲ್ ಎಡಿಟ್":"Edit Profile",         sub: lang==="kn"?"ಹೆಸರು, ಫೋನ್, ಇಮೇಲ್":"Name, phone, email",          id:"editprofile"},
-                {icon:<Lightbulb size={16}/>,label:lang==="kn"?"ಉತ್ಪನ್ನ ಸೂಚಿಸಿ":"Suggest a Product",      sub: lang==="kn"?"ಹೊಸ ಉತ್ಪನ್ನ ಕೇಳಿ":"Request a new product",          id:"suggest"},
-                {icon:<Info size={16}/>,     label: lang==="kn"?"ಸಾಮಾನ್ಯ ಮಾಹಿತಿ":"General Info",          sub: lang==="kn"?"ಅಪ್ ಬಗ್ಗೆ, ಸೇವಾ ಪ್ರದೇಶ":"About app & service area",   id:"info"},
-                {icon:<HelpCircle size={16}/>,label:lang==="kn"?"ಸಹಾಯ & ಬೆಂಬಲ":"Help & Support",          sub: lang==="kn"?"FAQ, ಸಂಪರ್ಕ":"FAQ & contact us",                id:"help"},
-                {icon:<LogOut size={16}/>,   label: lang==="kn"?"ಲಾಗ್ ಔಟ್":"Logout",                     sub: lang==="kn"?"ಖಾತೆಯಿಂದ ನಿರ್ಗಮಿಸಿ":"Sign out of account",          id:"logout", danger:true},
-              ].map(row=>(
-                <button key={row.id} onClick={()=> row.id==="logout" ? (setIsLoggedIn(false),setActiveTab("home"),setScreen("home")) : setProfileSection(row.id)}
-                  className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-left"
-                  style={{backgroundColor: panel, border:`1px solid ${line}`}}>
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-                    style={{backgroundColor: row.danger?"#FDE8E8": "#E8F5E9", color: row.danger ? chili : basil}}>
-                    {row.icon}
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-sm font-semibold" style={{color: row.danger ? chili : ink}}>{row.label}</div>
-                    <div className="text-xs" style={{color: soil}}>{row.sub}</div>
-                  </div>
-                  {row.id!=="logout" && <ChevronRight size={14} style={{color: soil}}/>}
-                </button>
-              ))}
+
+              {/* 4 circle icons — Support, Past Orders, Money Matters, Everything Else */}
+              <div style={{backgroundColor:"white",margin:"8px 0",padding:"20px 16px"}}>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+                  {[
+                    {icon:"?", label:lang==="kn"?"ಸಹಾಯ":"Support",        color:"#c8a96e", id:"help"},
+                    {icon:"📦",label:lang==="kn"?"ಹಿಂದಿನ ಆರ್ಡರ್":"Past Orders",color:chili,   id:"orders"},
+                    {icon:"₹", label:lang==="kn"?"ಹಣ":"Money Matters",     color:basil,    id:"payments"},
+                    {icon:"···",label:lang==="kn"?"ಇತರೆ":"Everything Else", color:"#64b5d4", id:"more"},
+                  ].map(item=>(
+                    <button key={item.id} onClick={()=>setProfileSection(item.id==="more"?"editprofile":item.id)}
+                      style={{display:"flex",flexDirection:"column",alignItems:"center",gap:8,background:"none",border:"none",cursor:"pointer"}}>
+                      <div style={{width:56,height:56,borderRadius:"50%",border:`2px solid ${item.color}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,color:item.color}}>
+                        {item.icon}
+                      </div>
+                      <span style={{fontSize:12,fontWeight:500,color:ink}}>{item.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Rest of menu items */}
+              <div style={{backgroundColor:"white",margin:"8px 0",padding:"8px 16px"}}>
+                {[
+                  {icon:<Heart size={16}/>,   label:lang==="kn"?"ವಿಶ್‌ಲಿಸ್ಟ್":"Wishlist",        id:"wishlist"},
+                  {icon:<Award size={16}/>,   label:lang==="kn"?"ರಿವಾರ್ಡ್ಸ್":"Rewards & Coins",  id:"rewards"},
+                  {icon:<RefreshCcw size={16}/>,label:lang==="kn"?"ರಿಫಂಡ್":"Refunds",            id:"refunds"},
+                  {icon:<Lightbulb size={16}/>,label:lang==="kn"?"ಸೂಚಿಸಿ":"Suggest Product",     id:"suggest"},
+                  {icon:<Info size={16}/>,    label:lang==="kn"?"ಮಾಹಿತಿ":"General Info",         id:"info"},
+                ].map(row=>(
+                  <button key={row.id} onClick={()=>setProfileSection(row.id)}
+                    style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"14px 0",borderBottom:`1px solid ${line}`,background:"none",border:"none",borderBottom:`1px solid ${line}`,cursor:"pointer"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:12,color:ink}}>
+                      <span style={{color:basil}}>{row.icon}</span>
+                      <span style={{fontSize:14,fontWeight:500}}>{row.label}</span>
+                    </div>
+                    <ChevronRight size={14} style={{color:soil}}/>
+                  </button>
+                ))}
+              </div>
             </div>
           </>
         ) : (
@@ -1109,51 +1219,53 @@ export default function Gadag360() {
       {screen === "home" && activeTab === "home" && <>
         <Header/>
 
-        {/* ── SLIM DELIVERY BAR ── */}
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"6px 14px",backgroundColor:"#f0faf4",borderBottom:`1px solid ${line}`}}>
-          <div style={{display:"flex",alignItems:"center",gap:6}}>
-            <span style={{fontSize:13}}>⚡</span>
-            <span style={{fontSize:11,fontWeight:700,color:basil}}>{lang==="kn"?"2 ಗಂಟೆಯಲ್ಲಿ ಡೆಲಿವರಿ":"Delivery in 2 hrs"}</span>
-            <span style={{fontSize:10,color:soil}}>· {userArea}</span>
+        {/* ── DELIVERY + SEARCH BAR ── */}
+        <div style={{backgroundColor:"white",borderBottom:`1px solid ${line}`}}>
+          {/* Slim delivery strip */}
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"5px 14px",backgroundColor:"#f0faf4"}}>
+            <div style={{display:"flex",alignItems:"center",gap:5}}>
+              <span style={{fontSize:11}}>⚡</span>
+              <span style={{fontSize:11,fontWeight:700,color:basil}}>{lang==="kn"?"2 ಗಂಟೆಯಲ್ಲಿ ಡೆಲಿವರಿ":"Delivery in 2 hrs"}</span>
+              <span style={{fontSize:10,color:soil}}>· {userArea}</span>
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:6}}>
+              {coins>0&&<span style={{fontSize:10,fontWeight:600,color:basil}}>🪙{coins}</span>}
+              {!flashDismissed&&<span style={{fontSize:10,fontWeight:700,color:"#E65100"}}>⚡₹{FLASH.discount} off</span>}
+            </div>
           </div>
-          <div style={{display:"flex",alignItems:"center",gap:8}}>
-            {coins>0 && <span style={{fontSize:10,fontWeight:600,color:basil}}>🪙{coins}</span>}
-            {!flashDismissed && <span style={{fontSize:10,fontWeight:700,color:"#E65100"}}>⚡{FLASH.icon}₹{FLASH.discount} off</span>}
-            {subtotal>0&&subtotal<299 && <span style={{fontSize:10,fontWeight:600,color:"#5E35B1"}}>🎁₹{299-subtotal} more</span>}
+          {/* Search */}
+          <div style={{padding:"8px 12px"}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,backgroundColor:"#f7f7f7",borderRadius:10,padding:"9px 12px"}}>
+              <Search size={14} style={{color:soil,flexShrink:0}}/>
+              <input value={query} onChange={e=>setQuery(e.target.value)} placeholder={t.searchPlaceholder}
+                style={{flex:1,border:"none",background:"none",outline:"none",fontSize:13,color:ink}}/>
+              {query&&<button onClick={()=>setQuery("")} style={{background:"none",border:"none",cursor:"pointer"}}><X size={12} style={{color:soil}}/></button>}
+            </div>
+            {voiceError&&<div style={{fontSize:10,color:chili,marginTop:2}}>⚠️ {voiceError}</div>}
+          </div>
+          {/* Filter pills — "Ordered earlier", "Just arrived" etc */}
+          <div style={{display:"flex",gap:6,overflowX:"auto",padding:"0 12px 10px",scrollbarWidth:"none"}}>
+            {[
+              {label:lang==="kn"?"ಮೊದಲು ಆರ್ಡರ್":"Ordered earlier", color:"#4a7c3f"},
+              {label:lang==="kn"?"ಹೊಸದಾಗಿ ಬಂದಿದೆ":"Just arrived",   color:"#7a5c2e"},
+              {label:lang==="kn"?"ತಾಜಾ ಕಟಾವು":"Fresh-Cut @ 5AM",    color:"#3a7a50"},
+              {label:lang==="kn"?"ಸೀಸನ್ ಫೇವ್":"Seasonal favs",      color:"#4a3728"},
+              {label:lang==="kn"?"ಬಲ್ಕ್":"Bulk 12% off",             color:bulkMode?"#1565C0":"#555"},
+            ].map((f,i)=>(
+              <button key={i} onClick={i===4?()=>setBulkMode(b=>!b):undefined}
+                style={{flexShrink:0,padding:"6px 14px",borderRadius:8,fontSize:11,fontWeight:700,color:"white",backgroundColor:f.color,border:"none",cursor:"pointer",whiteSpace:"nowrap"}}>
+                {f.label}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* ── SEARCH ── */}
-        <div style={{padding:"8px 10px 4px",backgroundColor:"white"}}>
-          <div style={{display:"flex",alignItems:"center",gap:8,backgroundColor:"#f7f7f7",borderRadius:10,padding:"9px 12px"}}>
-            <Search size={14} style={{color:soil,flexShrink:0}}/>
-            <input value={query} onChange={e=>setQuery(e.target.value)} placeholder={t.searchPlaceholder}
-              style={{flex:1,border:"none",background:"none",outline:"none",fontSize:13,color:ink}}/>
-            {query && <button onClick={()=>setQuery("")} style={{background:"none",border:"none",cursor:"pointer"}}><X size={12} style={{color:soil}}/></button>}
-            <button onClick={startVoice} style={{background:"none",border:"none",cursor:"pointer",fontSize:13}}>
-              {voiceActive?"🎤":"🎙️"}
-            </button>
+        {/* Min order nudge */}
+        {subtotal>0&&subtotal<299&&(
+          <div style={{margin:"6px 10px 0",padding:"6px 12px",borderRadius:8,backgroundColor:"#EDE7F6",fontSize:11,fontWeight:600,color:"#5E35B1",textAlign:"center"}}>
+            🎁 {lang==="kn"?`₹${299-subtotal} ಹೆಚ್ಚು → ₹20 ರಿಯಾಯಿತಿ`:`Add ₹${299-subtotal} more → get ₹20 off`}
           </div>
-          {voiceActive && <div style={{fontSize:10,color:chili,textAlign:"center",marginTop:2}}>🎤 {lang==="kn"?"ಮಾತನಾಡಿ...":"Listening..."}</div>}
-          {voiceError && <div style={{fontSize:10,color:chili,marginTop:2}}>⚠️ {voiceError}</div>}
-        </div>
-
-        {/* ── QUICK ACTIONS ROW ── */}
-        <div style={{display:"flex",gap:6,overflowX:"auto",padding:"4px 10px 6px",scrollbarWidth:"none",backgroundColor:"white",borderBottom:`1px solid ${line}`}}>
-          {[
-            {icon:"📦",label:lang==="kn"?"ಕಾಂಬೊ":"Bundles",  action:()=>setShowBundles(true)},
-            {icon:"🪔",label:lang==="kn"?"ಹಬ್ಬ":"Festival",  action:()=>setShowFestival(true)},
-            {icon:"📋",label:lang==="kn"?"ಹಿಸ್ಟರಿ":"History",action:()=>setShowHistory(true)},
-            {icon:"🔗",label:lang==="kn"?"ರೆಫರ್":"Refer",    action:()=>setShowReferral(true)},
-            {icon:"🔢",label:lang==="kn"?"ಬಲ್ಕ್":"Bulk",     action:()=>setBulkMode(b=>!b)},
-            {icon:"📍",label:userArea,                         action:()=>setShowAreaPicker(true)},
-          ].map((a,i)=>(
-            <button key={i} onClick={a.action} style={{flexShrink:0,display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"5px 8px",borderRadius:8,backgroundColor:i===4&&bulkMode?"#E3F2FD":"transparent",border:"none",cursor:"pointer",minWidth:48}}>
-              <span style={{fontSize:16}}>{a.icon}</span>
-              <span style={{fontSize:8,fontWeight:600,color:i===4&&bulkMode?"#1565C0":soil,whiteSpace:"nowrap"}}>{a.label}</span>
-            </button>
-          ))}
-        </div>
+        )}
 
         {/* ── HANDPICKD LAYOUT: LEFT SIDEBAR + GROUPED PRODUCTS ── */}
         <HandpickdLayout
@@ -1167,8 +1279,17 @@ export default function Gadag360() {
         />
 
         {/* ── CART BAR ── */}
+        {/* Floating mic button — bottom right like Handpickd */}
+        <div style={{position:"fixed", bottom: itemCount>0?80:20, right:16, zIndex:36, maxWidth:448}}>
+          <button onClick={startVoice} style={{width:48,height:48,borderRadius:"50%",backgroundColor:voiceActive?chili:"#555",color:"white",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 3px 12px rgba(0,0,0,0.25)",fontSize:20}}>
+            {voiceActive?"🎤":"🎙️"}
+          </button>
+          {voiceActive&&<div style={{position:"absolute",bottom:54,right:0,backgroundColor:"white",borderRadius:8,padding:"4px 8px",fontSize:10,color:chili,fontWeight:600,whiteSpace:"nowrap",boxShadow:"0 2px 8px rgba(0,0,0,0.15)"}}>🎤 {lang==="kn"?"ಮಾತನಾಡಿ...":"Listening..."}</div>}
+        </div>
+
+        {/* Cart bar */}
         {itemCount > 0 && (
-          <div style={{position:"fixed", bottom:56, left:0, right:0, padding:"0 12px 8px", zIndex:35, maxWidth:448, margin:"0 auto"}}>
+          <div style={{position:"fixed", bottom:16, left:0, right:0, padding:"0 12px", zIndex:35, maxWidth:448, margin:"0 auto"}}>
             <button onClick={()=>setScreen("cart")} style={{width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between", padding:"14px 18px", borderRadius:16, backgroundColor:basil, color:"white", border:"none", cursor:"pointer", boxShadow:"0 4px 20px rgba(26,107,60,0.4)"}}>
               <div style={{display:"flex", alignItems:"center", gap:8}}>
                 <div style={{backgroundColor:"rgba(255,255,255,0.2)", borderRadius:8, padding:"2px 8px", fontSize:12, fontWeight:700}}>{itemCount}</div>
