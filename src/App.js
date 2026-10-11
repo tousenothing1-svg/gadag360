@@ -458,7 +458,7 @@ function HandpickdLayout({ filtered, activeCat, setActiveCat, cart, addToCart, r
 
           <div style={{flex:1,overflowY:"auto",padding:"12px 0 100px"}}>
             {/* 3-column grid of varieties */}
-            <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,padding:"0 10px"}}>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6,padding:"0 8px",width:"100%",boxSizing:"border-box"}}>
               {selectedGroup.products.map(p=>{
                 const qty = cart[p.id]||0;
                 const price = p.variants?.[0]?.price||p.price;
@@ -484,7 +484,7 @@ function HandpickdLayout({ filtered, activeCat, setActiveCat, cart, addToCart, r
       )}
 
       {/* Main layout: full width scrollable */}
-      <div style={{flex:1,overflowY:"auto",backgroundColor:"#f8f8f6",paddingBottom:120,scrollbarWidth:"none"}}>
+      <div style={{flex:1,overflowY:"auto",overflowX:"hidden",backgroundColor:"#f8f8f6",paddingBottom:120,scrollbarWidth:"none",width:"100%",boxSizing:"border-box"}}>
 
         {/* Each category as a section */}
         {activeCats.map(cat => {
@@ -500,7 +500,7 @@ function HandpickdLayout({ filtered, activeCat, setActiveCat, cart, addToCart, r
                 </div>
               </div>
               {/* 3-column product grid with inline dropdown like img4 */}
-              <div style={{padding:"0 10px 4px"}}>
+              <div style={{padding:"0 8px 4px"}}>
                 {(() => {
                   const entries = Object.entries(catGroups);
                   const rows = [];
@@ -554,7 +554,7 @@ function HandpickdLayout({ filtered, activeCat, setActiveCat, cart, addToCart, r
                                   const price = p.variants?.[0]?.price||p.price;
                                   return (
                                     <div key={p.id} onClick={e=>{e.stopPropagation();setSelectedProduct(p);}}
-                                      style={{flexShrink:0,width:90,backgroundColor:"white",borderRadius:12,overflow:"hidden",cursor:"pointer",boxShadow:"0 1px 4px rgba(0,0,0,0.08)"}}>
+                                      style={{flexShrink:0,width:"calc(30vw - 12px)",maxWidth:100,backgroundColor:"white",borderRadius:12,overflow:"hidden",cursor:"pointer",boxShadow:"0 1px 4px rgba(0,0,0,0.08)"}}>
                                       <div style={{position:"relative",paddingTop:"100%",backgroundColor:"#fafafa"}}>
                                         <div style={{position:"absolute",inset:"6px"}}><ProductImage p={p}/></div>
                                         {qty>0&&<div style={{position:"absolute",top:4,right:4,width:16,height:16,borderRadius:"50%",backgroundColor:basil,color:"white",fontSize:8,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center"}}>{qty}</div>}
@@ -940,7 +940,7 @@ export default function Gadag360() {
   const BottomNav = () => null;
 
   return (
-    <div className="w-full max-w-md mx-auto min-h-screen flex flex-col" style={{backgroundColor: bg, fontFamily: body, color: ink}}>
+    <div style={{width:"100vw", maxWidth:"100vw", minHeight:"100vh", display:"flex", flexDirection:"column", backgroundColor:bg, fontFamily:body, color:ink, overflowX:"hidden", position:"relative", boxSizing:"border-box"}}>
 
       {/* ── ACCOUNT TAB ── */}
       {activeTab==="profile" && !profileSection && <>
@@ -1280,7 +1280,7 @@ export default function Gadag360() {
 
         {/* ── CART BAR ── */}
         {/* Floating mic button — bottom right like Handpickd */}
-        <div style={{position:"fixed", bottom: itemCount>0?80:20, right:16, zIndex:36, maxWidth:448}}>
+        <div style={{position:"fixed", bottom: itemCount>0?80:20, right:16, zIndex:36}}>
           <button onClick={startVoice} style={{width:48,height:48,borderRadius:"50%",backgroundColor:voiceActive?chili:"#555",color:"white",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 3px 12px rgba(0,0,0,0.25)",fontSize:20}}>
             {voiceActive?"🎤":"🎙️"}
           </button>
@@ -1289,7 +1289,7 @@ export default function Gadag360() {
 
         {/* Cart bar */}
         {itemCount > 0 && (
-          <div style={{position:"fixed", bottom:16, left:0, right:0, padding:"0 12px", zIndex:35, maxWidth:448, margin:"0 auto"}}>
+          <div style={{position:"fixed", bottom:16, left:0, right:0, padding:"0 12px", zIndex:35}}>
             <button onClick={()=>setScreen("cart")} style={{width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between", padding:"14px 18px", borderRadius:16, backgroundColor:basil, color:"white", border:"none", cursor:"pointer", boxShadow:"0 4px 20px rgba(26,107,60,0.4)"}}>
               <div style={{display:"flex", alignItems:"center", gap:8}}>
                 <div style={{backgroundColor:"rgba(255,255,255,0.2)", borderRadius:8, padding:"2px 8px", fontSize:12, fontWeight:700}}>{itemCount}</div>
