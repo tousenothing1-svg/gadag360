@@ -410,14 +410,24 @@ function HandpickdLayout({ filtered, activeCat, setActiveCat, cart, addToCart, r
               <span style={{fontSize:22,fontWeight:800,color:ink}}>₹{price}</span>
               <span style={{fontSize:12,color:soil}}>/{sel||p.unit}</span>
             </div>
-            {/* Slider quantity */}
+            {/* Slider + buttons quantity (img3) */}
             <div style={{marginTop:16}}>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
-                <span style={{fontSize:12,color:soil}}>{qty===0?"Select quantity":`${qty} ${sel||"pack"}`}</span>
-                <span style={{fontSize:12,fontWeight:700,color:basil}}>₹{qty*price}</span>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+                <span style={{fontSize:12,color:soil}}>{lang==="kn"?"ಪ್ರಮಾಣ ಆಯ್ಕೆ ಮಾಡಿ":"Select quantity"}</span>
+                <span style={{fontSize:13,fontWeight:700,color:basil}}>₹{qty*price}</span>
               </div>
+              {/* +/- stepper */}
+              <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:20,marginBottom:14}}>
+                <button onClick={()=>setQty(Math.max(0,qty-1))} style={{width:40,height:40,borderRadius:"50%",backgroundColor:qty===0?"#f0f0f0":basil,color:qty===0?soil:"white",border:"none",cursor:"pointer",fontSize:22,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700}}>−</button>
+                <div style={{minWidth:60,textAlign:"center"}}>
+                  <div style={{fontSize:28,fontWeight:800,color:ink,lineHeight:1}}>{qty}</div>
+                  <div style={{fontSize:10,color:soil}}>{sel||"pack"}</div>
+                </div>
+                <button onClick={()=>setQty(Math.min(10,qty+1))} style={{width:40,height:40,borderRadius:"50%",backgroundColor:basil,color:"white",border:"none",cursor:"pointer",fontSize:22,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700}}>+</button>
+              </div>
+              {/* Slider */}
               <input type="range" min="0" max="10" value={qty} onChange={e=>setQty(Number(e.target.value))}
-                style={{width:"100%",accentColor:basil,height:6,cursor:"pointer"}}/>
+                style={{width:"100%",accentColor:basil,height:4,cursor:"pointer"}}/>
               <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:soil,marginTop:4}}>
                 <span>0</span><span>5</span><span>10</span>
               </div>
@@ -634,6 +644,7 @@ export default function Gadag360() {
   const [suggestSent, setSuggestSent] = useState(false);
   const [selectedVariant, setSelectedVariant] = useState({});
   const [currentUserId, setCurrentUserId] = useState(null);
+  const [tip, setTip] = useState(0);
 
   // ── STATIC DATA ──
   const BUNDLES = [
@@ -761,7 +772,7 @@ export default function Gadag360() {
     setVendorOrders(v => [newOrder, ...v]);
     setOrderHistory(h => [newOrder, ...h]);
     setCoins(c => c + coinsEarned);
-    setOrderStatusIdx(0); setRiderPos({x:20,y:70}); setScreen("confirmation"); setCart({});
+    setOrderStatusIdx(0); setRiderPos({x:20,y:70}); setScreen("checkout"); setCart({});
     setShowRating(false); setLastRating(0); setDeliverySlot("");
     setTimeout(() => setNotifShown(true), 2000);
 
@@ -947,9 +958,17 @@ export default function Gadag360() {
         {isLoggedIn ? (
           <>
             <div style={{flex:1,overflowY:"auto",backgroundColor:"#f8f8f6",paddingBottom:80}}>
-              {/* Profile header — centered like Handpickd */}
-              <div style={{backgroundColor:"white",padding:"24px 20px 20px",textAlign:"center",borderBottom:`1px solid ${line}`}}>
-                <button onClick={()=>setIsLoggedIn(false)} style={{position:"absolute",right:16,top:60,fontSize:12,fontWeight:600,padding:"5px 14px",borderRadius:20,backgroundColor:"#f0f0f0",color:ink,border:"none",cursor:"pointer"}}>Sign Out</button>
+              {/* Profile header */}
+              <div style={{backgroundColor:"white",padding:"16px 20px 20px",textAlign:"center",borderBottom:`1px solid ${line}`}}>
+                {/* Top row: Home icon left, Sign out right */}
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+                  <button onClick={()=>{setActiveTab("home");setScreen("home");setProfileSection(null);}} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 12px",borderRadius:20,backgroundColor:"#f0faf4",color:basil,border:`1px solid ${basil}20`,fontSize:12,fontWeight:700,cursor:"pointer"}}>
+                    <Home size={14}/> {lang==="kn"?"ಮುಖಪುಟ":"Home"}
+                  </button>
+                  <button onClick={()=>setIsLoggedIn(false)} style={{fontSize:12,fontWeight:600,padding:"6px 14px",borderRadius:20,backgroundColor:"#fee2e2",color:chili,border:"none",cursor:"pointer"}}>
+                    {lang==="kn"?"ಲಾಗ್ ಔಟ್":"Sign Out"}
+                  </button>
+                </div>
                 {/* Avatar */}
                 <div style={{width:64,height:64,borderRadius:"50%",backgroundColor:"#e8f0e4",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 10px",fontSize:28}}>
                   {userProfile.name?userProfile.name[0].toUpperCase():"👤"}
@@ -1025,35 +1044,58 @@ export default function Gadag360() {
           </>
         ) : (
           /* ── LOGIN SCREEN ── */
-          <div className="flex-1 flex flex-col items-center justify-center px-6 pb-24">
-            <div className="text-5xl mb-4">🛒</div>
-            <div className="font-bold text-xl mb-1" style={{fontFamily: display}}>{lang==="kn"?"ಗದಗ 360 ಗೆ ಸ್ವಾಗತ":"Welcome to GADAG 360"}</div>
-            <div className="text-sm mb-8 text-center" style={{color: soil}}>{lang==="kn"?"ಲಾಗಿನ್ ಮಾಡಿ ಆರ್ಡರ್ ಟ್ರ್ಯಾಕ್ ಮಾಡಿ":"Login to track orders, save addresses & earn coins"}</div>
-            {loginStep==="phone" ? <>
-              <div className="w-full mb-3">
-                <div className="text-xs font-semibold mb-1" style={{color: soil}}>{lang==="kn"?"ಮೊಬೈಲ್ ನಂಬರ್":"Mobile Number"}</div>
-                <div className="flex rounded-xl overflow-hidden" style={{border:`1.5px solid ${basil}`}}>
-                  <div className="px-3 flex items-center font-semibold text-sm" style={{backgroundColor:"#E8F5E9", color: basil}}>+91</div>
+          <div style={{flex:1,display:"flex",flexDirection:"column",minHeight:"100vh",backgroundColor:"white"}}>
+            {/* Green top section */}
+            <div style={{background:`linear-gradient(160deg,${basil},#2d9e5f)`,padding:"48px 24px 36px",textAlign:"center"}}>
+              <div style={{fontSize:52,marginBottom:12}}>🛒</div>
+              <div style={{color:"white",fontSize:22,fontWeight:800,letterSpacing:-0.5}}>{lang==="kn"?"ಗದಗ 360":"GADAG 360"}</div>
+              <div style={{color:"rgba(255,255,255,0.8)",fontSize:13,marginTop:6}}>{lang==="kn"?"ತಾಜಾ ತರಕಾರಿ · ಹಣ್ಣು · 2 ಗಂಟೆಯಲ್ಲಿ ಡೆಲಿವರಿ":"Fresh Groceries · Delivered in 2 hrs"}</div>
+            </div>
+            {/* Login form */}
+            <div style={{flex:1,padding:"28px 24px",backgroundColor:"white"}}>
+              <div style={{fontSize:18,fontWeight:800,color:ink,marginBottom:6}}>{lang==="kn"?"ಲಾಗಿನ್ ಮಾಡಿ":"Login / Sign up"}</div>
+              <div style={{fontSize:13,color:soil,marginBottom:24}}>{lang==="kn"?"ಆರ್ಡರ್ ಟ್ರ್ಯಾಕ್ ಮಾಡಿ, ಕಾಯಿನ್ಸ್ ಗಳಿಸಿ":"Track orders, earn coins & save addresses"}</div>
+              {loginStep==="phone" ? <>
+                <div style={{fontSize:12,fontWeight:600,color:soil,marginBottom:6}}>{lang==="kn"?"ಮೊಬೈಲ್ ನಂಬರ್":"Mobile Number"}</div>
+                <div style={{display:"flex",borderRadius:12,overflow:"hidden",border:`2px solid ${basil}`,marginBottom:16}}>
+                  <div style={{padding:"12px 14px",backgroundColor:"#e8f5e9",color:basil,fontWeight:700,fontSize:14}}>+91</div>
                   <input type="tel" maxLength={10} value={loginPhone} onChange={e=>setLoginPhone(e.target.value.replace(/\D/g,""))}
-                    placeholder="10-digit number" className="flex-1 px-3 py-3 outline-none text-sm"/>
+                    placeholder={lang==="kn"?"10 ಅಂಕಿ ನಂಬರ್":"10-digit number"}
+                    style={{flex:1,padding:"12px 14px",border:"none",outline:"none",fontSize:15,color:ink}}/>
                 </div>
-              </div>
-              <button onClick={sendOtp} className="w-full py-3 rounded-2xl font-bold text-sm" style={{backgroundColor: basil, color:"white"}}>
-                {lang==="kn"?"OTP ಕಳುಹಿಸಿ":"Send OTP"} →
-              </button>
-            </> : <>
-              <div className="w-full mb-2">
-                <div className="text-xs font-semibold mb-1" style={{color: soil}}>{lang==="kn"?`+91 ${loginPhone} ಗೆ OTP ಕಳುಹಿಸಲಾಗಿದೆ`:`OTP sent to +91 ${loginPhone}`}</div>
+                <button onClick={sendOtp} style={{width:"100%",padding:"14px",borderRadius:14,backgroundColor:basil,color:"white",border:"none",cursor:"pointer",fontSize:15,fontWeight:800}}>
+                  {lang==="kn"?"OTP ಕಳುಹಿಸಿ":"Send OTP"} →
+                </button>
+                <div style={{textAlign:"center",marginTop:20,fontSize:11,color:soil}}>
+                  {lang==="kn"?"ಮುಂದುವರೆಯುವ ಮೂಲಕ ನೀವು ನಮ್ಮ ನಿಯಮಗಳನ್ನು ಒಪ್ಪಿಕೊಳ್ಳುತ್ತೀರಿ":"By continuing you agree to our Terms & Privacy Policy"}
+                </div>
+              </> : <>
+                <div style={{fontSize:12,fontWeight:600,color:soil,marginBottom:6}}>{lang==="kn"?`+91 ${loginPhone} ಗೆ OTP ಕಳುಹಿಸಲಾಗಿದೆ`:`OTP sent to +91 ${loginPhone}`}</div>
                 <input type="tel" maxLength={4} value={loginOtp} onChange={e=>setLoginOtp(e.target.value.replace(/\D/g,""))}
-                  placeholder="Enter 4-digit OTP" className="w-full px-4 py-3 rounded-xl outline-none text-center text-xl font-bold tracking-widest"
-                  style={{border:`1.5px solid ${basil}`, backgroundColor: panel}}/>
-                <div className="text-xs mt-1 text-center" style={{color: soil}}>{lang==="kn"?"ಡೆಮೊಗಾಗಿ 1234 ಬಳಸಿ":"Use 1234 for demo"}</div>
+                  placeholder="• • • •"
+                  style={{width:"100%",padding:"16px",borderRadius:14,border:`2px solid ${basil}`,outline:"none",textAlign:"center",fontSize:28,fontWeight:800,letterSpacing:16,color:ink,boxSizing:"border-box",marginBottom:6}}/>
+                <div style={{textAlign:"center",fontSize:11,color:soil,marginBottom:20}}>{lang==="kn"?"ಡೆಮೊಗಾಗಿ 1234 ಬಳಸಿ":"Use 1234 for demo"}</div>
+                <button onClick={verifyOtp} style={{width:"100%",padding:"14px",borderRadius:14,backgroundColor:basil,color:"white",border:"none",cursor:"pointer",fontSize:15,fontWeight:800,marginBottom:10}}>
+                  {lang==="kn"?"ಯಡವಿ ಮಾಡಿ & ಲಾಗಿನ್":"Verify & Login"}
+                </button>
+                <button onClick={()=>setLoginStep("phone")} style={{width:"100%",padding:"10px",borderRadius:14,backgroundColor:"#f7f7f7",color:soil,border:"none",cursor:"pointer",fontSize:13,fontWeight:600}}>
+                  {lang==="kn"?"← ನಂಬರ್ ಬದಲಾಯಿಸಿ":"← Change number"}
+                </button>
+              </>}
+              {/* Benefits */}
+              <div style={{marginTop:32,display:"flex",flexDirection:"column",gap:12}}>
+                {[
+                  {icon:"📦",text:lang==="kn"?"ಹಿಂದಿನ ಆರ್ಡರ್ ಟ್ರ್ಯಾಕ್ ಮಾಡಿ":"Track your past orders"},
+                  {icon:"🪙",text:lang==="kn"?"ಪ್ರತಿ ಆರ್ಡರ್‌ನಲ್ಲಿ ಕಾಯಿನ್ಸ್ ಗಳಿಸಿ":"Earn coins on every order"},
+                  {icon:"📍",text:lang==="kn"?"ವಿಳಾಸ ಉಳಿಸಿ":"Save delivery addresses"},
+                ].map((b,i)=>(
+                  <div key={i} style={{display:"flex",alignItems:"center",gap:12}}>
+                    <div style={{width:36,height:36,borderRadius:"50%",backgroundColor:"#f0faf4",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>{b.icon}</div>
+                    <div style={{fontSize:13,color:soil}}>{b.text}</div>
+                  </div>
+                ))}
               </div>
-              <button onClick={verifyOtp} className="w-full py-3 rounded-2xl font-bold text-sm mb-2" style={{backgroundColor: basil, color:"white"}}>
-                {lang==="kn"?"ಯಡವಿ ಮಾಡಿ":"Verify & Login"}
-              </button>
-              <button onClick={()=>setLoginStep("phone")} className="text-xs" style={{color: soil}}>{lang==="kn"?"ಹಿಂದೆ ಹೋಗಿ":"← Change number"}</button>
-            </>}
+            </div>
           </div>
         )}
         <BottomNav/>
@@ -1070,23 +1112,67 @@ export default function Gadag360() {
         <div className="flex-1 overflow-y-auto pb-24 px-4 pt-4">
 
           {/* MY ORDERS */}
-          {profileSection==="orders" && (orderHistory.length===0
-            ? <div className="text-center pt-16"><div className="text-5xl mb-3">📦</div><div className="text-sm" style={{color:soil}}>{lang==="kn"?"ಇನ್ನೂ ಆರ್ಡರ್‌ಗಳಿಲ್ಲ":"No orders yet"}</div></div>
-            : orderHistory.map(o=>(
-                <div key={o.id} className="rounded-2xl p-4 mb-3" style={{backgroundColor:panel, border:`1px solid ${line}`}}>
-                  <div className="flex justify-between mb-1"><span className="font-bold text-sm">#{o.id}</span><span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{backgroundColor:"#E8F5E9",color:basil}}>Delivered</span></div>
-                  <div className="text-xs mb-1" style={{color:soil}}>{o.date} · {o.slot||"Standard delivery"}</div>
-                  <div className="text-xs mb-2" style={{color:soil}}>{o.items.map(i=>`${lang==="kn"?(KN_NAMES[i.name]||i.name):i.name} ×${i.qty}`).join(", ").substring(0,80)}...</div>
-                  <div className="flex justify-between items-center pt-2" style={{borderTop:`1px solid ${line}`}}>
-                    <div className="text-sm font-bold">₹{o.total} · {o.payment==="upi"?"UPI":"COD"}</div>
-                    <div className="flex gap-2">
-                      <button className="text-xs px-2 py-1 rounded-lg font-semibold" style={{backgroundColor:"#E8F5E9",color:basil}}>🧾 {lang==="kn"?"ಇನ್‌ವಾಯ್ಸ್":"Invoice"}</button>
-                      <button onClick={()=>reorder(o)} className="text-xs px-2 py-1 rounded-lg font-semibold" style={{backgroundColor:basil,color:"white"}}><RotateCcw size={10} className="inline mr-1"/>{lang==="kn"?"ಮತ್ತೆ ಆರ್ಡರ್":"Reorder"}</button>
+          {profileSection==="orders" && (<>
+            {/* Help button */}
+            <div style={{display:"flex",justifyContent:"flex-end",marginBottom:8}}>
+              <button style={{display:"flex",alignItems:"center",gap:6,padding:"6px 14px",borderRadius:20,backgroundColor:"#f0faf4",color:basil,border:`1px solid ${basil}`,fontSize:12,fontWeight:600,cursor:"pointer"}}>
+                💬 {lang==="kn"?"ಸಹಾಯ ಪಡೆಯಿರಿ":"Get Help"}
+              </button>
+            </div>
+            {orderHistory.length===0
+              ? <div style={{textAlign:"center",paddingTop:60}}>
+                  <div style={{fontSize:48,marginBottom:12}}>📦</div>
+                  <div style={{fontSize:14,color:soil}}>{lang==="kn"?"ಇನ್ನೂ ಆರ್ಡರ್‌ಗಳಿಲ್ಲ":"No orders yet"}</div>
+                  <button onClick={()=>{setProfileSection(null);setActiveTab("home");}} style={{marginTop:14,padding:"10px 24px",borderRadius:12,backgroundColor:basil,color:"white",border:"none",cursor:"pointer",fontWeight:700,fontSize:13}}>
+                    {lang==="kn"?"ಶಾಪಿಂಗ್ ಪ್ರಾರಂಭಿಸಿ":"Start Shopping"}
+                  </button>
+                </div>
+              : orderHistory.map(o=>(
+                  <div key={o.id} style={{backgroundColor:"white",borderRadius:16,marginBottom:12,overflow:"hidden",boxShadow:"0 1px 6px rgba(0,0,0,0.06)"}}>
+                    {/* Order header */}
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 14px",borderBottom:`1px solid ${line}`}}>
+                      <div>
+                        <div style={{fontSize:13,fontWeight:800,color:ink}}>#{o.id}</div>
+                        <div style={{fontSize:10,color:soil,marginTop:1}}>{o.date} · {o.slot||"Standard"}</div>
+                      </div>
+                      <div style={{display:"flex",alignItems:"center",gap:6}}>
+                        <span style={{fontSize:10,fontWeight:700,padding:"3px 8px",borderRadius:10,backgroundColor:"#e8f5e9",color:basil}}>✓ {lang==="kn"?"ತಲುಪಿಸಲಾಗಿದೆ":"Delivered"}</span>
+                      </div>
+                    </div>
+                    {/* Product images row */}
+                    <div style={{display:"flex",gap:8,padding:"10px 14px",overflowX:"auto",scrollbarWidth:"none"}}>
+                      {(o.items||[]).slice(0,5).map((item,idx)=>{
+                        const prod = PRODUCTS.find(p=>p.id===item.id||p.name===item.name);
+                        return (
+                          <div key={idx} style={{flexShrink:0,width:56,textAlign:"center"}}>
+                            <div style={{width:56,height:56,borderRadius:10,overflow:"hidden",backgroundColor:"#fafafa",border:`1px solid ${line}`}}>
+                              {prod?<ProductImage p={prod}/>:<div style={{width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>🛒</div>}
+                            </div>
+                            <div style={{fontSize:8,color:soil,marginTop:3,lineHeight:1.2}}>×{item.qty}</div>
+                          </div>
+                        );
+                      })}
+                      {(o.items||[]).length>5&&<div style={{flexShrink:0,width:56,height:56,borderRadius:10,backgroundColor:"#f0f0f0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color:soil}}>+{o.items.length-5}</div>}
+                    </div>
+                    {/* Total + actions */}
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",borderTop:`1px solid ${line}`}}>
+                      <div style={{fontSize:13,fontWeight:800,color:ink}}>₹{o.total} · {o.payment==="upi"?"UPI":"COD"}</div>
+                      <div style={{display:"flex",gap:6}}>
+                        <button onClick={()=>{
+                          const lines = (o.items||[]).map(i=>`${i.name} x${i.qty} = ₹${i.price*i.qty}`).join("\n");
+                          alert(`GADAG 360 INVOICE\n\nOrder: #${o.id}\nDate: ${o.date}\n\n${lines}\n\nTotal: ₹${o.total}\nPayment: ${o.payment==="upi"?"UPI":"COD"}\n\nThank you!`);
+                        }} style={{padding:"5px 10px",borderRadius:8,backgroundColor:"#f0faf4",color:basil,border:`1px solid ${basil}20`,fontSize:11,fontWeight:600,cursor:"pointer"}}>
+                          🧾 {lang==="kn"?"ಇನ್‌ವಾಯ್ಸ್":"Invoice"}
+                        </button>
+                        <button onClick={()=>reorder(o)} style={{padding:"5px 10px",borderRadius:8,backgroundColor:basil,color:"white",border:"none",fontSize:11,fontWeight:600,cursor:"pointer"}}>
+                          🔄 {lang==="kn"?"ಮತ್ತೆ ಆರ್ಡರ್":"Reorder"}
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))
-          )}
+                ))
+            }
+          </>)}
 
           {/* PAYMENT MANAGEMENT */}
           {profileSection==="payments" && <div className="space-y-3">
@@ -1253,12 +1339,13 @@ export default function Gadag360() {
               {label:lang==="kn"?"ಬಲ್ಕ್":"Bulk 12% off",             color:bulkMode?"#1565C0":"#555"},
             ].map((f,i)=>(
               <button key={i} onClick={i===4?()=>setBulkMode(b=>!b):undefined}
-                style={{flexShrink:0,padding:"6px 14px",borderRadius:8,fontSize:11,fontWeight:700,color:"white",backgroundColor:f.color,border:"none",cursor:"pointer",whiteSpace:"nowrap"}}>
+                style={{flexShrink:0,padding:"10px 16px",borderRadius:10,fontSize:12,fontWeight:700,color:"white",backgroundColor:f.color,border:"none",cursor:"pointer",whiteSpace:"nowrap",lineHeight:1.3,minHeight:44}}>
                 {f.label}
               </button>
             ))}
           </div>
         </div>
+
 
         {/* Min order nudge */}
         {subtotal>0&&subtotal<299&&(
@@ -1423,76 +1510,205 @@ export default function Gadag360() {
         <BottomNav/>
       </>}
 
+      {/* ── CART SCREEN ── */}
       {screen === "cart" && <>
-        <Header showBack onBack={() => setScreen("home")} title={t.yourCart}/>
-        <div className="flex-1 overflow-y-auto px-4 py-4 pb-24">
+        <Header showBack onBack={() => setScreen("home")} title={lang==="kn"?"ನಿಮ್ಮ ಬುಟ್ಟಿ":"Your Cart"}/>
+        <div style={{flex:1,overflowY:"auto",backgroundColor:"#f8f8f6",paddingBottom:100}}>
           {cartItems.length === 0
-            ? <div className="text-center pt-16">
-                <div className="text-5xl mb-3">🧺</div>
-                <div className="font-semibold text-lg" style={{fontFamily: display}}>{t.emptyCart}</div>
-                <div className="text-sm mt-1 mb-3" style={{color: soil}}>{t.emptyCartSub}</div>
-                <button onClick={() => setScreen("home")} className="mt-2 px-5 py-2 rounded-xl text-sm font-bold" style={{backgroundColor: basil, color:"white"}}>{t.shopNow}</button>
+            ? <div style={{textAlign:"center",paddingTop:80}}>
+                <div style={{fontSize:48,marginBottom:12}}>🧺</div>
+                <div style={{fontSize:16,fontWeight:700,color:ink}}>{lang==="kn"?"ಬುಟ್ಟಿ ಖಾಲಿ ಇದೆ":"Cart is empty"}</div>
+                <button onClick={()=>setScreen("home")} style={{marginTop:16,padding:"10px 24px",borderRadius:12,backgroundColor:basil,color:"white",border:"none",cursor:"pointer",fontWeight:700}}>{lang==="kn"?"ಶಾಪಿಂಗ್ ಮಾಡಿ":"Shop Now"}</button>
               </div>
             : <>
-                <div className="space-y-2">
-                  {cartItems.map(i => (
-                    <div key={i.id} className="flex items-center gap-3 rounded-xl overflow-hidden" style={{backgroundColor: panel, border:`1px solid ${line}`}}>
-                      <div style={{width:64, height:64, flexShrink:0, overflow:"hidden"}}><ProductImage p={i}/></div>
-                      <div className="flex-1 py-2">
-                        <div className="text-sm font-semibold leading-tight">{lang==="kn" ? (KN_NAMES[i.name]||i.name) : i.name}</div>
-                        <div className="text-xs" style={{color: soil}}>₹{i.price} · {i.unit}</div>
+                {/* Cart items */}
+                <div style={{backgroundColor:"white",margin:"8px 0"}}>
+                  {cartItems.map((i,idx) => (
+                    <div key={i.id} style={{display:"flex",alignItems:"center",padding:"12px 14px",borderBottom:idx<cartItems.length-1?`1px solid ${line}`:"none",gap:12}}>
+                      <div style={{width:60,height:60,borderRadius:10,overflow:"hidden",flexShrink:0,backgroundColor:"#fafafa"}}><ProductImage p={i}/></div>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:13,fontWeight:600,color:ink}}>{lang==="kn"?(KN_NAMES[i.name]||i.name):i.name}</div>
+                        <div style={{fontSize:11,color:soil,marginTop:2}}>₹{i.price} · {selectedVariant[i.id]||i.unit}</div>
                       </div>
-                      <div className="flex items-center gap-1 rounded-lg px-1.5 py-1 mr-3" style={{backgroundColor: basil}}>
-                        <button onClick={() => removeFromCart(i.id)} className="text-white"><Minus size={12}/></button>
-                        <span className="text-white text-xs font-bold w-4 text-center">{i.qty}</span>
-                        <button onClick={() => addToCart(i.id)} className="text-white"><Plus size={12}/></button>
+                      <div style={{display:"flex",alignItems:"center",gap:8,backgroundColor:basil,borderRadius:20,padding:"5px 10px"}}>
+                        <button onClick={()=>removeFromCart(i.id)} style={{color:"white",background:"none",border:"none",cursor:"pointer",fontSize:16,lineHeight:1}}>−</button>
+                        <span style={{color:"white",fontSize:13,fontWeight:700,minWidth:16,textAlign:"center"}}>{i.qty}</span>
+                        <button onClick={()=>addToCart(i.id)} style={{color:"white",background:"none",border:"none",cursor:"pointer",fontSize:16,lineHeight:1}}>+</button>
                       </div>
                     </div>
                   ))}
                 </div>
-                <div className="mt-4 rounded-xl p-4" style={{backgroundColor: panel, border:`1px solid ${line}`}}>
-                  <div className="flex justify-between text-sm mb-1"><span>{t.subtotal}</span><span>₹{subtotal}</span></div>
-                  <div className="flex justify-between text-sm mb-1"><span>{t.deliveryFee}</span><span>₹{deliveryFee}</span></div>
-                  <div className="flex justify-between font-bold text-sm pt-2 mt-1" style={{borderTop:`1px solid ${line}`}}><span>{t.total}</span><span>₹{total}</span></div>
+
+                {/* Delivery address */}
+                <div style={{backgroundColor:"white",margin:"8px 0",padding:"14px"}}>
+                  <div style={{fontSize:12,fontWeight:700,color:ink,marginBottom:8}}>📍 {lang==="kn"?"ಡೆಲಿವರಿ ವಿಳಾಸ":"Delivery Address"}</div>
+                  <textarea value={address} onChange={e=>setAddress(e.target.value)} placeholder={lang==="kn"?"ನಿಮ್ಮ ವಿಳಾಸ ನಮೂದಿಸಿ...":"Enter your delivery address..."} rows={2}
+                    style={{width:"100%",borderRadius:10,padding:"10px 12px",fontSize:13,border:`1px solid ${line}`,outline:"none",resize:"none",boxSizing:"border-box"}}/>
+                  {savedAddresses.length>0 && (
+                    <div style={{display:"flex",gap:6,marginTop:6,overflowX:"auto",scrollbarWidth:"none"}}>
+                      {savedAddresses.map((a,i)=>(
+                        <button key={i} onClick={()=>setAddress(a)} style={{flexShrink:0,fontSize:10,padding:"4px 10px",borderRadius:12,backgroundColor:address===a?basil:"#f0f0f0",color:address===a?"white":soil,border:"none",cursor:"pointer"}}>
+                          📍 {a.substring(0,20)}...
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <button onClick={() => setScreen("checkout")} className="w-full mt-4 py-3 rounded-2xl font-bold text-sm" style={{backgroundColor: mango, color: basilDark}}>{t.checkout} →</button>
+
+                {/* Delivery slot */}
+                <div style={{backgroundColor:"white",margin:"8px 0",padding:"14px"}}>
+                  <div style={{fontSize:12,fontWeight:700,color:ink,marginBottom:8}}>🕐 {lang==="kn"?"ಡೆಲಿವರಿ ಸ್ಲಾಟ್":"Delivery Slot"}</div>
+                  <div style={{display:"flex",gap:6}}>
+                    {SLOTS.map((s,i)=>(
+                      <button key={s} onClick={()=>setDeliverySlot(s)} style={{flex:1,padding:"8px 4px",borderRadius:10,fontSize:10,fontWeight:600,cursor:"pointer",backgroundColor:deliverySlot===s?basil:"#f7f7f7",color:deliverySlot===s?"white":soil,border:`1.5px solid ${deliverySlot===s?basil:line}`}}>
+                        {lang==="kn"?SLOTS_KN[i]:s}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Suggested products ₹10-15 */}
+                <div style={{backgroundColor:"white",margin:"8px 0",padding:"14px"}}>
+                  <div style={{fontSize:12,fontWeight:700,color:ink,marginBottom:10}}>🛍️ {lang==="kn"?"ನಿಮಗಾಗಿ ಸ್ಪೆಷಲ್ ಆಫರ್":"Special offers for you"}</div>
+                  <div style={{display:"flex",gap:8,overflowX:"auto",scrollbarWidth:"none"}}>
+                    {PRODUCTS.filter(p=>p.price<=30&&!cart[p.id]).slice(0,8).map(p=>(
+                      <div key={p.id} style={{flexShrink:0,width:80,borderRadius:10,overflow:"hidden",backgroundColor:"#fafafa",border:`1px solid ${line}`}}>
+                        <div style={{height:70,backgroundColor:"#fafafa"}}><ProductImage p={p}/></div>
+                        <div style={{padding:"4px 6px 6px"}}>
+                          <div style={{fontSize:9,fontWeight:600,color:ink,lineHeight:1.2}}>{p.name.split(" ").slice(0,2).join(" ")}</div>
+                          <div style={{fontSize:10,fontWeight:800,color:basil,marginTop:2}}>₹{p.price}</div>
+                          <button onClick={()=>addToCart(p.id)} style={{width:"100%",marginTop:4,padding:"3px 0",borderRadius:6,backgroundColor:mango,color:"white",border:"none",cursor:"pointer",fontSize:10,fontWeight:700}}>+ Add</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Tip for delivery */}
+                <div style={{backgroundColor:"white",margin:"8px 0",padding:"14px"}}>
+                  <div style={{fontSize:12,fontWeight:700,color:ink,marginBottom:8}}>🤝 {lang==="kn"?"ಡೆಲಿವರಿ ಹುಡುಗನಿಗೆ ಟಿಪ್":"Tip your delivery partner"}</div>
+                  <div style={{display:"flex",gap:6}}>
+                    {[0,10,20,30,50].map(t=>(
+                      <button key={t} onClick={()=>setTip(t)} style={{flex:1,padding:"6px 2px",borderRadius:8,fontSize:11,fontWeight:600,cursor:"pointer",backgroundColor:tip===t?basil:"#f7f7f7",color:tip===t?"white":soil,border:`1px solid ${tip===t?basil:line}`}}>
+                        {t===0?(lang==="kn"?"ಇಲ್ಲ":"None"):`₹${t}`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Bill summary */}
+                <div style={{backgroundColor:"white",margin:"8px 0",padding:"14px"}}>
+                  <div style={{fontSize:12,fontWeight:700,color:ink,marginBottom:10}}>🧾 {lang==="kn"?"ಬಿಲ್ ಸಾರಾಂಶ":"Bill Summary"}</div>
+                  {[
+                    {label:lang==="kn"?"ಐಟಂ ಒಟ್ಟು":"Item total", val:`₹${subtotal}`},
+                    {label:lang==="kn"?"ಡೆಲಿವರಿ ಶುಲ್ಕ":"Delivery fee", val:subtotal>=250?<span style={{color:basil}}>{lang==="kn"?"ಉಚಿತ":"FREE"}</span>:`₹${deliveryFee}`, hint:lang==="kn"?"₹250 ಮೇಲೆ ಉಚಿತ ಡೆಲಿವರಿ":"Free delivery above ₹250"},
+                    {label:lang==="kn"?"ಟಿಪ್":"Tip", val:`₹${tip}`},
+                    minOrderDiscount>0&&{label:lang==="kn"?"ರಿಯಾಯಿತಿ":"Discount", val:`−₹${minOrderDiscount}`, green:true},
+                    {label:lang==="kn"?"ಕಾಯಿನ್ಸ್ ಗಳಿಕೆ":"Coins earned", val:`+${coinsEarned}🪙`, green:true},
+                  ].filter(Boolean).map((row,i)=>(
+                    <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                      <div>
+                        <div style={{fontSize:12,color:soil}}>{row.label}</div>
+                        {row.hint&&<div style={{fontSize:9,color:basil}}>{row.hint}</div>}
+                      </div>
+                      <div style={{fontSize:12,fontWeight:600,color:row.green?basil:ink}}>{row.val}</div>
+                    </div>
+                  ))}
+                  <div style={{borderTop:`1px solid ${line}`,paddingTop:10,display:"flex",justifyContent:"space-between"}}>
+                    <span style={{fontSize:14,fontWeight:800,color:ink}}>{lang==="kn"?"ಒಟ್ಟು ಪಾವತಿ":"Total to pay"}</span>
+                    <span style={{fontSize:14,fontWeight:800,color:ink}}>₹{finalTotal+tip-(subtotal>=250?deliveryFee:0)}</span>
+                  </div>
+                </div>
+
+                {/* Payment + Place Order */}
+                <div style={{backgroundColor:"white",margin:"8px 0",padding:"14px"}}>
+                  <div style={{fontSize:12,fontWeight:700,color:ink,marginBottom:10}}>💳 {lang==="kn"?"ಪಾವತಿ ವಿಧಾನ":"Payment Method"}</div>
+                  <div style={{display:"flex",gap:8,marginBottom:14}}>
+                    {[{id:"cod",icon:"💵",label:lang==="kn"?"ನಗದು/UPI ಡೆಲಿವರಿ":"Cash/UPI on Delivery"},{id:"online",icon:"📱",label:lang==="kn"?"ಆನ್‌ಲೈನ್ ಪಾವತಿ":"Pay Online"}].map(opt=>(
+                      <button key={opt.id} onClick={()=>setPayment(opt.id)} style={{flex:1,padding:"10px 6px",borderRadius:12,fontSize:11,fontWeight:600,cursor:"pointer",backgroundColor:payment===opt.id?"#f0faf4":"#f7f7f7",color:payment===opt.id?basil:soil,border:`1.5px solid ${payment===opt.id?basil:line}`,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+                        <span style={{fontSize:20}}>{opt.icon}</span>{opt.label}
+                        {payment===opt.id&&<Check size={12} style={{color:basil}}/>}
+                      </button>
+                    ))}
+                  </div>
+                  <button onClick={placeOrder} disabled={!address.trim()} style={{width:"100%",padding:"14px",borderRadius:14,backgroundColor:address.trim()?basil:"#ccc",color:"white",border:"none",cursor:address.trim()?"pointer":"not-allowed",fontSize:15,fontWeight:800}}>
+                    {lang==="kn"?"ಆರ್ಡರ್ ಮಾಡಿ":"Place Order"} →
+                  </button>
+                </div>
               </>
           }
         </div>
       </>}
 
+      {/* ── CHECKOUT = TRACKING (img5+img6 merged) ── */}
       {screen === "checkout" && <>
-        <Header showBack onBack={() => setScreen("cart")} title={t.checkout}/>
-        <div className="flex-1 overflow-y-auto px-4 py-4 pb-24">
-          {/* F5 Delivery Slot */}
-          <div className="text-xs font-semibold mb-2" style={{color: soil}}>🕐 {lang==="kn" ? "ಡೆಲಿವರಿ ಸ್ಲಾಟ್ ಆಯ್ಕೆ ಮಾಡಿ" : "Choose Delivery Slot"}</div>
-          <div className="flex gap-2 mb-4">
-            {SLOTS.map((s,i) => (
-              <button key={s} onClick={() => setDeliverySlot(s)} className="flex-1 py-2 rounded-xl text-xs font-semibold"
-                style={{backgroundColor: deliverySlot===s ? basil : panel, color: deliverySlot===s ? "white" : ink, border:`1.5px solid ${deliverySlot===s ? basil : line}`}}>
-                {lang==="kn" ? SLOTS_KN[i] : s}
-              </button>
-            ))}
+        <Header showBack onBack={() => setScreen("cart")} title={lang==="kn"?"ಆರ್ಡರ್ ಟ್ರ್ಯಾಕಿಂಗ್":"Order Tracking"}/>
+        <div style={{flex:1,overflowY:"auto",backgroundColor:"#f8f8f6",paddingBottom:80}}>
+          {/* Order ID + ETA */}
+          <div style={{backgroundColor:"white",padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:`1px solid ${line}`}}>
+            <div>
+              <div style={{fontSize:11,color:soil}}>{lang==="kn"?"ಆರ್ಡರ್ ID":"Order ID"}</div>
+              <div style={{fontSize:14,fontWeight:800,color:ink}}>#{vendorOrders[0]?.id||"—"}</div>
+            </div>
+            <div style={{textAlign:"right"}}>
+              <div style={{fontSize:11,color:soil}}>{lang==="kn"?"ಅಂದಾಜು ಸಮಯ":"Estimated arrival"}</div>
+              <div style={{fontSize:14,fontWeight:800,color:basil}}>{orderStatusIdx<3?`~${Math.max(2,14-orderStatusIdx*4)} min`:"✓ Delivered"}</div>
+            </div>
           </div>
-
-          <div className="text-xs font-semibold mb-1" style={{color: soil}}>{t.deliveryAddress}</div>
-          <textarea value={address} onChange={e => setAddress(e.target.value)} placeholder={t.enterAddress} rows={3} className="w-full rounded-xl p-3 text-sm outline-none" style={{backgroundColor: panel, border:`1px solid ${line}`}}/>
-          <div className="text-xs font-semibold mt-4 mb-2" style={{color: soil}}>{t.paymentMethod}</div>
-          {[{id:"upi", label: t.upi}, {id:"cod", label: t.cod}].map(opt => (
-            <button key={opt.id} onClick={() => setPayment(opt.id)} className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm mb-2"
-              style={{backgroundColor: panel, border:`1.5px solid ${payment===opt.id ? basil : line}`, fontWeight: payment===opt.id ? 700 : 500}}>
-              {opt.label} {payment===opt.id && <Check size={14} style={{color: basil}}/>}
+          {/* Map */}
+          <LeafletMap riderPos={riderPos} orderStatusIdx={orderStatusIdx} basil={basil}/>
+          {/* Status timeline */}
+          <div style={{backgroundColor:"white",margin:"8px 0",padding:"16px"}}>
+            <div style={{fontSize:14,fontWeight:800,color:ink,marginBottom:14}}>{lang==="kn"?"ಆರ್ಡರ್ ಸ್ಥಿತಿ":"Order Status"}</div>
+            {[{label:lang==="kn"?"ಆರ್ಡರ್ ಸ್ವೀಕರಿಸಲಾಗಿದೆ":"Order received",icon:"📋"},{label:lang==="kn"?"ವಸ್ತುಗಳನ್ನು ತೆಗೆಯಲಾಗುತ್ತಿದೆ":"Picking items",icon:"🧺"},{label:lang==="kn"?"ತಲುಪಿಸಲು ಹೊರಟಿದೆ":"Out for delivery",icon:"🏍️"},{label:lang==="kn"?"ತಲುಪಿಸಲಾಗಿದೆ!":"Delivered!",icon:"✅"}].map(({label,icon},idx)=>{
+              const done=idx<orderStatusIdx, active=idx===orderStatusIdx;
+              return(
+                <div key={idx} style={{display:"flex",gap:12,marginBottom:0}}>
+                  <div style={{display:"flex",flexDirection:"column",alignItems:"center"}}>
+                    <div style={{width:32,height:32,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,backgroundColor:done||active?basil:"#f0f0f0",color:done||active?"white":soil,boxShadow:active?`0 0 0 4px ${basil}25`:"none"}}>
+                      {done?"✓":icon}
+                    </div>
+                    {idx<3&&<div style={{width:2,height:32,backgroundColor:done?basil:"#e0e0e0",marginTop:2}}/>}
+                  </div>
+                  <div style={{paddingBottom:24,paddingTop:4}}>
+                    <div style={{fontSize:13,fontWeight:active?700:done?600:400,color:active?basil:done?ink:soil}}>{label}</div>
+                    {active&&<div style={{fontSize:10,color:mango,marginTop:2}}>● {lang==="kn"?"ಪ್ರಕ್ರಿಯೆಯಲ್ಲಿದೆ...":"In progress..."}</div>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {/* Coins earned */}
+          <div style={{backgroundColor:"#FFF8E1",margin:"8px 0",padding:"14px",display:"flex",alignItems:"center",gap:12}}>
+            <span style={{fontSize:24}}>🪙</span>
+            <div>
+              <div style={{fontSize:13,fontWeight:700,color:"#8B5E00"}}>+{coinsEarned} {lang==="kn"?"ಕಾಯಿನ್ಸ್ ಗಳಿಸಿದ್ದೀರಿ!":"Coins Earned!"}</div>
+              <div style={{fontSize:11,color:soil}}>{lang==="kn"?`ಒಟ್ಟು: ${coins} ಕಾಯಿನ್ಸ್`:`Total: ${coins} coins`}</div>
+            </div>
+          </div>
+          {/* Cancel + Support */}
+          <div style={{display:"flex",gap:8,margin:"8px 14px"}}>
+            <button style={{flex:1,padding:"12px",borderRadius:12,backgroundColor:"white",color:chili,border:`1.5px solid ${chili}`,fontWeight:700,fontSize:13,cursor:"pointer"}}>
+              ✕ {lang==="kn"?"ಆರ್ಡರ್ ರದ್ದುಮಾಡಿ":"Cancel Order"}
             </button>
-          ))}
-          <div className="mt-4 rounded-xl p-4" style={{backgroundColor: panel, border:`1px solid ${line}`}}>
-            <div className="flex justify-between text-sm mb-1"><span>{t.subtotal}</span><span>₹{subtotal}</span></div>
-            <div className="flex justify-between text-sm mb-1"><span>{t.deliveryFee}</span><span>₹{deliveryFee}</span></div>
-            {minOrderDiscount > 0 && <div className="flex justify-between text-sm mb-1 font-semibold" style={{color: basil}}><span>🎁 {lang==="kn" ? "ರಿಯಾಯಿತಿ" : "Discount"}</span><span>−₹{minOrderDiscount}</span></div>}
-            <div className="flex justify-between text-sm mb-1" style={{color:"#8B5E00"}}><span>🪙 {lang==="kn" ? "ಗಳಿಸುತ್ತೀರಿ" : "You earn"}</span><span>+{coinsEarned} coins</span></div>
-            <div className="flex justify-between font-bold text-sm pt-2 mt-1" style={{borderTop:`1px solid ${line}`}}><span>{t.total}</span><span>₹{finalTotal}</span></div>
+            <button style={{flex:1,padding:"12px",borderRadius:12,backgroundColor:basil,color:"white",border:"none",fontWeight:700,fontSize:13,cursor:"pointer"}}>
+              💬 {lang==="kn"?"ಸಹಾಯ":"Get Help"}
+            </button>
           </div>
-          <button onClick={placeOrder} disabled={!address.trim()} className="w-full mt-4 py-3 rounded-2xl font-bold text-sm disabled:opacity-40" style={{backgroundColor: chili, color:"white"}}>{t.placeOrder}</button>
+          <button onClick={()=>setScreen("home")} style={{width:"calc(100% - 28px)",margin:"0 14px 16px",padding:"14px",borderRadius:14,backgroundColor:mango,color:"white",border:"none",fontWeight:800,fontSize:14,cursor:"pointer"}}>
+            {lang==="kn"?"ಶಾಪಿಂಗ್ ಮುಂದುವರೆಸಿ":"Continue Shopping"}
+          </button>
         </div>
+        {/* WhatsApp toast */}
+        {notifShown&&(
+          <div style={{position:"fixed",bottom:16,left:14,right:14,backgroundColor:"#25D366",color:"white",borderRadius:14,padding:"12px 16px",display:"flex",alignItems:"center",gap:10,zIndex:50,boxShadow:"0 4px 20px rgba(0,0,0,0.2)"}}>
+            <span style={{fontSize:20}}>💬</span>
+            <div style={{flex:1}}>
+              <div style={{fontSize:12,fontWeight:700}}>{lang==="kn"?"WhatsApp ಸಂದೇಶ ಕಳುಹಿಸಲಾಗಿದೆ":"WhatsApp Confirmation Sent!"}</div>
+            </div>
+            <button onClick={()=>setNotifShown(false)} style={{background:"none",border:"none",color:"white",cursor:"pointer",fontSize:16}}>✕</button>
+          </div>
+        )}
       </>}
 
       {screen === "confirmation" && <>
