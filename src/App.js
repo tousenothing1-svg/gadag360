@@ -252,6 +252,15 @@ const CATS = [
   { id: "Flowers",    en: "🌸 Flowers",   kn: "🌸 ಹೂವುಗಳು" },
 ];
 
+// Translate group key (first word of product name) to Kannada
+function groupKeyKn(key, KN_NAMES) {
+  // Find any KN_NAMES entry whose English name starts with this key
+  const match = Object.entries(KN_NAMES).find(([en]) => en.startsWith(key));
+  if (!match) return key;
+  // Extract first word(s) of Kannada translation
+  return match[1].split(/[\s(]/)[0];
+}
+
 const VENDOR_KN = { v1:"ಸಾಸ್ನೂರ್ ಬೇಕರಿ", v2:"ಕಟಾಪುರ್ ಫ್ರೂಟ್ಸ್", v3:"ತೋಟದ ತರಕಾರಿ", v4:"ದಂಡಿನ್ ಎಕ್ಸೋಟಿಕ್ಸ್", v5:"ಮುಲ್ಲಾ ಮಸಾಲೆ & ಎಣ್ಣೆ", v6:"ಅತ್ತಾರ್ ಹೂವುಗಳು" };
 const CAT_EMOJI = { Fruits:"🍎", Vegetables:"🥦", Dairy:"🥛", Exotics:"🥑", Spices:"🌶️", Oils:"🫙", Flowers:"🌸" };
 function vendorName(id, lang) { const v = VENDORS.find(v => v.id === id); return lang==="kn" ? (VENDOR_KN[id]||v?.name||"") : (v?.name||""); }
@@ -543,8 +552,8 @@ function HandpickdLayout({ filtered, activeCat, setActiveCat, cart, addToCart, r
                                 </div>
                                 <div style={{padding:"6px 8px 10px"}}>
                                   <div style={{fontSize:9,color:soil,marginBottom:2}}>{hasMany?`₹${minPrice}–₹${maxPrice}`:`₹${price}/${first.variants?.[0]?.label||first.unit}`}</div>
-                                  <div style={{fontSize:11,fontWeight:700,color:ink,lineHeight:1.3}}>{key}</div>
-                                  {hasMany&&<div style={{fontSize:9,color:basil,marginTop:2,fontWeight:600}}>{products.length} varieties {isExpanded?"▲":"▼"}</div>}
+                                  <div style={{fontSize:11,fontWeight:700,color:ink,lineHeight:1.3}}>{lang==="kn"?groupKeyKn(key,KN_NAMES):key}</div>
+                                  {hasMany&&<div style={{fontSize:9,color:basil,marginTop:2,fontWeight:600}}>{products.length} {lang==="kn"?"ಆಯ್ಕೆಗಳು":"varieties"} {isExpanded?"▲":"▼"}</div>}
                                 </div>
                               </div>
                             );
@@ -557,7 +566,7 @@ function HandpickdLayout({ filtered, activeCat, setActiveCat, cart, addToCart, r
                           const [key, products] = expandedItem;
                           return (
                             <div style={{backgroundColor:"#f0faf4",borderRadius:12,padding:"12px 10px",marginBottom:8,border:`1px solid ${basil}20`}}>
-                              <div style={{fontSize:11,fontWeight:700,color:basil,marginBottom:8}}>{key} — {products.length} {lang==="kn"?"ಆಯ್ಕೆಗಳು":"varieties"}</div>
+                              <div style={{fontSize:11,fontWeight:700,color:basil,marginBottom:8}}>{lang==="kn"?groupKeyKn(key,KN_NAMES):key} — {products.length} {lang==="kn"?"ಆಯ್ಕೆಗಳು":"varieties"}</div>
                               <div style={{display:"flex",gap:10,overflowX:"auto",scrollbarWidth:"none",paddingBottom:4}}>
                                 {products.map(p=>{
                                   const qty = cart[p.id]||0;
@@ -645,6 +654,9 @@ export default function Gadag360() {
   const [selectedVariant, setSelectedVariant] = useState({});
   const [currentUserId, setCurrentUserId] = useState(null);
   const [tip, setTip] = useState(0);
+  const [vendorOrderStatus, setVendorOrderStatus] = useState({}); // {orderId: "accepted"|"rejected"}
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [showCatDrawer, setShowCatDrawer] = useState(false);
 
   // ── STATIC DATA ──
   const BUNDLES = [
@@ -1355,6 +1367,43 @@ export default function Gadag360() {
         )}
 
         {/* ── HANDPICKD LAYOUT: LEFT SIDEBAR + GROUPED PRODUCTS ── */}
+        {/* Side category drawer toggle button */}
+        <div style={{position:"relative"}}>
+          {/* Arrow toggle button on left edge */}
+          <button onClick={()=>setShowCatDrawer(d=>!d)}
+            style={{position:"fixed",left:0,top:"50%",transform:"translateY(-50%)",zIndex:45,width:22,height:48,backgroundColor:basil,color:"white",border:"none",cursor:"pointer",borderRadius:"0 10px 10px 0",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"2px 2px 8px rgba(0,0,0,0.2)",fontSize:14}}>
+            {showCatDrawer?"‹":"›"}
+          </button>
+
+          {/* Category drawer overlay */}
+          {showCatDrawer && (
+            <>
+              <div onClick={()=>setShowCatDrawer(false)} style={{position:"fixed",inset:0,backgroundColor:"rgba(0,0,0,0.3)",zIndex:43}}/>
+              <div style={{position:"fixed",left:0,top:0,bottom:0,width:180,backgroundColor:"white",zIndex:44,boxShadow:"4px 0 20px rgba(0,0,0,0.15)",display:"flex",flexDirection:"column"}}>
+                <div style={{padding:"16px 14px 10px",borderBottom:`1px solid ${line}`}}>
+                  <div style={{fontSize:14,fontWeight:800,color:ink}}>{lang==="kn"?"ಕ್ಯಾಟಗರಿ":"Categories"}</div>
+                </div>
+                <div style={{flex:1,overflowY:"auto",padding:"8px 0"}}>
+                  {CATS.filter(c=>c.id!=="all").map(c=>(
+                    <button key={c.id} onClick={()=>{setActiveCat(c.id);setShowCatDrawer(false);}}
+                      style={{width:"100%",display:"flex",alignItems:"center",gap:12,padding:"12px 16px",border:"none",cursor:"pointer",textAlign:"left",
+                        backgroundColor:activeCat===c.id?"#f0faf4":"white",borderLeft:activeCat===c.id?`3px solid ${basil}`:"3px solid transparent"}}>
+                      <span style={{fontSize:22}}>{CAT_EMOJI[c.id]||"🛒"}</span>
+                      <span style={{fontSize:13,fontWeight:activeCat===c.id?700:500,color:activeCat===c.id?basil:ink}}>{c[lang]}</span>
+                    </button>
+                  ))}
+                </div>
+                <div style={{padding:"12px 14px",borderTop:`1px solid ${line}`}}>
+                  <button onClick={()=>{setActiveCat("all");setShowCatDrawer(false);}}
+                    style={{width:"100%",padding:"10px",borderRadius:10,backgroundColor:activeCat==="all"?basil:"#f7f7f7",color:activeCat==="all"?"white":ink,border:"none",cursor:"pointer",fontWeight:700,fontSize:13}}>
+                    {lang==="kn"?"ಎಲ್ಲಾ ಉತ್ಪನ್ನಗಳು":"All Products"}
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
         <HandpickdLayout
           filtered={filtered} activeCat={activeCat} setActiveCat={setActiveCat}
           cart={cart} addToCart={addToCart} removeFromCart={removeFromCart}
@@ -1688,13 +1737,37 @@ export default function Gadag360() {
           </div>
           {/* Cancel + Support */}
           <div style={{display:"flex",gap:8,margin:"8px 14px"}}>
-            <button style={{flex:1,padding:"12px",borderRadius:12,backgroundColor:"white",color:chili,border:`1.5px solid ${chili}`,fontWeight:700,fontSize:13,cursor:"pointer"}}>
+            <button onClick={()=>setShowCancelConfirm(true)} style={{flex:1,padding:"12px",borderRadius:12,backgroundColor:"white",color:chili,border:`1.5px solid ${chili}`,fontWeight:700,fontSize:13,cursor:"pointer"}}>
               ✕ {lang==="kn"?"ಆರ್ಡರ್ ರದ್ದುಮಾಡಿ":"Cancel Order"}
             </button>
-            <button style={{flex:1,padding:"12px",borderRadius:12,backgroundColor:basil,color:"white",border:"none",fontWeight:700,fontSize:13,cursor:"pointer"}}>
+            <button onClick={()=>alert(lang==="kn"?"ಸಹಾಯಕ್ಕಾಗಿ: +91 98765 43210 ಗೆ ಕರೆ ಮಾಡಿ ಅಥವಾ WhatsApp ಮಾಡಿ":"For help call or WhatsApp: +91 98765 43210")} style={{flex:1,padding:"12px",borderRadius:12,backgroundColor:basil,color:"white",border:"none",fontWeight:700,fontSize:13,cursor:"pointer"}}>
               💬 {lang==="kn"?"ಸಹಾಯ":"Get Help"}
             </button>
           </div>
+          {/* WhatsApp share */}
+          <div style={{margin:"0 14px 8px"}}>
+            <button onClick={()=>{
+              const msg = encodeURIComponent(`GADAG 360 Order Confirmed!\nOrder ID: #${vendorOrders[0]?.id||"—"}\nTotal: ₹${vendorOrders[0]?.total||0}\nThank you for ordering!`);
+              window.open(`https://wa.me/?text=${msg}`,'_blank');
+            }} style={{width:"100%",padding:"12px",borderRadius:12,backgroundColor:"#25D366",color:"white",border:"none",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+              💬 {lang==="kn"?"WhatsApp ನಲ್ಲಿ ಶೇರ್ ಮಾಡಿ":"Share on WhatsApp"}
+            </button>
+          </div>
+
+          {/* Cancel confirm modal */}
+          {showCancelConfirm&&(
+            <div style={{position:"fixed",inset:0,backgroundColor:"rgba(0,0,0,0.5)",zIndex:60,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}}>
+              <div style={{backgroundColor:"white",borderRadius:20,padding:"24px",width:"100%",maxWidth:320,textAlign:"center"}}>
+                <div style={{fontSize:32,marginBottom:12}}>⚠️</div>
+                <div style={{fontSize:16,fontWeight:800,color:ink,marginBottom:8}}>{lang==="kn"?"ಆರ್ಡರ್ ರದ್ದು ಮಾಡಬೇಕೇ?":"Cancel this order?"}</div>
+                <div style={{fontSize:13,color:soil,marginBottom:20}}>{lang==="kn"?"ಒಮ್ಮೆ ರದ್ದು ಮಾಡಿದರೆ ಹಿಂತಿರುಗಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ":"This action cannot be undone"}</div>
+                <div style={{display:"flex",gap:10}}>
+                  <button onClick={()=>setShowCancelConfirm(false)} style={{flex:1,padding:"12px",borderRadius:12,backgroundColor:"#f7f7f7",color:ink,border:"none",fontWeight:700,cursor:"pointer"}}>{lang==="kn"?"ಹಿಂದೆ":"Go Back"}</button>
+                  <button onClick={()=>{setShowCancelConfirm(false);setScreen("home");alert(lang==="kn"?"ಆರ್ಡರ್ ರದ್ದು ಮಾಡಲಾಗಿದೆ":"Order cancelled successfully");}} style={{flex:1,padding:"12px",borderRadius:12,backgroundColor:chili,color:"white",border:"none",fontWeight:700,cursor:"pointer"}}>{lang==="kn"?"ರದ್ದು ಮಾಡಿ":"Yes, Cancel"}</button>
+                </div>
+              </div>
+            </div>
+          )}
           <button onClick={()=>setScreen("home")} style={{width:"calc(100% - 28px)",margin:"0 14px 16px",padding:"14px",borderRadius:14,backgroundColor:mango,color:"white",border:"none",fontWeight:800,fontSize:14,cursor:"pointer"}}>
             {lang==="kn"?"ಶಾಪಿಂಗ್ ಮುಂದುವರೆಸಿ":"Continue Shopping"}
           </button>
@@ -1831,8 +1904,15 @@ export default function Gadag360() {
                     <div className="text-xs mb-2" style={{color: soil}}>{o.items.map(i=>`${i.name} ×${i.qty}`).join(", ")}</div>
                     <div className="text-xs mb-3" style={{color: soil}}>📍 {o.address}</div>
                     <div className="flex gap-2">
-                      <button className="flex-1 text-xs font-bold py-1.5 rounded-lg" style={{backgroundColor: basil, color:"white"}}>✓ {lang==="kn" ? "ಸ್ವೀಕರಿಸಿ" : "Accept"}</button>
-                      <button className="text-xs font-bold px-3 py-1.5 rounded-lg" style={{backgroundColor: chili, color:"white"}}>{lang==="kn" ? "ತಿರಸ್ಕರಿಸಿ" : "Reject"}</button>
+                      {vendorOrderStatus[o.id]==="accepted"
+                        ? <div style={{flex:1,textAlign:"center",padding:"6px",borderRadius:8,backgroundColor:"#e8f5e9",color:basil,fontSize:12,fontWeight:700}}>✓ {lang==="kn"?"ಸ್ವೀಕರಿಸಲಾಗಿದೆ":"Accepted"}</div>
+                        : vendorOrderStatus[o.id]==="rejected"
+                        ? <div style={{flex:1,textAlign:"center",padding:"6px",borderRadius:8,backgroundColor:"#fee2e2",color:chili,fontSize:12,fontWeight:700}}>✕ {lang==="kn"?"ತಿರಸ್ಕರಿಸಲಾಗಿದೆ":"Rejected"}</div>
+                        : <>
+                            <button onClick={()=>setVendorOrderStatus(s=>({...s,[o.id]:"accepted"}))} className="flex-1 text-xs font-bold py-2 rounded-lg" style={{backgroundColor:basil,color:"white",cursor:"pointer"}}>✓ {lang==="kn"?"ಸ್ವೀಕರಿಸಿ":"Accept"}</button>
+                            <button onClick={()=>setVendorOrderStatus(s=>({...s,[o.id]:"rejected"}))} className="text-xs font-bold px-3 py-2 rounded-lg" style={{backgroundColor:chili,color:"white",cursor:"pointer"}}>{lang==="kn"?"ತಿರಸ್ಕರಿಸಿ":"Reject"}</button>
+                          </>
+                      }
                     </div>
                   </div>
                 ))
