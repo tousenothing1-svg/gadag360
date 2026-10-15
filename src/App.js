@@ -1085,7 +1085,7 @@ export default function Gadag360() {
                 <div style={{fontSize:12,fontWeight:600,color:soil,marginBottom:6}}>{lang==="kn"?`+91 ${loginPhone} ಗೆ OTP ಕಳುಹಿಸಲಾಗಿದೆ`:`OTP sent to +91 ${loginPhone}`}</div>
                 <input type="tel" maxLength={4} value={loginOtp} onChange={e=>setLoginOtp(e.target.value.replace(/\D/g,""))}
                   placeholder="• • • •"
-                  style={{width:"100%",padding:"16px",borderRadius:14,border:`2px solid ${basil}`,outline:"none",textAlign:"center",fontSize:28,fontWeight:800,letterSpacing:16,color:ink,boxSizing:"border-box",marginBottom:6}}/>
+                  style={{width:"100%",padding:"16px",borderRadius:14,border:`2px solid ${basil}`,outline:"none",textAlign:"center",fontSize:28,fontWeight:800,letterSpacing:8,color:ink,boxSizing:"border-box",marginBottom:6}}/>
                 <div style={{textAlign:"center",fontSize:11,color:soil,marginBottom:20}}>{lang==="kn"?"ಡೆಮೊಗಾಗಿ 1234 ಬಳಸಿ":"Use 1234 for demo"}</div>
                 <button onClick={verifyOtp} style={{width:"100%",padding:"14px",borderRadius:14,backgroundColor:basil,color:"white",border:"none",cursor:"pointer",fontSize:15,fontWeight:800,marginBottom:10}}>
                   {lang==="kn"?"ಯಡವಿ ಮಾಡಿ & ಲಾಗಿನ್":"Verify & Login"}
@@ -1371,15 +1371,15 @@ export default function Gadag360() {
         <div style={{position:"relative"}}>
           {/* Arrow toggle button on left edge */}
           <button onClick={()=>setShowCatDrawer(d=>!d)}
-            style={{position:"fixed",left:0,top:"50%",transform:"translateY(-50%)",zIndex:45,width:22,height:48,backgroundColor:basil,color:"white",border:"none",cursor:"pointer",borderRadius:"0 10px 10px 0",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"2px 2px 8px rgba(0,0,0,0.2)",fontSize:14}}>
+            style={{position:"fixed",left:0,top:"50%",transform:"translateY(-50%)",zIndex:37,width:22,height:48,backgroundColor:basil,color:"white",border:"none",cursor:"pointer",borderRadius:"0 10px 10px 0",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"2px 2px 8px rgba(0,0,0,0.2)",fontSize:14}}>
             {showCatDrawer?"‹":"›"}
           </button>
 
           {/* Category drawer overlay */}
           {showCatDrawer && (
             <>
-              <div onClick={()=>setShowCatDrawer(false)} style={{position:"fixed",inset:0,backgroundColor:"rgba(0,0,0,0.3)",zIndex:43}}/>
-              <div style={{position:"fixed",left:0,top:0,bottom:0,width:180,backgroundColor:"white",zIndex:44,boxShadow:"4px 0 20px rgba(0,0,0,0.15)",display:"flex",flexDirection:"column"}}>
+              <div onClick={()=>setShowCatDrawer(false)} style={{position:"fixed",inset:0,backgroundColor:"rgba(0,0,0,0.3)",zIndex:50}}/>
+              <div style={{position:"fixed",left:0,top:0,bottom:0,width:180,backgroundColor:"white",zIndex:51,boxShadow:"4px 0 20px rgba(0,0,0,0.15)",display:"flex",flexDirection:"column"}}>
                 <div style={{padding:"16px 14px 10px",borderBottom:`1px solid ${line}`}}>
                   <div style={{fontSize:14,fontWeight:800,color:ink}}>{lang==="kn"?"ಕ್ಯಾಟಗರಿ":"Categories"}</div>
                 </div>
@@ -1622,7 +1622,7 @@ export default function Gadag360() {
                   <div style={{display:"flex",gap:8,overflowX:"auto",scrollbarWidth:"none"}}>
                     {PRODUCTS.filter(p=>p.price<=30&&!cart[p.id]).slice(0,8).map(p=>(
                       <div key={p.id} style={{flexShrink:0,width:80,borderRadius:10,overflow:"hidden",backgroundColor:"#fafafa",border:`1px solid ${line}`}}>
-                        <div style={{height:70,backgroundColor:"#fafafa"}}><ProductImage p={p}/></div>
+                        <div style={{height:64,backgroundColor:"#fafafa",overflow:"hidden"}}><ProductImage p={p}/></div>
                         <div style={{padding:"4px 6px 6px"}}>
                           <div style={{fontSize:9,fontWeight:600,color:ink,lineHeight:1.2}}>{p.name.split(" ").slice(0,2).join(" ")}</div>
                           <div style={{fontSize:10,fontWeight:800,color:basil,marginTop:2}}>₹{p.price}</div>
@@ -1665,7 +1665,7 @@ export default function Gadag360() {
                   ))}
                   <div style={{borderTop:`1px solid ${line}`,paddingTop:10,display:"flex",justifyContent:"space-between"}}>
                     <span style={{fontSize:14,fontWeight:800,color:ink}}>{lang==="kn"?"ಒಟ್ಟು ಪಾವತಿ":"Total to pay"}</span>
-                    <span style={{fontSize:14,fontWeight:800,color:ink}}>₹{finalTotal+tip-(subtotal>=250?deliveryFee:0)}</span>
+                    <span style={{fontSize:14,fontWeight:800,color:ink}}>₹{subtotal + (subtotal>=250?0:deliveryFee) + tip - minOrderDiscount}</span>
                   </div>
                 </div>
 
@@ -1880,37 +1880,38 @@ export default function Gadag360() {
 
       {screen === "vendor" && <>
         <Header showBack onBack={() => setScreen("home")} title={lang==="kn" ? "ಕಿರಾಣಾ ಪಾಲುದಾರ ಡ್ಯಾಶ್‌ಬೋರ್ಡ್" : "Kirana Partner Dashboard"}/>
-        <div className="flex-1 px-4 py-4">
+        <div style={{flex:1,overflowY:"auto",backgroundColor:"#f8f8f6",padding:"12px 14px",paddingBottom:80}}>
           {/* Partner tabs */}
-          <div className="flex gap-2 overflow-x-auto pb-2 mb-3" style={{scrollbarWidth:"none"}}>
+          <div style={{display:"flex",gap:8,overflowX:"auto",paddingBottom:8,marginBottom:12,scrollbarWidth:"none"}}>
             {VENDORS.map(v => (
-              <button key={v.id} className="px-3 py-1 rounded-full text-xs whitespace-nowrap font-semibold flex-shrink-0"
-                style={{backgroundColor: basil, color:"white"}}>
+              <button key={v.id} style={{padding:"6px 14px",borderRadius:20,fontSize:11,whiteSpace:"nowrap",fontWeight:600,flexShrink:0,backgroundColor:basil,color:"white",border:"none",cursor:"pointer"}}>
                 {lang==="kn" ? VENDOR_KN[v.id] : v.name}
               </button>
             ))}
           </div>
           {/* Orders */}
-          <div className="space-y-3">
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
             {vendorOrders.length === 0
-              ? <div className="text-center pt-10 text-sm" style={{color: soil}}>{t.noOrders}</div>
+              ? <div style={{textAlign:"center",paddingTop:40,fontSize:13,color:soil}}>{t.noOrders}</div>
               : vendorOrders.map(o => (
-                  <div key={o.id} className="rounded-xl p-4" style={{backgroundColor: panel, border:`1px solid ${line}`}}>
-                    <div className="flex justify-between text-sm font-bold mb-1">
-                      <span>#{o.id}</span>
-                      <span className="text-xs px-2 py-0.5 rounded-full" style={{backgroundColor:"#fff3cd", color:"#856404"}}>Pending</span>
+                  <div key={o.id} style={{borderRadius:14,padding:"14px",backgroundColor:"white",border:`1px solid ${line}`,boxShadow:"0 1px 4px rgba(0,0,0,0.05)"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                      <span style={{fontSize:14,fontWeight:800,color:ink}}>#{o.id}</span>
+                      <span style={{fontSize:10,fontWeight:700,padding:"3px 10px",borderRadius:10,backgroundColor:"#fff3cd",color:"#856404"}}>
+                        {vendorOrderStatus[o.id]==="accepted"?"✓ Accepted":vendorOrderStatus[o.id]==="rejected"?"✕ Rejected":"⏳ Pending"}
+                      </span>
                     </div>
-                    <div className="text-xs mb-1 font-semibold">₹{o.total} · {o.payment==="upi" ? "UPI" : "COD"}</div>
-                    <div className="text-xs mb-2" style={{color: soil}}>{o.items.map(i=>`${i.name} ×${i.qty}`).join(", ")}</div>
-                    <div className="text-xs mb-3" style={{color: soil}}>📍 {o.address}</div>
-                    <div className="flex gap-2">
+                    <div style={{fontSize:12,fontWeight:700,color:ink,marginBottom:4}}>₹{o.total} · {o.payment==="upi"?"UPI":"COD"}</div>
+                    <div style={{fontSize:11,color:soil,marginBottom:3}}>{(o.items||[]).map(i=>`${i.name} ×${i.qty}`).join(", ")}</div>
+                    <div style={{fontSize:11,color:soil,marginBottom:10}}>📍 {o.address}</div>
+                    <div style={{display:"flex",gap:8}}>
                       {vendorOrderStatus[o.id]==="accepted"
-                        ? <div style={{flex:1,textAlign:"center",padding:"6px",borderRadius:8,backgroundColor:"#e8f5e9",color:basil,fontSize:12,fontWeight:700}}>✓ {lang==="kn"?"ಸ್ವೀಕರಿಸಲಾಗಿದೆ":"Accepted"}</div>
+                        ? <div style={{flex:1,textAlign:"center",padding:"8px",borderRadius:10,backgroundColor:"#e8f5e9",color:basil,fontSize:12,fontWeight:700}}>✓ {lang==="kn"?"ಸ್ವೀಕರಿಸಲಾಗಿದೆ":"Accepted"}</div>
                         : vendorOrderStatus[o.id]==="rejected"
-                        ? <div style={{flex:1,textAlign:"center",padding:"6px",borderRadius:8,backgroundColor:"#fee2e2",color:chili,fontSize:12,fontWeight:700}}>✕ {lang==="kn"?"ತಿರಸ್ಕರಿಸಲಾಗಿದೆ":"Rejected"}</div>
+                        ? <div style={{flex:1,textAlign:"center",padding:"8px",borderRadius:10,backgroundColor:"#fee2e2",color:chili,fontSize:12,fontWeight:700}}>✕ {lang==="kn"?"ತಿರಸ್ಕರಿಸಲಾಗಿದೆ":"Rejected"}</div>
                         : <>
-                            <button onClick={()=>setVendorOrderStatus(s=>({...s,[o.id]:"accepted"}))} className="flex-1 text-xs font-bold py-2 rounded-lg" style={{backgroundColor:basil,color:"white",cursor:"pointer"}}>✓ {lang==="kn"?"ಸ್ವೀಕರಿಸಿ":"Accept"}</button>
-                            <button onClick={()=>setVendorOrderStatus(s=>({...s,[o.id]:"rejected"}))} className="text-xs font-bold px-3 py-2 rounded-lg" style={{backgroundColor:chili,color:"white",cursor:"pointer"}}>{lang==="kn"?"ತಿರಸ್ಕರಿಸಿ":"Reject"}</button>
+                            <button onClick={()=>setVendorOrderStatus(s=>({...s,[o.id]:"accepted"}))} style={{flex:1,padding:"9px",borderRadius:10,backgroundColor:basil,color:"white",border:"none",cursor:"pointer",fontSize:13,fontWeight:700}}>✓ {lang==="kn"?"ಸ್ವೀಕರಿಸಿ":"Accept"}</button>
+                            <button onClick={()=>setVendorOrderStatus(s=>({...s,[o.id]:"rejected"}))} style={{padding:"9px 16px",borderRadius:10,backgroundColor:chili,color:"white",border:"none",cursor:"pointer",fontSize:13,fontWeight:700}}>{lang==="kn"?"ತಿರಸ್ಕರಿಸಿ":"Reject"}</button>
                           </>
                       }
                     </div>
