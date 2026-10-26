@@ -3,6 +3,47 @@
 import { createClient } from "@supabase/supabase-js";
 import React, { useState, useMemo, useEffect, useRef } from "react";
 
+// ── DETECT IF RUNNING IN CAPACITOR (native Android/iOS) ──
+const isNative = () => {
+  try { return window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform(); } catch(e) { return false; }
+};
+
+// ── STORAGE HELPER (uses BOTH localStorage + Capacitor Preferences) ──
+const Storage = {
+  async set(key, value) {
+    // Always save to localStorage first (works everywhere)
+    try { localStorage.setItem(key, String(value)); } catch(e) {}
+    // Also save to Capacitor Preferences if on native
+    if (isNative()) {
+      try {
+        const { Preferences } = await import("@capacitor/preferences");
+        await Preferences.set({ key, value: String(value) });
+      } catch(e) {}
+    }
+  },
+  async get(key) {
+    // Try Capacitor Preferences first on native
+    if (isNative()) {
+      try {
+        const { Preferences } = await import("@capacitor/preferences");
+        const { value } = await Preferences.get({ key });
+        if (value !== null && value !== undefined) return value;
+      } catch(e) {}
+    }
+    // Fall back to localStorage
+    try { return localStorage.getItem(key); } catch(e) { return null; }
+  },
+  async remove(key) {
+    try { localStorage.removeItem(key); } catch(e) {}
+    if (isNative()) {
+      try {
+        const { Preferences } = await import("@capacitor/preferences");
+        await Preferences.remove({ key });
+      } catch(e) {}
+    }
+  }
+};
+
 // ── SUPABASE CONFIG ──
 const SUPABASE_URL = "https://lykhjuizzvurklywxflz.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx5a2hqdWl6enZ1cmtseXd4Zmx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEzODg3OTMsImV4cCI6MjEwNjk2NDc5M30.2gO3aK030mJ0pYTeMd95B7uZF-dHnFzDOSaPwt9hZ6Q";
@@ -783,7 +824,11 @@ export default function Gadag360() {
     const newOrder = {id:orderId, items:cartItems, total:finalTotal, address, payment, slot:deliverySlot, date: new Date().toLocaleDateString("en-IN")};
     setVendorOrders(v => [newOrder, ...v]);
     setOrderHistory(h => [newOrder, ...h]);
-    setCoins(c => c + coinsEarned);
+    setCoins(c => {
+      const newCoins = c + coinsEarned;
+      Storage.set("gd360_coins", String(newCoins));
+      return newCoins;
+    });
     setOrderStatusIdx(0); setRiderPos({x:20,y:70}); setScreen("checkout"); setCart({});
     setShowRating(false); setLastRating(0); setDeliverySlot("");
     setTimeout(() => setNotifShown(true), 2000);
@@ -886,7 +931,7 @@ export default function Gadag360() {
 
   const Header = ({ showBack, onBack, title }) => {
     return (
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0 14px",backgroundColor:"white",borderBottom:`1px solid ${line}`,height:52,position:"sticky",top:0,zIndex:10}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0 14px",paddingTop:"env(safe-area-inset-top, 0px)",backgroundColor:"white",borderBottom:`1px solid ${line}`,minHeight:52,position:"sticky",top:0,zIndex:10}}>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
           {showBack
             ? <button onClick={onBack} style={{color:ink,background:"none",border:"none",cursor:"pointer",padding:4,display:"flex"}}><ArrowLeft size={20}/></button>
@@ -926,22 +971,20 @@ export default function Gadag360() {
   const sendOtp = () => { if(loginPhone.length===10){ setOtpSent(true); setLoginStep("otp"); } else alert("Enter valid 10-digit number"); };
   const verifyOtp = async () => {
     if(loginOtp==="1234"||loginOtp.length===4){
-      // Check if user exists in Supabase, if not create them
+      // Define existingUser at outer scope so it's always accessible
+      let existingUser = null;
       try {
         let { data: existingUsers } = await supabase
           .from("users").select("*").eq("phone", loginPhone).limit(1);
-        let existingUser = existingUsers && existingUsers.length > 0 ? existingUsers[0] : null;
+        existingUser = existingUsers && existingUsers.length > 0 ? existingUsers[0] : null;
         if (!existingUser) {
           const { data: newUser } = await supabase
-            .from("users").insert({ phone: loginPhone, coins: 0 }).select().single();
+            .from("users").insert({ phone: loginPhone, coins: 120 }).select().single();
           existingUser = newUser;
         }
         if (existingUser) {
           setCurrentUserId(existingUser.id);
-          setCoins(existingUser.coins || 0);
-          setUserProfile({ name: existingUser.name||"", phone: existingUser.phone, email: existingUser.email||"" });
-          setEditProfile({ name: existingUser.name||"", phone: existingUser.phone, email: existingUser.email||"" });
-          // Load order history
+          setCoins(existingUser.coins || 120);
           const { data: orders } = await supabase
             .from("orders").select("*, order_items(*)").eq("user_id", existingUser.id).order("created_at", {ascending:false});
           if (orders) setOrderHistory(orders.map(o => ({
@@ -952,18 +995,121 @@ export default function Gadag360() {
           })));
         }
       } catch(e) { console.log("Login error:", e); }
+
+      // Always login regardless of Supabase success
+      const profileData = {
+        name: existingUser?.name||"",
+        phone: loginPhone,
+        email: existingUser?.email||""
+      };
+      setUserProfile(profileData);
+      setEditProfile(profileData);
       setIsLoggedIn(true);
+
+      // Save session — save to BOTH storage methods
+      await Storage.set("gd360_loggedIn", "true");
+      await Storage.set("gd360_profile", JSON.stringify(profileData));
+      await Storage.set("gd360_userId", existingUser?.id||"");
+      await Storage.set("gd360_coins", String(existingUser?.coins||120));
+
       setLoginPhone(""); setLoginOtp(""); setLoginStep("phone");
     } else alert("Wrong OTP. Use 1234 to demo.");
   };
   const toggleWishlist = (id) => setWishlist(w=>({...w,[id]:!w[id]}));
+
+  // ── CAPACITOR NATIVE SETUP ──
+  useEffect(() => {
+    // 1. Restore login session
+    const restoreSession = async () => {
+      try {
+        // Try Capacitor Preferences first
+        let loggedIn = null;
+        let profileStr = null;
+        let savedCoins = null;
+        let savedUserId = null;
+
+        if (isNative()) {
+          try {
+            const { Preferences } = await import("@capacitor/preferences");
+            const r1 = await Preferences.get({ key: "gd360_loggedIn" });
+            loggedIn = r1.value;
+            if (loggedIn === "true") {
+              const r2 = await Preferences.get({ key: "gd360_profile" });
+              const r3 = await Preferences.get({ key: "gd360_coins" });
+              const r4 = await Preferences.get({ key: "gd360_userId" });
+              profileStr = r2.value;
+              savedCoins = r3.value;
+              savedUserId = r4.value;
+            }
+          } catch(e) {}
+        }
+
+        // Fallback to localStorage
+        if (!loggedIn) {
+          loggedIn = localStorage.getItem("gd360_loggedIn");
+          profileStr = localStorage.getItem("gd360_profile");
+          savedCoins = localStorage.getItem("gd360_coins");
+          savedUserId = localStorage.getItem("gd360_userId");
+        }
+
+        if (loggedIn === "true") {
+          if (profileStr) {
+            try {
+              const profile = JSON.parse(profileStr);
+              setUserProfile(profile);
+              setEditProfile(profile);
+            } catch(e) {}
+          }
+          if (savedCoins) setCoins(parseInt(savedCoins)||120);
+          if (savedUserId) setCurrentUserId(savedUserId);
+          setIsLoggedIn(true);
+        }
+      } catch(e) { console.log("GD360 restore error:", e); }
+    };
+    restoreSession();
+
+    // 2. Status bar — only on native Android
+    const setupStatusBar = async () => {
+      if (!isNative()) return;
+      try {
+        const { StatusBar, Style } = await import("@capacitor/status-bar");
+        await StatusBar.setOverlaysWebView({ overlay: false });
+        await StatusBar.setBackgroundColor({ color: "#ffffff" });
+        await StatusBar.setStyle({ style: Style.Light });
+      } catch(e) {}
+    };
+    setupStatusBar();
+
+    // 3. Back button — only on native Android
+    const setupBackButton = async () => {
+      if (!isNative()) return;
+      try {
+        const { App: CapApp } = await import("@capacitor/app");
+        CapApp.addListener("backButton", () => {
+          setScreen(currentScreen => {
+            if (currentScreen !== "home") { setTimeout(()=>setScreen("home"),0); return currentScreen; }
+            return currentScreen;
+          });
+          setActiveTab(currentTab => {
+            if (currentTab !== "home") { setTimeout(()=>{setActiveTab("home");setProfileSection(null);},0); return currentTab; }
+            return currentTab;
+          });
+          setProfileSection(currentSection => {
+            if (currentSection) { setTimeout(()=>setProfileSection(null),0); return currentSection; }
+            return currentSection;
+          });
+        });
+      } catch(e) {}
+    };
+    setupBackButton();
+  }, []); // Run once on mount
 
   // ── BOTTOM NAV ──
   // BottomNav removed — profile accessed via header avatar
   const BottomNav = () => null;
 
   return (
-    <div style={{width:"100vw", maxWidth:"100vw", minHeight:"100vh", display:"flex", flexDirection:"column", backgroundColor:bg, fontFamily:body, color:ink, overflowX:"hidden", position:"relative", boxSizing:"border-box"}}>
+    <div style={{width:"100vw", maxWidth:"100vw", minHeight:"100vh", display:"flex", flexDirection:"column", backgroundColor:bg, fontFamily:body, color:ink, overflowX:"hidden", position:"relative", boxSizing:"border-box", paddingTop:"env(safe-area-inset-top, 0px)"}}>
 
       {/* ── ACCOUNT TAB ── */}
       {activeTab==="profile" && !profileSection && <>
@@ -971,13 +1117,19 @@ export default function Gadag360() {
           <>
             <div style={{flex:1,overflowY:"auto",backgroundColor:"#f8f8f6",paddingBottom:80}}>
               {/* Profile header */}
-              <div style={{backgroundColor:"white",padding:"16px 20px 20px",textAlign:"center",borderBottom:`1px solid ${line}`}}>
+              <div style={{backgroundColor:"white",padding:"16px 20px 20px",paddingTop:"calc(env(safe-area-inset-top, 0px) + 16px)",textAlign:"center",borderBottom:`1px solid ${line}`}}>
                 {/* Top row: Home icon left, Sign out right */}
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
                   <button onClick={()=>{setActiveTab("home");setScreen("home");setProfileSection(null);}} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 12px",borderRadius:20,backgroundColor:"#f0faf4",color:basil,border:`1px solid ${basil}20`,fontSize:12,fontWeight:700,cursor:"pointer"}}>
                     <Home size={14}/> {lang==="kn"?"ಮುಖಪುಟ":"Home"}
                   </button>
-                  <button onClick={()=>setIsLoggedIn(false)} style={{fontSize:12,fontWeight:600,padding:"6px 14px",borderRadius:20,backgroundColor:"#fee2e2",color:chili,border:"none",cursor:"pointer"}}>
+                  <button onClick={()=>{
+                    setIsLoggedIn(false);
+                    Storage.remove("gd360_loggedIn");
+                    Storage.remove("gd360_profile");
+                    Storage.remove("gd360_userId");
+                    Storage.remove("gd360_coins");
+                  }} style={{fontSize:12,fontWeight:600,padding:"6px 14px",borderRadius:20,backgroundColor:"#fee2e2",color:chili,border:"none",cursor:"pointer"}}>
                     {lang==="kn"?"ಲಾಗ್ ಔಟ್":"Sign Out"}
                   </button>
                 </div>
@@ -1171,8 +1323,75 @@ export default function Gadag360() {
                       <div style={{fontSize:13,fontWeight:800,color:ink}}>₹{o.total} · {o.payment==="upi"?"UPI":"COD"}</div>
                       <div style={{display:"flex",gap:6}}>
                         <button onClick={()=>{
-                          const lines = (o.items||[]).map(i=>`${i.name} x${i.qty} = ₹${i.price*i.qty}`).join("\n");
-                          alert(`GADAG 360 INVOICE\n\nOrder: #${o.id}\nDate: ${o.date}\n\n${lines}\n\nTotal: ₹${o.total}\nPayment: ${o.payment==="upi"?"UPI":"COD"}\n\nThank you!`);
+                          const items = (o.items||[]);
+                          const subtotalAmt = items.reduce((s,i)=>s+(i.price*i.qty),0);
+                          const invoiceHTML = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>GADAG 360 Invoice</title>
+                          <style>body{font-family:Arial,sans-serif;margin:0;padding:20px;color:#111;font-size:13px}
+                          .header{border-bottom:2px solid #1A6B3C;padding-bottom:12px;margin-bottom:16px}
+                          .logo{color:#1A6B3C;font-size:22px;font-weight:900;letter-spacing:-0.5px}
+                          .subtitle{color:#555;font-size:11px;margin-top:2px}
+                          .meta{display:flex;justify-content:space-between;margin:12px 0;font-size:12px}
+                          .meta-box{background:#f8f8f8;padding:10px 14px;border-radius:8px;flex:1;margin:0 4px}
+                          .meta-box:first-child{margin-left:0} .meta-box:last-child{margin-right:0}
+                          .label{color:#888;font-size:10px;margin-bottom:3px}
+                          table{width:100%;border-collapse:collapse;margin:16px 0}
+                          th{background:#1A6B3C;color:white;padding:8px 10px;text-align:left;font-size:11px}
+                          td{padding:8px 10px;border-bottom:1px solid #eee;font-size:12px}
+                          tr:last-child td{border-bottom:none}
+                          .total-row{background:#f0faf4;font-weight:bold}
+                          .footer{margin-top:20px;padding-top:12px;border-top:1px solid #eee;font-size:10px;color:#888;text-align:center}
+                          .green{color:#1A6B3C;font-weight:700}
+                          .bill-summary{background:#f8f8f8;border-radius:8px;padding:12px;margin:12px 0}
+                          .bill-row{display:flex;justify-content:space-between;padding:4px 0;font-size:12px}
+                          .bill-total{display:flex;justify-content:space-between;padding:8px 0 0;margin-top:4px;border-top:1px solid #ddd;font-weight:bold;font-size:14px}
+                          </style></head><body>
+                          <div class="header">
+                            <div class="logo">GADAG 360</div>
+                            <div class="subtitle">Fresh Groceries · Gadag-Betageri, Karnataka 582101</div>
+                            <div class="subtitle">FSSAI: (Registration Pending) · Email: hello@gadag360.in · Ph: +91 98765 43210</div>
+                          </div>
+                          <div style="text-align:center;font-size:14px;font-weight:bold;margin-bottom:12px;letter-spacing:1px">TAX INVOICE / BILL OF SUPPLY</div>
+                          <div class="meta">
+                            <div class="meta-box"><div class="label">Invoice No.</div><div style="font-weight:700">${o.id}-INV</div></div>
+                            <div class="meta-box"><div class="label">Order No.</div><div style="font-weight:700">#${o.id}</div></div>
+                            <div class="meta-box"><div class="label">Date</div><div>${o.date}</div></div>
+                            <div class="meta-box"><div class="label">Payment</div><div>${o.payment==="upi"?"UPI":"Cash on Delivery"}</div></div>
+                          </div>
+                          <div class="meta">
+                            <div class="meta-box" style="flex:2"><div class="label">Bill To / Ship To</div>
+                              <div style="font-weight:600">${userProfile.name||"Customer"}</div>
+                              <div>${o.address||"Gadag, Karnataka"}</div>
+                              <div>Ph: ${userProfile.phone||"—"}</div>
+                            </div>
+                            <div class="meta-box" style="flex:2"><div class="label">Delivery Slot</div>
+                              <div>${o.slot||"Standard Delivery"}</div>
+                              <div class="label" style="margin-top:8px">Delivered By</div>
+                              <div>GADAG 360 · Local Kirana Network</div>
+                            </div>
+                          </div>
+                          <table>
+                            <thead><tr><th>SR</th><th>Item & Description</th><th>Qty</th><th>Rate</th><th>Total</th></tr></thead>
+                            <tbody>
+                              ${items.map((item,idx)=>`<tr><td>${idx+1}</td><td>${item.name}</td><td>${item.qty}</td><td>₹${item.price}</td><td>₹${item.price*item.qty}</td></tr>`).join("")}
+                            </tbody>
+                          </table>
+                          <div class="bill-summary">
+                            <div class="bill-row"><span>Item Total</span><span>₹${subtotalAmt}</span></div>
+                            <div class="bill-row"><span>Delivery Fee</span><span>${subtotalAmt>=250?"FREE":"₹15"}</span></div>
+                            <div class="bill-total"><span>Invoice Value</span><span class="green">₹${o.total}</span></div>
+                          </div>
+                          <div style="font-size:11px;color:#555;margin:8px 0">
+                            <div>• GST: Fresh fruits & vegetables — 0% GST applicable</div>
+                            <div>• This is a computer generated invoice and does not require a signature</div>
+                          </div>
+                          <div class="footer">
+                            <div style="font-size:12px;font-weight:700;color:#1A6B3C;margin-bottom:4px">Thank you for shopping with GADAG 360!</div>
+                            <div>Gadag's first hyperlocal grocery delivery · hello@gadag360.in</div>
+                            <div style="margin-top:4px">For support: +91 98765 43210 · gadag360.vercel.app</div>
+                          </div>
+                          </body></html>`;
+                          const win = window.open("","_blank");
+                          if(win){ win.document.write(invoiceHTML); win.document.close(); win.print(); }
                         }} style={{padding:"5px 10px",borderRadius:8,backgroundColor:"#f0faf4",color:basil,border:`1px solid ${basil}20`,fontSize:11,fontWeight:600,cursor:"pointer"}}>
                           🧾 {lang==="kn"?"ಇನ್‌ವಾಯ್ಸ್":"Invoice"}
                         </button>
@@ -1259,6 +1478,7 @@ export default function Gadag360() {
             ))}
             <button onClick={async()=>{
               setUserProfile({...editProfile});
+              Storage.set("gd360_profile", JSON.stringify(editProfile));
               if(currentUserId){
                 await supabase.from("users").update({name:editProfile.name, email:editProfile.email}).eq("id",currentUserId);
               }
@@ -1416,7 +1636,7 @@ export default function Gadag360() {
 
         {/* ── CART BAR ── */}
         {/* Floating mic button — bottom right like Handpickd */}
-        <div style={{position:"fixed", bottom: itemCount>0?80:20, right:16, zIndex:36}}>
+        <div style={{position:"fixed", bottom:`calc(env(safe-area-inset-bottom, 0px) + ${itemCount>0?80:20}px)`, right:16, zIndex:36}}>
           <button onClick={startVoice} style={{width:48,height:48,borderRadius:"50%",backgroundColor:voiceActive?chili:"#555",color:"white",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 3px 12px rgba(0,0,0,0.25)",fontSize:20}}>
             {voiceActive?"🎤":"🎙️"}
           </button>
@@ -1425,7 +1645,7 @@ export default function Gadag360() {
 
         {/* Cart bar */}
         {itemCount > 0 && (
-          <div style={{position:"fixed", bottom:16, left:0, right:0, padding:"0 12px", zIndex:35}}>
+          <div style={{position:"fixed", bottom:0, left:0, right:0, padding:"8px 12px", paddingBottom:"calc(env(safe-area-inset-bottom, 16px) + 8px)", zIndex:35, backgroundColor:"transparent"}}>
             <button onClick={()=>setScreen("cart")} style={{width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between", padding:"14px 18px", borderRadius:16, backgroundColor:basil, color:"white", border:"none", cursor:"pointer", boxShadow:"0 4px 20px rgba(26,107,60,0.4)"}}>
               <div style={{display:"flex", alignItems:"center", gap:8}}>
                 <div style={{backgroundColor:"rgba(255,255,255,0.2)", borderRadius:8, padding:"2px 8px", fontSize:12, fontWeight:700}}>{itemCount}</div>
