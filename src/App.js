@@ -8,6 +8,15 @@ const isNative = () => {
   try { return window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform(); } catch(e) { return false; }
 };
 
+// ── CAPGO: Notify app is ready (prevents rollback after update) ──
+if (isNative()) {
+  try {
+    import("@capgo/capacitor-updater").then(({ CapacitorUpdater }) => {
+      CapacitorUpdater.notifyAppReady();
+    }).catch(() => {});
+  } catch(e) {}
+}
+
 // ── STORAGE HELPER (uses BOTH localStorage + Capacitor Preferences) ──
 const Storage = {
   async set(key, value) {
@@ -695,6 +704,7 @@ export default function Gadag360() {
   const [selectedVariant, setSelectedVariant] = useState({});
   const [currentUserId, setCurrentUserId] = useState(null);
   const [tip, setTip] = useState(0);
+  const [dbProducts, setDbProducts] = useState([]);
   const [vendorOrderStatus, setVendorOrderStatus] = useState({}); // {orderId: "accepted"|"rejected"}
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showCatDrawer, setShowCatDrawer] = useState(false);
@@ -798,14 +808,14 @@ export default function Gadag360() {
   };
   const t = T[lang];
 
-  const filtered = useMemo(() => PRODUCTS.filter(p => {
+  const filtered = useMemo(() => LIVE_PRODUCTS.filter(p => {
     const matchesCat = activeCat === "all" || p.cat === activeCat;
     const matchesQ = query.trim() === "" || p.name.toLowerCase().includes(query.toLowerCase());
     return matchesCat && matchesQ;
   }), [activeCat, query]);
 
   const cartItems = Object.entries(cart).filter(([,qty]) => qty > 0)
-    .map(([id, qty]) => ({ ...PRODUCTS.find(p => p.id === id), qty }));
+    .map(([id, qty]) => ({ ...LIVE_PRODUCTS.find(p => p.id === id), qty }));
   const itemCount = cartItems.reduce((s,i) => s + i.qty, 0);
   const subtotal = cartItems.reduce((s,i) => s + i.qty * i.price, 0);
   const deliveryFee = subtotal > 0 ? 15 : 0;
@@ -1017,6 +1027,25 @@ export default function Gadag360() {
   };
   const toggleWishlist = (id) => setWishlist(w=>({...w,[id]:!w[id]}));
 
+  // Get live price from Supabase if available, else use hardcoded
+  const getLivePrice = (p) => {
+    const dbP = dbProducts.find(d => d.id === p.id);
+    return dbP ? dbP.price : p.price;
+  };
+
+  // Check if product is in stock from Supabase
+  const isInStock = (p) => {
+    const dbP = dbProducts.find(d => d.id === p.id);
+    return dbP ? dbP.in_stock !== false : true;
+  };
+
+  // Merge LIVE_PRODUCTS with Supabase data
+  const LIVE_PRODUCTS = LIVE_PRODUCTS.map(p => ({
+    ...p,
+    price: getLivePrice(p),
+    in_stock: isInStock(p)
+  }));
+
   // ── CAPACITOR NATIVE SETUP ──
   useEffect(() => {
     // 1. Restore login session
@@ -1067,6 +1096,17 @@ export default function Gadag360() {
       } catch(e) { console.log("GD360 restore error:", e); }
     };
     restoreSession();
+
+    // Load products from Supabase (overrides hardcoded prices)
+    const loadProductsFromDB = async () => {
+      try {
+        const { data } = await supabase.from("products").select("id, price, in_stock");
+        if (data && data.length > 0) {
+          setDbProducts(data);
+        }
+      } catch(e) { console.log("Product load error:", e); }
+    };
+    loadProductsFromDB();
 
     // 2. Status bar — only on native Android
     const setupStatusBar = async () => {
@@ -1306,7 +1346,7 @@ export default function Gadag360() {
                     {/* Product images row */}
                     <div style={{display:"flex",gap:8,padding:"10px 14px",overflowX:"auto",scrollbarWidth:"none"}}>
                       {(o.items||[]).slice(0,5).map((item,idx)=>{
-                        const prod = PRODUCTS.find(p=>p.id===item.id||p.name===item.name);
+                        const prod = LIVE_PRODUCTS.find(p=>p.id===item.id||p.name===item.name);
                         return (
                           <div key={idx} style={{flexShrink:0,width:56,textAlign:"center"}}>
                             <div style={{width:56,height:56,borderRadius:10,overflow:"hidden",backgroundColor:"#fafafa",border:`1px solid ${line}`}}>
@@ -1419,7 +1459,7 @@ export default function Gadag360() {
           {profileSection==="wishlist" && (
             Object.values(wishlist).filter(Boolean).length===0
               ? <div className="text-center pt-16"><div className="text-5xl mb-3">🤍</div><div className="text-sm" style={{color:soil}}>{lang==="kn"?"ವಿಶ್‌ಲಿಸ್ಟ್ ಖಾಲಿ ಇದೆ":"Your wishlist is empty"}</div><button onClick={()=>{setProfileSection(null);setActiveTab("home");setScreen("home");}} className="mt-4 px-4 py-2 rounded-xl text-sm font-bold" style={{backgroundColor:basil,color:"white"}}>{lang==="kn"?"ಉತ್ಪನ್ನ ಹುಡುಕಿ":"Browse Products"}</button></div>
-              : <div className="grid grid-cols-2 gap-3">{PRODUCTS.filter(p=>wishlist[p.id]).map(p=>(
+              : <div className="grid grid-cols-2 gap-3">{LIVE_PRODUCTS.filter(p=>wishlist[p.id]).map(p=>(
                   <div key={p.id} className="rounded-2xl overflow-hidden" style={{backgroundColor:panel,border:`1px solid ${line}`}}>
                     <div style={{position:"relative",paddingTop:"75%",overflow:"hidden"}}><div style={{position:"absolute",inset:0}}><ProductImage p={p}/></div></div>
                     <div className="p-2"><div className="text-xs font-semibold">{lang==="kn"?(KN_NAMES[p.name]||p.name):p.name}</div><div className="text-xs font-bold mt-1">₹{p.price}</div><button onClick={()=>addToCart(p.id)} className="w-full mt-2 py-1 rounded-lg text-xs font-bold" style={{backgroundColor:mango,color:basilDark}}>+ {lang==="kn"?"ಸೇರಿಸಿ":"Add"}</button></div>
@@ -1586,7 +1626,7 @@ export default function Gadag360() {
           </div>
         )}
 
-        {/* ── HANDPICKD LAYOUT: LEFT SIDEBAR + GROUPED PRODUCTS ── */}
+        {/* ── HANDPICKD LAYOUT: LEFT SIDEBAR + GROUPED LIVE_PRODUCTS ── */}
         {/* Side category drawer toggle button */}
         <div style={{position:"relative"}}>
           {/* Arrow toggle button on left edge */}
@@ -1840,7 +1880,7 @@ export default function Gadag360() {
                 <div style={{backgroundColor:"white",margin:"8px 0",padding:"14px"}}>
                   <div style={{fontSize:12,fontWeight:700,color:ink,marginBottom:10}}>🛍️ {lang==="kn"?"ನಿಮಗಾಗಿ ಸ್ಪೆಷಲ್ ಆಫರ್":"Special offers for you"}</div>
                   <div style={{display:"flex",gap:8,overflowX:"auto",scrollbarWidth:"none"}}>
-                    {PRODUCTS.filter(p=>p.price<=30&&!cart[p.id]).slice(0,8).map(p=>(
+                    {LIVE_PRODUCTS.filter(p=>p.price<=30&&!cart[p.id]).slice(0,8).map(p=>(
                       <div key={p.id} style={{flexShrink:0,width:80,borderRadius:10,overflow:"hidden",backgroundColor:"#fafafa",border:`1px solid ${line}`}}>
                         <div style={{height:64,backgroundColor:"#fafafa",overflow:"hidden"}}><ProductImage p={p}/></div>
                         <div style={{padding:"4px 6px 6px"}}>
