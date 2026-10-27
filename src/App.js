@@ -709,6 +709,21 @@ export default function Gadag360() {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showCatDrawer, setShowCatDrawer] = useState(false);
 
+  // ── LIVE PRODUCTS (merged with Supabase prices) ──
+  const getLivePrice = (p) => {
+    const dbP = dbProducts.find(d => d.id === p.id);
+    return dbP ? dbP.price : p.price;
+  };
+  const isInStock = (p) => {
+    const dbP = dbProducts.find(d => d.id === p.id);
+    return dbP ? dbP.in_stock !== false : true;
+  };
+  const LIVE_PRODUCTS = PRODUCTS.map(p => ({
+    ...p,
+    price: getLivePrice(p),
+    in_stock: isInStock(p)
+  }));
+
   // ── STATIC DATA ──
   const BUNDLES = [
     {id:"b1", icon:"🥬", name:"Weekly Sabzi Pack",   nameKn:"ವಾರದ ತರಕಾರಿ ಪ್ಯಾಕ್",  items:"Onion · Tomato · Potato · Coriander", price:89,  orig:105},
@@ -1027,24 +1042,6 @@ export default function Gadag360() {
   };
   const toggleWishlist = (id) => setWishlist(w=>({...w,[id]:!w[id]}));
 
-  // Get live price from Supabase if available, else use hardcoded
-  const getLivePrice = (p) => {
-    const dbP = dbProducts.find(d => d.id === p.id);
-    return dbP ? dbP.price : p.price;
-  };
-
-  // Check if product is in stock from Supabase
-  const isInStock = (p) => {
-    const dbP = dbProducts.find(d => d.id === p.id);
-    return dbP ? dbP.in_stock !== false : true;
-  };
-
-  // Merge PRODUCTS with Supabase data
-  const LIVE_PRODUCTS = PRODUCTS.map(p => ({
-    ...p,
-    price: getLivePrice(p),
-    in_stock: isInStock(p)
-  }));
 
   // ── CAPACITOR NATIVE SETUP ──
   useEffect(() => {
