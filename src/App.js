@@ -530,7 +530,7 @@ function HandpickdLayout({ filtered, activeCat, setActiveCat, cart, addToCart, r
             <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6,padding:"0 8px",width:"100%",boxSizing:"border-box"}}>
               {selectedGroup.products.map(p=>{
                 const qty = cart[p.id]||0;
-                const price = p.variants?.[0]?.price||(()=>{const db=dbProducts.find(d=>d.id===p.id);return db?db.price:p.price;})();
+                const liveP2=LIVE_PRODUCTS.find(lp=>lp.id===p.id)||p; const price = p.variants?.[0]?.price||liveP2.price;
                 return (
                   <div key={p.id} onClick={()=>setSelectedProduct(p)}
                     style={{backgroundColor:"white",borderRadius:16,overflow:"hidden",cursor:"pointer",boxShadow:"0 1px 6px rgba(0,0,0,0.07)"}}>
@@ -586,9 +586,9 @@ function HandpickdLayout({ filtered, activeCat, setActiveCat, cart, addToCart, r
                             const first = products[0];
                             const hasMany = products.length>1;
                             const qty = !hasMany?(cart[first.id]||0):0;
-                            const price = first.variants?.[0]?.price||(()=>{const db=dbProducts.find(d=>d.id===first.id);return db?db.price:first.price;})();
-                            const minPrice = hasMany?Math.min(...products.map(p=>{ const db=dbProducts.find(d=>d.id===p.id); return db?db.price:p.price; })):price;
-                            const maxPrice = hasMany?Math.max(...products.map(p=>{ const db=dbProducts.find(d=>d.id===p.id); const base=db?db.price:p.price; return p.variants?.[0]?.price||base; })):price;
+                            const liveFirst=LIVE_PRODUCTS.find(lp=>lp.id===first.id)||first; const price = first.variants?.[0]?.price||liveFirst.price;
+                            const minPrice = hasMany?Math.min(...products.map(p=>(LIVE_PRODUCTS.find(lp=>lp.id===p.id)||p).price)):price;
+                            const maxPrice = hasMany?Math.max(...products.map(p=>{ const lp=LIVE_PRODUCTS.find(lp=>lp.id===p.id)||p; return p.variants?.[0]?.price||lp.price; })):price;
                             const groupKey = `${cat.id}::${key}`;
                             const isExpanded = expandedGroup===groupKey;
                             return (
@@ -620,7 +620,7 @@ function HandpickdLayout({ filtered, activeCat, setActiveCat, cart, addToCart, r
                               <div style={{display:"flex",gap:10,overflowX:"auto",scrollbarWidth:"none",paddingBottom:4}}>
                                 {products.map(p=>{
                                   const qty = cart[p.id]||0;
-                                  const price = p.variants?.[0]?.price||(()=>{const db=dbProducts.find(d=>d.id===p.id);return db?db.price:p.price;})();
+                                  const liveP=LIVE_PRODUCTS.find(lp=>lp.id===p.id)||p; const price = p.variants?.[0]?.price||liveP.price;
                                   return (
                                     <div key={p.id} onClick={e=>{e.stopPropagation();setSelectedProduct(p);}}
                                       style={{flexShrink:0,width:"calc(30vw - 12px)",maxWidth:100,backgroundColor:"white",borderRadius:12,overflow:"hidden",cursor:"pointer",boxShadow:"0 1px 4px rgba(0,0,0,0.08)"}}>
