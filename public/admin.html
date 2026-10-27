@@ -227,7 +227,7 @@ function toast(msg,color="#1A6B3C"){
 async function loadDashboard(){
   try {
     const [orders,customers,products] = await Promise.all([
-      db("orders",""),db("users",""),db("products","")
+      db("orders").catch(()=>[]),db("users").catch(()=>[]),db("products").catch(()=>[])
     ]);
     const rev = (orders||[]).reduce((s,o)=>s+(o.total||0),0);
     document.getElementById("statOrders").textContent=(orders||[]).length;
@@ -238,15 +238,15 @@ async function loadDashboard(){
     document.getElementById("recentOrdersBody").innerHTML=recent.length===0
       ? "<tr><td colspan='5' style='text-align:center;color:#aaa;padding:20px'>No orders yet</td></tr>"
       : recent.map(o=>`<tr><td><b>#${o.id}</b></td><td>${o.created_at?new Date(o.created_at).toLocaleDateString("en-IN"):"—"}</td><td><b>₹${o.total}</b></td><td>${o.payment==="upi"?"UPI":"COD"}</td><td><span class="badge badge-green">${o.status||"placed"}</span></td></tr>`).join("");
-  } catch(e){document.getElementById("recentOrdersBody").innerHTML=`<tr><td colspan='5' style='color:red;text-align:center;padding:20px'>${e.message}</td></tr>`;}
+  } catch(e){document.getElementById("recentOrdersBody").innerHTML=`<tr><td colspan='5' style='color:red;text-align:center;padding:20px'>Error: ${e.message}</td></tr>`;}
 }
 
 async function loadOrders(){
   document.getElementById("ordersBody").innerHTML="<tr><td colspan='7' style='text-align:center;padding:20px'><span class='spinner'></span>Loading...</td></tr>";
   try {
-    allOrders = await db("orders","order=created_at.desc");
+    allOrders = await db("orders",{filter:"order=created_at.desc"});
     renderOrders(allOrders);
-  } catch(e){document.getElementById("ordersBody").innerHTML=`<tr><td colspan='7' style='color:red;text-align:center;padding:20px'>${e.message}</td></tr>`;}
+  } catch(e){document.getElementById("ordersBody").innerHTML=`<tr><td colspan='7' style='color:red;text-align:center;padding:20px'>Error: ${e.message}</td></tr>`;}
 }
 
 function renderOrders(orders){
@@ -283,7 +283,7 @@ async function updateStatus(id,status){
 async function loadProducts(){
   document.getElementById("productsBody").innerHTML="<tr><td colspan='7' style='text-align:center;padding:20px'><span class='spinner'></span>Loading...</td></tr>";
   try {
-    allProducts = await db("products","order=cat.asc");
+    allProducts = await db("products",{filter:"order=cat.asc"});
     renderProducts(allProducts);
   } catch(e){document.getElementById("productsBody").innerHTML=`<tr><td colspan='7' style='color:red;text-align:center;padding:20px'>${e.message}</td></tr>`;}
 }
@@ -374,7 +374,7 @@ async function saveProduct(){
 
 async function loadVendors(){
   try{
-    const vendors=await db("vendors","order=id.asc");
+    const vendors=await db("vendors",{filter:"order=id.asc"});
     document.getElementById("vendorsBody").innerHTML=vendors.length===0
       ? "<tr><td colspan='6' style='text-align:center;color:#aaa;padding:20px'>No vendors</td></tr>"
       : vendors.map(v=>`<tr><td>${v.id}</td><td><b>${v.name}</b></td><td>${v.name_kn||"—"}</td><td>${v.area||"Gadag"}</td>
@@ -393,7 +393,7 @@ async function toggleVendor(id,active){
 
 async function loadCustomers(){
   try{
-    const customers=await db("users","order=created_at.desc");
+    const customers=await db("users",{filter:"order=created_at.desc"});
     document.getElementById("customersBody").innerHTML=customers.length===0
       ? "<tr><td colspan='5' style='text-align:center;color:#aaa;padding:20px'>No customers yet</td></tr>"
       : customers.map(c=>`<tr><td><b>${c.phone}</b></td><td>${c.name||"—"}</td><td>${c.email||"—"}</td><td>🪙${c.coins||0}</td><td>${c.created_at?new Date(c.created_at).toLocaleDateString("en-IN"):"—"}</td></tr>`).join("");
