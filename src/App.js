@@ -848,6 +848,7 @@ export default function Gadag360() {
     const orderId = "GD" + Math.floor(1000 + Math.random()*9000);
     const newOrder = {id:orderId, items:cartItems, total:finalTotal, address, payment, slot:deliverySlot, date: new Date().toLocaleDateString("en-IN")};
     setVendorOrders(v => [newOrder, ...v]);
+      sendOwnerNotification(newOrder);
     setOrderHistory(h => [newOrder, ...h]);
     setCoins(c => {
       const newCoins = c + coinsEarned;
@@ -981,16 +982,30 @@ export default function Gadag360() {
                 <ShoppingCart size={18} style={{color:ink}}/>
                 {itemCount>0 && <div style={{position:"absolute",top:0,right:0,width:16,height:16,borderRadius:"50%",backgroundColor:chili,color:"white",fontSize:9,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center"}}>{itemCount}</div>}
               </button>
-            : screen==="vendor"
-              ? null
-              : <button onClick={()=>setScreen("vendor")} style={{fontSize:10,fontWeight:700,padding:"3px 8px",borderRadius:12,backgroundColor:basil,color:"white",border:"none",cursor:"pointer"}}>
-                  {t.shopView}
-                </button>
+            : null
           }
         </div>
       </div>
     );
   };
+
+
+    // ── OWNER NOTIFICATIONS ──
+    const sendOwnerNotification = (order) => {
+      // WhatsApp notification to owner
+      const waMsg = encodeURIComponent(
+        `🛒 NEW ORDER - GADAG 360\n` +
+        `Order ID: #${order.id}\n` +
+        `Customer: ${order.customer_name || "Customer"}\n` +
+        `Phone: ${order.customer_phone || ""}\n` +
+        `Items: ${(order.items||[]).map(i=>i.name+" x"+i.qty).join(", ")}\n` +
+        `Total: ₹${order.total}\n` +
+        `Address: ${order.address}\n` +
+        `Slot: ${order.slot}\n` +
+        `Payment: ${order.payment}`
+      );
+      window.open(`https://wa.me/919886888924?text=${waMsg}`, "_blank");
+    };
 
   // ── OTP SEND (simulated) ──
   const sendOtp = () => { if(loginPhone.length===10){ setOtpSent(true); setLoginStep("otp"); } else alert("Enter valid 10-digit number"); };
@@ -2135,49 +2150,7 @@ export default function Gadag360() {
         )}
       </>}
 
-      {screen === "vendor" && <>
-        <Header showBack onBack={() => setScreen("home")} title={lang==="kn" ? "ಕಿರಾಣಾ ಪಾಲುದಾರ ಡ್ಯಾಶ್‌ಬೋರ್ಡ್" : "Kirana Partner Dashboard"}/>
-        <div style={{flex:1,overflowY:"auto",backgroundColor:"#f8f8f6",padding:"12px 14px",paddingBottom:80}}>
-          {/* Partner tabs */}
-          <div style={{display:"flex",gap:8,overflowX:"auto",paddingBottom:8,marginBottom:12,scrollbarWidth:"none"}}>
-            {VENDORS.map(v => (
-              <button key={v.id} style={{padding:"6px 14px",borderRadius:20,fontSize:11,whiteSpace:"nowrap",fontWeight:600,flexShrink:0,backgroundColor:basil,color:"white",border:"none",cursor:"pointer"}}>
-                {lang==="kn" ? VENDOR_KN[v.id] : v.name}
-              </button>
-            ))}
-          </div>
-          {/* Orders */}
-          <div style={{display:"flex",flexDirection:"column",gap:10}}>
-            {vendorOrders.length === 0
-              ? <div style={{textAlign:"center",paddingTop:40,fontSize:13,color:soil}}>{t.noOrders}</div>
-              : vendorOrders.map(o => (
-                  <div key={o.id} style={{borderRadius:14,padding:"14px",backgroundColor:"white",border:`1px solid ${line}`,boxShadow:"0 1px 4px rgba(0,0,0,0.05)"}}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-                      <span style={{fontSize:14,fontWeight:800,color:ink}}>#{o.id}</span>
-                      <span style={{fontSize:10,fontWeight:700,padding:"3px 10px",borderRadius:10,backgroundColor:"#fff3cd",color:"#856404"}}>
-                        {vendorOrderStatus[o.id]==="accepted"?"✓ Accepted":vendorOrderStatus[o.id]==="rejected"?"✕ Rejected":"⏳ Pending"}
-                      </span>
-                    </div>
-                    <div style={{fontSize:12,fontWeight:700,color:ink,marginBottom:4}}>₹{o.total} · {o.payment==="upi"?"UPI":"COD"}</div>
-                    <div style={{fontSize:11,color:soil,marginBottom:3}}>{(o.items||[]).map(i=>`${i.name} ×${i.qty}`).join(", ")}</div>
-                    <div style={{fontSize:11,color:soil,marginBottom:10}}>📍 {o.address}</div>
-                    <div style={{display:"flex",gap:8}}>
-                      {vendorOrderStatus[o.id]==="accepted"
-                        ? <div style={{flex:1,textAlign:"center",padding:"8px",borderRadius:10,backgroundColor:"#e8f5e9",color:basil,fontSize:12,fontWeight:700}}>✓ {lang==="kn"?"ಸ್ವೀಕರಿಸಲಾಗಿದೆ":"Accepted"}</div>
-                        : vendorOrderStatus[o.id]==="rejected"
-                        ? <div style={{flex:1,textAlign:"center",padding:"8px",borderRadius:10,backgroundColor:"#fee2e2",color:chili,fontSize:12,fontWeight:700}}>✕ {lang==="kn"?"ತಿರಸ್ಕರಿಸಲಾಗಿದೆ":"Rejected"}</div>
-                        : <>
-                            <button onClick={()=>setVendorOrderStatus(s=>({...s,[o.id]:"accepted"}))} style={{flex:1,padding:"9px",borderRadius:10,backgroundColor:basil,color:"white",border:"none",cursor:"pointer",fontSize:13,fontWeight:700}}>✓ {lang==="kn"?"ಸ್ವೀಕರಿಸಿ":"Accept"}</button>
-                            <button onClick={()=>setVendorOrderStatus(s=>({...s,[o.id]:"rejected"}))} style={{padding:"9px 16px",borderRadius:10,backgroundColor:chili,color:"white",border:"none",cursor:"pointer",fontSize:13,fontWeight:700}}>{lang==="kn"?"ತಿರಸ್ಕರಿಸಿ":"Reject"}</button>
-                          </>
-                      }
-                    </div>
-                  </div>
-                ))
-            }
-          </div>
-        </div>
-      </>}
+      
 
     </div>
   );
