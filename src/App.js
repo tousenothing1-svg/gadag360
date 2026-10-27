@@ -627,6 +627,7 @@ function HandpickdLayout({ filtered, activeCat, setActiveCat, cart, addToCart, r
                                       <div style={{position:"relative",paddingTop:"100%",backgroundColor:"#fafafa"}}>
                                         <div style={{position:"absolute",inset:"6px"}}><ProductImage p={p}/></div>
                                         {qty>0&&<div style={{position:"absolute",top:4,right:4,width:16,height:16,borderRadius:"50%",backgroundColor:basil,color:"white",fontSize:8,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center"}}>{qty}</div>}
+                                        {!p.in_stock&&<div style={{position:"absolute",inset:0,backgroundColor:"rgba(255,255,255,0.85)",display:"flex",alignItems:"center",justifyContent:"center",borderRadius:8}}><span style={{fontSize:7,fontWeight:800,color:chili,textAlign:"center",padding:"2px 5px",backgroundColor:"#fee2e2",borderRadius:4}}>OUT OF STOCK</span></div>}
                                       </div>
                                       <div style={{padding:"5px 6px 7px"}}>
                                         <div style={{fontSize:8,color:soil}}>₹{price}/{p.variants?.[0]?.label||p.unit}</div>
@@ -718,10 +719,15 @@ export default function Gadag360() {
     const dbP = dbProducts.find(d => d.id === p.id);
     return dbP ? dbP.in_stock !== false : true;
   };
+  const getStockQty = (p) => {
+    const dbP = dbProducts.find(d => d.id === p.id);
+    return dbP ? (dbP.stock_qty ?? 100) : 100;
+  };
   const LIVE_PRODUCTS = PRODUCTS.map(p => ({
     ...p,
     price: getLivePrice(p),
-    in_stock: isInStock(p)
+    in_stock: isInStock(p),
+    stock_qty: getStockQty(p)
   }));
 
   // ── STATIC DATA ──
@@ -836,7 +842,11 @@ export default function Gadag360() {
   const deliveryFee = subtotal > 0 ? 15 : 0;
   const total = subtotal + deliveryFee;
 
-  const addToCart = (id) => setCart(c => ({...c, [id]: (c[id]||0)+1}));
+  const addToCart = (id) => {
+    const prod = LIVE_PRODUCTS.find(p => p.id === id);
+    if (prod && !prod.in_stock) return; // block out of stock
+    setCart(c => ({...c, [id]: (c[id]||0)+1}));
+  };
   const removeFromCart = (id) => setCart(c => ({...c, [id]: Math.max(0,(c[id]||0)-1)}));
   // ── DISCOUNT: ₹20 off if order ≥ ₹299 (F6) ──
   const minOrderDiscount = subtotal >= 299 ? 20 : 0;
@@ -858,6 +868,17 @@ export default function Gadag360() {
     setOrderStatusIdx(0); setRiderPos({x:20,y:70}); setScreen("checkout"); setCart({});
     setShowRating(false); setLastRating(0); setDeliverySlot("");
     setTimeout(() => setNotifShown(true), 2000);
+
+    // ── REDUCE STOCK IN SUPABASE ──
+    try {
+      for (const item of cartItems) {
+        const prod = LIVE_PRODUCTS.find(p => p.id === item.id);
+        if (prod) {
+          const newQty = Math.max(0, (prod.stock_qty || 100) - item.qty);
+          await supabase.from("products").update({ stock_qty: newQty, in_stock: newQty > 0 }).eq("id", item.id);
+        }
+      }
+    } catch(e) { console.log("Stock update error:", e); }
 
     // ── SAVE TO SUPABASE ──
     try {
@@ -1112,7 +1133,7 @@ export default function Gadag360() {
     // Load products from Supabase (overrides hardcoded prices)
     const loadProductsFromDB = async () => {
       try {
-        const { data } = await supabase.from("products").select("id, price, in_stock");
+        const { data } = await supabase.from("products").select("id, price, in_stock, stock_qty");
         if (data && data.length > 0) {
           setDbProducts(data);
         }
