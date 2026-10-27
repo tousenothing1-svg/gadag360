@@ -833,7 +833,7 @@ export default function Gadag360() {
     const matchesCat = activeCat === "all" || p.cat === activeCat;
     const matchesQ = query.trim() === "" || p.name.toLowerCase().includes(query.toLowerCase());
     return matchesCat && matchesQ;
-  }), [activeCat, query]);
+  }), [activeCat, query, dbProducts]);
 
   const cartItems = Object.entries(cart).filter(([,qty]) => qty > 0)
     .map(([id, qty]) => ({ ...LIVE_PRODUCTS.find(p => p.id === id), qty }));
