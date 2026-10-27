@@ -846,7 +846,7 @@ export default function Gadag360() {
 
   const placeOrder = async () => {
     const orderId = "GD" + Math.floor(1000 + Math.random()*9000);
-    const newOrder = {id:orderId, items:cartItems, total:finalTotal, address, payment, slot:deliverySlot, date: new Date().toLocaleDateString("en-IN")};
+    const newOrder = {id:orderId, items:cartItems, total:finalTotal, address, payment, slot:deliverySlot, date: new Date().toLocaleDateString("en-IN"), customer_phone: userProfile.phone, customer_name: userProfile.name};
     setVendorOrders(v => [newOrder, ...v]);
       sendOwnerNotification(newOrder);
     setOrderHistory(h => [newOrder, ...h]);
@@ -2016,13 +2016,29 @@ export default function Gadag360() {
               💬 {lang==="kn"?"ಸಹಾಯ":"Get Help"}
             </button>
           </div>
-          {/* WhatsApp share */}
+          {/* WhatsApp Order Confirmation to Customer */}
           <div style={{margin:"0 14px 8px"}}>
             <button onClick={()=>{
-              const msg = encodeURIComponent(`GADAG 360 Order Confirmed!\nOrder ID: #${vendorOrders[0]?.id||"—"}\nTotal: ₹${vendorOrders[0]?.total||0}\nThank you for ordering!`);
+              const o = vendorOrders[0];
+              const itemList = (o?.items||[]).map(i => `• ${i.name} x${i.qty} = ₹${i.price*i.qty}`).join("\n");
+              const msg = encodeURIComponent(
+                `✅ *GADAG 360 - Order Confirmed!*\n\n` +
+                `🆔 Order ID: *#${o?.id||"—"}*\n` +
+                `📅 Date: ${o?.date||""}\n` +
+                `⏰ Delivery Slot: ${o?.slot||""}\n\n` +
+                `🛒 *Items Ordered:*\n${itemList}\n\n` +
+                `💰 *Total: ₹${o?.total||0}*\n` +
+                `💳 Payment: ${o?.payment==="upi"?"UPI":"Cash on Delivery"}\n\n` +
+                `📍 Deliver to: ${o?.address||""}\n\n` +
+                `Thank you for ordering from GADAG 360! 🙏\nFor help: +91 98868 88924`
+              );
               window.open(`https://wa.me/?text=${msg}`,'_blank');
-            }} style={{width:"100%",padding:"12px",borderRadius:12,backgroundColor:"#25D366",color:"white",border:"none",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
-              💬 {lang==="kn"?"WhatsApp ನಲ್ಲಿ ಶೇರ್ ಮಾಡಿ":"Share on WhatsApp"}
+            }} style={{width:"100%",padding:"14px",borderRadius:14,backgroundColor:"#25D366",color:"white",border:"none",fontWeight:800,fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10,boxShadow:"0 4px 12px rgba(37,211,102,0.4)"}}>
+              <span style={{fontSize:20}}>💬</span>
+              <div style={{textAlign:"left"}}>
+                <div>{lang==="kn"?"WhatsApp ದೃಢೀಕರಣ ಪಡೆಯಿರಿ":"Get WhatsApp Confirmation"}</div>
+                <div style={{fontSize:11,opacity:0.9,fontWeight:500}}>{lang==="kn"?"ಆರ್ಡರ್ ವಿವರ ಕಳುಹಿಸಿ":"Tap to send order details to yourself"}</div>
+              </div>
             </button>
           </div>
 
