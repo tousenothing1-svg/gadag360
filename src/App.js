@@ -1039,8 +1039,8 @@ export default function Gadag360() {
     return dbP ? dbP.in_stock !== false : true;
   };
 
-  // Merge LIVE_PRODUCTS with Supabase data
-  const LIVE_PRODUCTS = LIVE_PRODUCTS.map(p => ({
+  // Merge PRODUCTS with Supabase data
+  const LIVE_PRODUCTS = PRODUCTS.map(p => ({
     ...p,
     price: getLivePrice(p),
     in_stock: isInStock(p)
@@ -1626,7 +1626,7 @@ export default function Gadag360() {
           </div>
         )}
 
-        {/* ── HANDPICKD LAYOUT: LEFT SIDEBAR + GROUPED LIVE_PRODUCTS ── */}
+        {/* ── HANDPICKD LAYOUT: LEFT SIDEBAR + GROUPED PRODUCTS ── */}
         {/* Side category drawer toggle button */}
         <div style={{position:"relative"}}>
           {/* Arrow toggle button on left edge */}
