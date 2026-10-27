@@ -530,7 +530,7 @@ function HandpickdLayout({ filtered, activeCat, setActiveCat, cart, addToCart, r
             <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6,padding:"0 8px",width:"100%",boxSizing:"border-box"}}>
               {selectedGroup.products.map(p=>{
                 const qty = cart[p.id]||0;
-                const price = p.variants?.[0]?.price||p.price;
+                const price = p.price;
                 return (
                   <div key={p.id} onClick={()=>setSelectedProduct(p)}
                     style={{backgroundColor:"white",borderRadius:16,overflow:"hidden",cursor:"pointer",boxShadow:"0 1px 6px rgba(0,0,0,0.07)"}}>
@@ -586,9 +586,9 @@ function HandpickdLayout({ filtered, activeCat, setActiveCat, cart, addToCart, r
                             const first = products[0];
                             const hasMany = products.length>1;
                             const qty = !hasMany?(cart[first.id]||0):0;
-                            const price = first.variants?.[0]?.price||first.price;
+                            const price = first.price;
                             const minPrice = hasMany?Math.min(...products.map(p=>p.price)):price;
-                            const maxPrice = hasMany?Math.max(...products.map(p=>p.variants?.[0]?.price||p.price)):price;
+                            const maxPrice = hasMany?Math.max(...products.map(p=>p.price)):price;
                             const groupKey = `${cat.id}::${key}`;
                             const isExpanded = expandedGroup===groupKey;
                             return (
@@ -620,7 +620,7 @@ function HandpickdLayout({ filtered, activeCat, setActiveCat, cart, addToCart, r
                               <div style={{display:"flex",gap:10,overflowX:"auto",scrollbarWidth:"none",paddingBottom:4}}>
                                 {products.map(p=>{
                                   const qty = cart[p.id]||0;
-                                  const price = p.variants?.[0]?.price||p.price;
+                                  const price = p.price;
                                   return (
                                     <div key={p.id} onClick={e=>{e.stopPropagation();setSelectedProduct(p);}}
                                       style={{flexShrink:0,width:"calc(30vw - 12px)",maxWidth:100,backgroundColor:"white",borderRadius:12,overflow:"hidden",cursor:"pointer",boxShadow:"0 1px 4px rgba(0,0,0,0.08)"}}>
