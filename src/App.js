@@ -484,7 +484,9 @@ const ProductSliderModal = ({p, onClose, setCart, initialQty}) => {
               </div>
             </div>
             {/* Add button */}
-            <button onClick={()=>{
+            <button onClick={(e)=>{
+                e.stopPropagation();
+                alert(`DEBUG: qty=${qty} id=${p.id}`);
                 setCart(c => ({...c, [p.id]: qty}));
                 onClose();
               }}
