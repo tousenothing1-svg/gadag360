@@ -176,6 +176,23 @@ input[type=password],input[type=text],input[type=number],select,textarea{width:1
   </div>
 </div>
 
+<!-- Customer History Modal -->
+<div class="modal-overlay" id="historyModal">
+  <div class="modal" style="max-width:680px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-size:17px;font-weight:800" id="historyTitle">Purchase History</div>
+      <button class="btn btn-gray btn-sm" onclick="closeHistoryModal()">✕ Close</button>
+    </div>
+    <div id="historyStats" style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap"></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Order ID</th><th>Date</th><th>Items</th><th>Amount</th><th>Payment</th><th>Status</th></tr></thead>
+        <tbody id="historyBody"><tr><td colspan="6" style="text-align:center;padding:20px"><span class="spinner"></span>Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
 <!-- Customer Modal -->
 <div class="modal-overlay" id="customerModal">
   <div class="modal">
@@ -470,6 +487,7 @@ async function loadCustomers(){
           <td>${c.created_at?new Date(c.created_at).toLocaleDateString("en-IN"):"—"}</td>
           <td style="display:flex;gap:4px">
             <button class="btn btn-gray btn-sm" onclick='editCustomer(${JSON.stringify(c).replace(/'/g,"&#39;")})'>Edit</button>
+            <button class="btn btn-green btn-sm" onclick="viewHistory('${c.id}','${(c.name||c.phone||"Customer").replace(/'/g,"\\'")}')">History</button>
             <button class="btn btn-red btn-sm" onclick="delCustomer('${c.id}')">Delete</button>
           </td>
         </tr>`).join("");
@@ -495,6 +513,38 @@ async function saveCustomer(){
     toast("✅ Customer updated!");closeCustomerModal();loadCustomers();
   }catch(e){toast("Error: "+e.message,"#E53935");}
 }
+
+async function viewHistory(userId, userName){
+  document.getElementById("historyTitle").textContent = "📋 Purchase History — " + userName;
+  document.getElementById("historyStats").innerHTML = "";
+  document.getElementById("historyBody").innerHTML = "<tr><td colspan='6' style='text-align:center;padding:20px'><span class='spinner'></span>Loading...</td></tr>";
+  document.getElementById("historyModal").classList.add("open");
+  try {
+    const orders = await db("orders", {filter: `user_id=eq.${userId}&order=created_at.desc`});
+    if(!orders || orders.length === 0){
+      document.getElementById("historyBody").innerHTML = "<tr><td colspan='6' style='text-align:center;color:#aaa;padding:24px'>No orders yet</td></tr>";
+      return;
+    }
+    const total = orders.reduce((s,o)=>s+(o.total||0),0);
+    document.getElementById("historyStats").innerHTML = `
+      <div style="background:#f0faf4;border-radius:10px;padding:10px 16px;font-size:13px"><span style="font-weight:800;color:#1A6B3C;font-size:18px">${orders.length}</span><br>Total Orders</div>
+      <div style="background:#f0faf4;border-radius:10px;padding:10px 16px;font-size:13px"><span style="font-weight:800;color:#1A6B3C;font-size:18px">₹${total.toLocaleString("en-IN")}</span><br>Total Spent</div>
+      <div style="background:#f0faf4;border-radius:10px;padding:10px 16px;font-size:13px"><span style="font-weight:800;color:#1A6B3C;font-size:18px">₹${Math.round(total/orders.length).toLocaleString("en-IN")}</span><br>Avg Order</div>
+    `;
+    document.getElementById("historyBody").innerHTML = orders.map(o=>`<tr>
+      <td><b>#${o.id}</b></td>
+      <td>${o.created_at ? new Date(o.created_at).toLocaleDateString("en-IN") : "—"}</td>
+      <td style="max-width:160px;font-size:12px;color:#555">${o.items ? (Array.isArray(o.items) ? o.items.map(i=>i.name||i).join(", ") : o.items) : "—"}</td>
+      <td><b>₹${o.total}</b></td>
+      <td>${o.payment==="upi"?"UPI":"COD"}</td>
+      <td><span class="badge badge-green">${o.status||"placed"}</span></td>
+    </tr>`).join("");
+  } catch(e){
+    document.getElementById("historyBody").innerHTML = `<tr><td colspan='6' style='color:red;text-align:center;padding:20px'>Error: ${e.message}</td></tr>`;
+  }
+}
+
+function closeHistoryModal(){document.getElementById("historyModal").classList.remove("open");}
 
 async function delCustomer(id){
   if(!confirm("Delete this customer account? This cannot be undone."))return;
