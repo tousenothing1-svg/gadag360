@@ -1,6 +1,8 @@
 // @ts-nocheck
 /* eslint-disable */
 import { createClient } from "@supabase/supabase-js";
+import { auth } from "./firebase";
+import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
 import React, { useState, useMemo, useEffect, useRef } from "react";
 
 // ── DETECT IF RUNNING IN CAPACITOR (native Android/iOS) ──
@@ -1028,10 +1030,22 @@ export default function Gadag360() {
       window.open(`https://wa.me/919886888924?text=${waMsg}`, "_blank");
     };
 
-  // ── OTP SEND (simulated) ──
-  const sendOtp = () => { if(loginPhone.length===10){ setOtpSent(true); setLoginStep("otp"); } else alert("Enter valid 10-digit number"); };
-  const verifyOtp = async () => {
-    if(loginOtp==="1234"||loginOtp.length===4){
+// 🔥 FIREBASE OTP
+const sendOtp = async () => {
+  if(loginPhone.length!==10){ alert("Enter valid 10-digit number"); return; }
+  try {
+    if(!window.recaptchaVerifier){
+      window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', { size: 'invisible' });
+    }
+    const confirmation = await signInWithPhoneNumber(auth, "+91"+loginPhone, window.recaptchaVerifier);
+    window.confirmationResult = confirmation;
+    setOtpSent(true); setLoginStep("otp");
+  } catch(e){ console.error(e); alert("Failed to send OTP: "+e.message); }
+};
+const verifyOtp = async () => {
+  if(loginOtp.length!==6){ alert("Enter 6-digit OTP"); return; }
+  try {
+    await window.confirmationResult.confirm(loginOtp);
       // Define existingUser at outer scope so it's always accessible
       let existingUser = null;
       try {
@@ -1074,8 +1088,7 @@ export default function Gadag360() {
       await Storage.set("gd360_coins", String(existingUser?.coins||120));
 
       setLoginPhone(""); setLoginOtp(""); setLoginStep("phone");
-    } else alert("Wrong OTP. Use 1234 to demo.");
-  };
+  } catch(e){ alert("Wrong OTP. Please try again."); }  };
   const toggleWishlist = (id) => setWishlist(w=>({...w,[id]:!w[id]}));
 
 
@@ -1301,6 +1314,7 @@ export default function Gadag360() {
                     style={{flex:1,padding:"12px 14px",border:"none",outline:"none",fontSize:15,color:ink}}/>
                 </div>
                 <button onClick={sendOtp} style={{width:"100%",padding:"14px",borderRadius:14,backgroundColor:basil,color:"white",border:"none",cursor:"pointer",fontSize:15,fontWeight:800}}>
+                  <div id="recaptcha-container"></div>
                   {lang==="kn"?"OTP ಕಳುಹಿಸಿ":"Send OTP"} →
                 </button>
                 <div style={{textAlign:"center",marginTop:20,fontSize:11,color:soil}}>
@@ -1308,7 +1322,7 @@ export default function Gadag360() {
                 </div>
               </> : <>
                 <div style={{fontSize:12,fontWeight:600,color:soil,marginBottom:6}}>{lang==="kn"?`+91 ${loginPhone} ಗೆ OTP ಕಳುಹಿಸಲಾಗಿದೆ`:`OTP sent to +91 ${loginPhone}`}</div>
-                <input type="tel" maxLength={4} value={loginOtp} onChange={e=>setLoginOtp(e.target.value.replace(/\D/g,""))}
+                <input type="tel" maxLength={6} value={loginOtp} onChange={e=>setLoginOtp(e.target.value.replace(/\D/g,""))}
                   placeholder="• • • •"
                   style={{width:"100%",padding:"16px",borderRadius:14,border:`2px solid ${basil}`,outline:"none",textAlign:"center",fontSize:28,fontWeight:800,letterSpacing:8,color:ink,boxSizing:"border-box",marginBottom:6}}/>
                 <div style={{textAlign:"center",fontSize:11,color:soil,marginBottom:20}}>{lang==="kn"?"ಡೆಮೊಗಾಗಿ 1234 ಬಳಸಿ":"Use 1234 for demo"}</div>
