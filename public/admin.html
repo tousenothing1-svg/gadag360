@@ -140,7 +140,7 @@ input[type=password],input[type=text],input[type=number],select,textarea{width:1
       <div class="page" id="page-vendors">
         <div style="font-size:22px;font-weight:800;margin-bottom:20px">Suppliers</div>
         <div class="card"><div class="table-wrap"><table>
-          <thead><tr><th>ID</th><th>Name</th><th>Kannada</th><th>Area</th><th>Status</th><th>Action</th></tr></thead>
+          <thead><tr><th>Name</th><th>Area</th><th>Phone</th><th>Email</th><th>Status</th><th>Action</th></tr></thead>
           <tbody id="vendorsBody"><tr><td colspan="6" style="text-align:center;padding:20px"><span class="spinner"></span>Loading...</td></tr></tbody>
         </table></div></div>
       </div>
@@ -148,11 +148,48 @@ input[type=password],input[type=text],input[type=number],select,textarea{width:1
       <div class="page" id="page-customers">
         <div style="font-size:22px;font-weight:800;margin-bottom:20px">Customers</div>
         <div class="card"><div class="table-wrap"><table>
-          <thead><tr><th>Phone</th><th>Name</th><th>Email</th><th>Coins</th><th>Joined</th></tr></thead>
-          <tbody id="customersBody"><tr><td colspan="5" style="text-align:center;padding:20px"><span class="spinner"></span>Loading...</td></tr></tbody>
+          <thead><tr><th>Phone</th><th>Name</th><th>Email</th><th>Coins</th><th>Joined</th><th>Action</th></tr></thead>
+          <tbody id="customersBody"><tr><td colspan="6" style="text-align:center;padding:20px"><span class="spinner"></span>Loading...</td></tr></tbody>
         </table></div></div>
       </div>
 
+    </div>
+  </div>
+</div>
+
+<!-- Supplier Modal -->
+<div class="modal-overlay" id="supplierModal">
+  <div class="modal">
+    <div style="font-size:17px;font-weight:800;margin-bottom:16px">Edit Supplier</div>
+    <div class="form-grid">
+      <div><label>Name</label><input id="sName" placeholder="Supplier name"/></div>
+      <div><label>Area</label><input id="sArea" placeholder="e.g. Gadag"/></div>
+      <div><label>Phone</label><input id="sPhone" placeholder="Phone number"/></div>
+      <div><label>Email</label><input id="sEmail" placeholder="Email address"/></div>
+      <div style="grid-column:span 2"><label>Bank Details</label><textarea id="sBank" rows="2" placeholder="Bank name, Account no, IFSC..."></textarea></div>
+    </div>
+    <input type="hidden" id="sId"/>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
+      <button class="btn btn-gray" onclick="closeSupplierModal()">Cancel</button>
+      <button class="btn btn-green" onclick="saveSupplier()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Customer Modal -->
+<div class="modal-overlay" id="customerModal">
+  <div class="modal">
+    <div style="font-size:17px;font-weight:800;margin-bottom:16px">Edit Customer</div>
+    <div class="form-grid">
+      <div><label>Name</label><input id="cName" placeholder="Customer name"/></div>
+      <div><label>Phone</label><input id="cPhone" placeholder="Phone number"/></div>
+      <div><label>Email</label><input id="cEmail" placeholder="Email address"/></div>
+      <div><label>Coins</label><input id="cCoins" type="number" placeholder="0"/></div>
+    </div>
+    <input type="hidden" id="cId"/>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
+      <button class="btn btn-gray" onclick="closeCustomerModal()">Cancel</button>
+      <button class="btn btn-green" onclick="saveCustomer()">Save</button>
     </div>
   </div>
 </div>
@@ -376,10 +413,17 @@ async function loadVendors(){
   try{
     const vendors=await db("vendors",{filter:"order=id.asc"});
     document.getElementById("vendorsBody").innerHTML=vendors.length===0
-      ? "<tr><td colspan='6' style='text-align:center;color:#aaa;padding:20px'>No vendors</td></tr>"
-      : vendors.map(v=>`<tr><td>${v.id}</td><td><b>${v.name}</b></td><td>${v.name_kn||"—"}</td><td>${v.area||"Gadag"}</td>
+      ? "<tr><td colspan='6' style='text-align:center;color:#aaa;padding:20px'>No suppliers yet</td></tr>"
+      : vendors.map(v=>`<tr>
+          <td><b>${v.name}</b></td>
+          <td>${v.area||"Gadag"}</td>
+          <td>${v.phone||"—"}</td>
+          <td>${v.email||"—"}</td>
           <td><span class="badge ${v.active?"badge-green":"badge-red"}">${v.active?"Active":"Inactive"}</span></td>
-          <td><button class="btn btn-sm ${v.active?"btn-red":"btn-green"}" onclick="toggleVendor('${v.id}',${v.active})">${v.active?"Deactivate":"Activate"}</button></td>
+          <td style="display:flex;gap:4px">
+            <button class="btn btn-gray btn-sm" onclick='editSupplier(${JSON.stringify(v).replace(/'/g,"&#39;")})'>Edit</button>
+            <button class="btn btn-sm ${v.active?"btn-red":"btn-green"}" onclick="toggleVendor('${v.id}',${v.active})">${v.active?"Deactivate":"Activate"}</button>
+          </td>
         </tr>`).join("");
   }catch(e){document.getElementById("vendorsBody").innerHTML=`<tr><td colspan='6' style='color:red;text-align:center;padding:20px'>${e.message}</td></tr>`;}
 }
@@ -391,13 +435,73 @@ async function toggleVendor(id,active){
   }catch(e){toast("Error","#E53935");}
 }
 
+function editSupplier(v){
+  document.getElementById("sId").value=v.id;
+  document.getElementById("sName").value=v.name||"";
+  document.getElementById("sArea").value=v.area||"";
+  document.getElementById("sPhone").value=v.phone||"";
+  document.getElementById("sEmail").value=v.email||"";
+  document.getElementById("sBank").value=v.bank_details||"";
+  document.getElementById("supplierModal").classList.add("open");
+}
+
+function closeSupplierModal(){document.getElementById("supplierModal").classList.remove("open");}
+
+async function saveSupplier(){
+  const id=document.getElementById("sId").value;
+  const data={name:document.getElementById("sName").value,area:document.getElementById("sArea").value,phone:document.getElementById("sPhone").value,email:document.getElementById("sEmail").value,bank_details:document.getElementById("sBank").value};
+  if(!data.name){toast("Name is required","#E53935");return;}
+  try{
+    await fetch(`${URL}/vendors?id=eq.${id}`,{method:"PATCH",headers:H,body:JSON.stringify(data)});
+    toast("✅ Supplier updated!");closeSupplierModal();loadVendors();
+  }catch(e){toast("Error: "+e.message,"#E53935");}
+}
+
 async function loadCustomers(){
   try{
     const customers=await db("users",{filter:"order=created_at.desc"});
     document.getElementById("customersBody").innerHTML=customers.length===0
-      ? "<tr><td colspan='5' style='text-align:center;color:#aaa;padding:20px'>No customers yet</td></tr>"
-      : customers.map(c=>`<tr><td><b>${c.phone}</b></td><td>${c.name||"—"}</td><td>${c.email||"—"}</td><td>🪙${c.coins||0}</td><td>${c.created_at?new Date(c.created_at).toLocaleDateString("en-IN"):"—"}</td></tr>`).join("");
-  }catch(e){document.getElementById("customersBody").innerHTML=`<tr><td colspan='5' style='color:red;text-align:center;padding:20px'>${e.message}</td></tr>`;}
+      ? "<tr><td colspan='6' style='text-align:center;color:#aaa;padding:20px'>No customers yet</td></tr>"
+      : customers.map(c=>`<tr>
+          <td><b>${c.phone||"—"}</b></td>
+          <td>${c.name||"—"}</td>
+          <td>${c.email||"—"}</td>
+          <td>🪙${c.coins||0}</td>
+          <td>${c.created_at?new Date(c.created_at).toLocaleDateString("en-IN"):"—"}</td>
+          <td style="display:flex;gap:4px">
+            <button class="btn btn-gray btn-sm" onclick='editCustomer(${JSON.stringify(c).replace(/'/g,"&#39;")})'>Edit</button>
+            <button class="btn btn-red btn-sm" onclick="delCustomer('${c.id}')">Delete</button>
+          </td>
+        </tr>`).join("");
+  }catch(e){document.getElementById("customersBody").innerHTML=`<tr><td colspan='6' style='color:red;text-align:center;padding:20px'>${e.message}</td></tr>`;}
+}
+
+function editCustomer(c){
+  document.getElementById("cId").value=c.id;
+  document.getElementById("cName").value=c.name||"";
+  document.getElementById("cPhone").value=c.phone||"";
+  document.getElementById("cEmail").value=c.email||"";
+  document.getElementById("cCoins").value=c.coins||0;
+  document.getElementById("customerModal").classList.add("open");
+}
+
+function closeCustomerModal(){document.getElementById("customerModal").classList.remove("open");}
+
+async function saveCustomer(){
+  const id=document.getElementById("cId").value;
+  const data={name:document.getElementById("cName").value,phone:document.getElementById("cPhone").value,email:document.getElementById("cEmail").value,coins:parseInt(document.getElementById("cCoins").value)||0};
+  try{
+    await fetch(`${URL}/users?id=eq.${id}`,{method:"PATCH",headers:H,body:JSON.stringify(data)});
+    toast("✅ Customer updated!");closeCustomerModal();loadCustomers();
+  }catch(e){toast("Error: "+e.message,"#E53935");}
+}
+
+async function delCustomer(id){
+  if(!confirm("Delete this customer account? This cannot be undone."))return;
+  try{
+    await fetch(`${URL}/users?id=eq.${id}`,{method:"DELETE",headers:H});
+    toast("🗑️ Customer deleted","#E53935");loadCustomers();
+  }catch(e){toast("Error","#E53935");}
 }
 </script>
 </body>
