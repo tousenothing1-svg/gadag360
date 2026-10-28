@@ -485,7 +485,6 @@ function HandpickdLayout({ filtered, activeCat, setActiveCat, cart, addToCart, r
             </div>
             {/* Add button */}
             <button onClick={()=>{
-                for(let i=0;i<qty;i++) addToCart(p.id);
                 if(cart[p.id]>0) for(let i=0;i<cart[p.id];i++) removeFromCart(p.id);
                 for(let i=0;i<qty;i++) addToCart(p.id);
                 onClose();
@@ -1127,12 +1126,19 @@ const verifyOtp = async () => {
     restoreSession();
 
     // Load products from Supabase (overrides hardcoded prices)
-    const loadProductsFromDB = async () => {
+    const loadProductsFromDB = async (attempt = 1) => {
       try {
-        const { data } = await supabase.from("products").select("id, price, in_stock, stock_qty");
+        const { data, error } = await supabase.from("products").select("id, price, in_stock, stock_qty");
+        if (error) throw error;
         if (data && data.length > 0) {
           setDbProducts(data);
+        } else if (attempt < 3) {
+          // Retry up to 3 times if empty (mobile network delay)
+          setTimeout(() => loadProductsFromDB(attempt + 1), 1500 * attempt);
         }
+      } catch(e) {
+        if (attempt < 3) setTimeout(() => loadProductsFromDB(attempt + 1), 1500 * attempt);
+      }
     };
     loadProductsFromDB();
 
