@@ -68,14 +68,6 @@ const bg = "#FFFFFF", panel = "#FFFFFF";
 const display = "'Inter', 'SF Pro Display', system-ui, sans-serif";
 const body = "'Inter', system-ui, sans-serif";
 
-const VENDORS = [
-  { id: "v1", name: "Sasnur Bakery" },
-  { id: "v2", name: "Katapur Fruits" },
-  { id: "v3", name: "Totad Vegetables" },
-  { id: "v4", name: "Dandin Exotics" },
-  { id: "v5", name: "Mulla Spices & Oils" },
-  { id: "v6", name: "Attar Flowers" },
-];
 
 const PRODUCTS = [
   {id:"p1",cat:"Dairy",name:"A2 Desi Cow Bilona Ghee",price:549,unit:"200ml",vendor:"v1",img:"data:image/jpeg;base64,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",variants:[{label:"250g",price:299},{label:"500g",price:569},{label:"1kg",price:1099}]},
@@ -313,9 +305,7 @@ function groupKeyKn(key, KN_NAMES) {
   return match[1].split(/[\s(]/)[0];
 }
 
-const VENDOR_KN = { v1:"ಸಾಸ್ನೂರ್ ಬೇಕರಿ", v2:"ಕಟಾಪುರ್ ಫ್ರೂಟ್ಸ್", v3:"ತೋಟದ ತರಕಾರಿ", v4:"ದಂಡಿನ್ ಎಕ್ಸೋಟಿಕ್ಸ್", v5:"ಮುಲ್ಲಾ ಮಸಾಲೆ & ಎಣ್ಣೆ", v6:"ಅತ್ತಾರ್ ಹೂವುಗಳು" };
 const CAT_EMOJI = { Fruits:"🍎", Vegetables:"🥦", Dairy:"🥛", Exotics:"🥑", Spices:"🌶️", Oils:"🫙", Flowers:"🌸" };
-function vendorName(id, lang) { const v = VENDORS.find(v => v.id === id); return lang==="kn" ? (VENDOR_KN[id]||v?.name||"") : (v?.name||""); }
 
 function ProductImage({ p }) {
   const [err, setErr] = useState(false);
@@ -667,7 +657,7 @@ export default function Gadag360() {
   const [orderStatusIdx, setOrderStatusIdx] = useState(0);
   const [riderPos, setRiderPos] = useState({x:20, y:70});
   const timerRef = useRef(null);
-  const [vendorOrders, setVendorOrders] = useState([]);
+  const [activeOrders, setActiveOrders] = useState([]);   // current session orders
   const [lang, setLang] = useState("en");
 
   // ── ALL 16 FEATURES STATE ──
@@ -749,7 +739,6 @@ export default function Gadag360() {
   const SLOTS_KN = ["ಬೆಳಿಗ್ಗೆ 7–10","ಮಧ್ಯಾಹ್ನ 12–3","ಸಂಜೆ 5–8"];
   const AREAS = ["Gadag","Betageri","Laxmeshwar","Shirahatti","Naragund","Ron","Mundaragi"];
   const FLASH = {name:"Fresh Tomatoes", nameKn:"ತಾಜಾ ಟೊಮ್ಯಾಟೊ", discount:10, icon:"🍅", ends:"Tonight 10pm"};
-  const VENDOR_PHOTOS = {v1:"👨‍🍳",v2:"👩‍🌾",v3:"👨‍🌾",v4:"🧑‍🍳",v5:"👨‍🍳",v6:"💐"};
 
   const T = {
     en: {
@@ -859,7 +848,7 @@ export default function Gadag360() {
   const placeOrder = async () => {
     const orderId = "GD" + Math.floor(1000 + Math.random()*9000);
     const newOrder = {id:orderId, items:cartItems, total:finalTotal, address, payment, slot:deliverySlot, date: new Date().toLocaleDateString("en-IN"), customer_phone: userProfile.phone, customer_name: userProfile.name};
-    setVendorOrders(v => [newOrder, ...v]);
+    setActiveOrders(v => [newOrder, ...v]);
       sendOwnerNotification(newOrder);
     setOrderHistory(h => [newOrder, ...h]);
     setCoins(c => {
@@ -880,7 +869,6 @@ export default function Gadag360() {
           await supabase.from("products").update({ stock_qty: newQty, in_stock: newQty > 0 }).eq("id", item.id);
         }
       }
-    } catch(e) { console.log("Stock update error:", e); }
 
     // ── SAVE TO SUPABASE ──
     try {
@@ -911,16 +899,13 @@ export default function Gadag360() {
           variant: varLabel,
         };
       });
-      console.log("Saving order items:", JSON.stringify(items));
       const { data: itemsData, error: itemsError } = await supabase.from("order_items").insert(items);
-      console.log("Order items result:", itemsData, itemsError);
       // 3. Update user coins
       if (currentUserId) {
         await supabase.from("users")
           .update({ coins: coins + coinsEarned })
           .eq("id", currentUserId);
       }
-    } catch(e) { console.log("Supabase save error:", e); }
 
     const steps = [
       [1200, 1, {x:20,y:70}],
@@ -1069,7 +1054,6 @@ const verifyOtp = async () => {
             items: (o.order_items||[]).map(i => ({id:i.product_id, name:i.product_name, qty:i.quantity, price:i.price}))
           })));
         }
-      } catch(e) { console.log("Login error:", e); }
 
       // Always login regardless of Supabase success
       const profileData = {
@@ -1139,7 +1123,6 @@ const verifyOtp = async () => {
           if (savedUserId) setCurrentUserId(savedUserId);
           setIsLoggedIn(true);
         }
-      } catch(e) { console.log("GD360 restore error:", e); }
     };
     restoreSession();
 
@@ -1150,7 +1133,6 @@ const verifyOtp = async () => {
         if (data && data.length > 0) {
           setDbProducts(data);
         }
-      } catch(e) { console.log("Product load error:", e); }
     };
     loadProductsFromDB();
 
@@ -2004,7 +1986,7 @@ const verifyOtp = async () => {
           <div style={{backgroundColor:"white",padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:`1px solid ${line}`}}>
             <div>
               <div style={{fontSize:11,color:soil}}>{lang==="kn"?"ಆರ್ಡರ್ ID":"Order ID"}</div>
-              <div style={{fontSize:14,fontWeight:800,color:ink}}>#{vendorOrders[0]?.id||"—"}</div>
+              <div style={{fontSize:14,fontWeight:800,color:ink}}>#{activeOrders[0]?.id||"—"}</div>
             </div>
             <div style={{textAlign:"right"}}>
               <div style={{fontSize:11,color:soil}}>{lang==="kn"?"ಅಂದಾಜು ಸಮಯ":"Estimated arrival"}</div>
@@ -2054,7 +2036,7 @@ const verifyOtp = async () => {
           {/* WhatsApp Order Confirmation to Customer */}
           <div style={{margin:"0 14px 8px"}}>
             <button onClick={()=>{
-              const o = vendorOrders[0];
+              const o = activeOrders[0];
               const itemList = (o?.items||[]).map(i => `• ${i.name} x${i.qty} = ₹${i.price*i.qty}`).join("\n");
               const msg = encodeURIComponent(
                 `✅ *GADAG 360 - Order Confirmed!*\n\n` +
