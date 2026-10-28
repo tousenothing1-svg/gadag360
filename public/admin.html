@@ -82,7 +82,7 @@ input[type=password],input[type=text],input[type=number],select,textarea{width:1
       <div class="nav-item" onclick="showPage('orders',this)">📦 Orders</div>
       <div class="nav-section">Catalog</div>
       <div class="nav-item" onclick="showPage('products',this)">🥦 Products</div>
-      <div class="nav-item" onclick="showPage('vendors',this)">🏪 Vendors</div>
+      <div class="nav-item" onclick="showPage('vendors',this)">🏪 Suppliers</div>
       <div class="nav-section">Customers</div>
       <div class="nav-item" onclick="showPage('customers',this)">👥 Customers</div>
       <div class="nav-section">Links</div>
@@ -138,7 +138,7 @@ input[type=password],input[type=text],input[type=number],select,textarea{width:1
       </div>
 
       <div class="page" id="page-vendors">
-        <div style="font-size:22px;font-weight:800;margin-bottom:20px">Vendors</div>
+        <div style="font-size:22px;font-weight:800;margin-bottom:20px">Suppliers</div>
         <div class="card"><div class="table-wrap"><table>
           <thead><tr><th>ID</th><th>Name</th><th>Kannada</th><th>Area</th><th>Status</th><th>Action</th></tr></thead>
           <tbody id="vendorsBody"><tr><td colspan="6" style="text-align:center;padding:20px"><span class="spinner"></span>Loading...</td></tr></tbody>
@@ -166,7 +166,7 @@ input[type=password],input[type=text],input[type=number],select,textarea{width:1
       <div><label>Category</label><select id="pCat"><option>Dairy</option><option>Fruits</option><option>Vegetables</option><option>Exotics</option><option>Spices</option><option>Oils</option><option>Flowers</option></select></div>
       <div><label>Price (₹)</label><input id="pPrice" type="number" placeholder="0"/></div>
       <div><label>Unit</label><input id="pUnit" placeholder="e.g. 500g, 1pc"/></div>
-      <div><label>Vendor</label><select id="pVendor"><option value="v1">Sasnur Bakery</option><option value="v2">Katapur Fruits</option><option value="v3">Totad Vegetables</option><option value="v4">Dandin Exotics</option><option value="v5">Mulla Spices & Oils</option><option value="v6">Attar Flowers</option></select></div>
+      <div><label>Supplier</label><select id="pVendor"><option value="v1">Sasnur Bakery</option><option value="v2">Katapur Fruits</option><option value="v3">Totad Vegetables</option><option value="v4">Dandin Exotics</option><option value="v5">Mulla Spices & Oils</option><option value="v6">Attar Flowers</option></select></div>
       <div><label>Stock</label><select id="pStock"><option value="true">✅ In Stock</option><option value="false">❌ Out of Stock</option></select></div>
     </div>
     <input type="hidden" id="pId"/>
