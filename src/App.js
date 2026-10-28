@@ -389,7 +389,7 @@ function LeafletMap({ riderPos, orderStatusIdx, basil }) {
 }
 
 // ── HANDPICKD LAYOUT COMPONENT ──
-function HandpickdLayout({ filtered, activeCat, setActiveCat, cart, addToCart, removeFromCart,
+function HandpickdLayout({ filtered, activeCat, setActiveCat, cart, setCart, addToCart, removeFromCart,
   selectedVariant, setSelectedVariant, wishlist, toggleWishlist, bulkMode, lang, query,
   CATS, CAT_EMOJI, KN_NAMES, basil, soil, ink, line, chili }) {
 
@@ -1700,7 +1700,7 @@ const verifyOtp = async () => {
 
         <HandpickdLayout
           filtered={filtered} activeCat={activeCat} setActiveCat={setActiveCat}
-          cart={cart} addToCart={addToCart} removeFromCart={removeFromCart}
+          cart={cart} setCart={setCart} addToCart={addToCart} removeFromCart={removeFromCart}
           selectedVariant={selectedVariant} setSelectedVariant={setSelectedVariant}
           wishlist={wishlist} toggleWishlist={toggleWishlist}
           bulkMode={bulkMode} lang={lang} query={query}
