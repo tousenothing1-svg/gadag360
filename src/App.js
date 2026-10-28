@@ -424,8 +424,8 @@ function HandpickdLayout({ filtered, activeCat, setActiveCat, cart, setCart, add
   const currentGroups = grouped[sidebarCat] || {};
 
   // Product slider modal (img5)
-  const ProductSliderModal = ({p, onClose, setCart}) => {
-    const [qty, setQty] = useState(cart[p.id]||0);
+const ProductSliderModal = ({p, onClose, setCart, initialQty}) => {
+    const [qty, setQty] = useState(initialQty||0);
     const sel = selectedVariant[p.id]||p.variants?.[0]?.label;
     const selVar = p.variants?.find(v=>v.label===sel)||p.variants?.[0];
     const price = selVar?.price||p.price;
@@ -501,7 +501,7 @@ function HandpickdLayout({ filtered, activeCat, setActiveCat, cart, setCart, add
   return (
     <>
       {/* Product slider modal */}
-      {selectedProduct && <ProductSliderModal p={selectedProduct} onClose={()=>setSelectedProduct(null)} setCart={setCart}/>}
+      {selectedProduct && <ProductSliderModal p={selectedProduct} onClose={()=>setSelectedProduct(null)} setCart={setCart} initialQty={0}/>}
 
       {/* Product group detail modal */}
       {selectedGroup && (
