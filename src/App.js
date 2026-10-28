@@ -485,8 +485,7 @@ function HandpickdLayout({ filtered, activeCat, setActiveCat, cart, addToCart, r
             </div>
             {/* Add button */}
             <button onClick={()=>{
-                if(cart[p.id]>0) for(let i=0;i<cart[p.id];i++) removeFromCart(p.id);
-                for(let i=0;i<qty;i++) addToCart(p.id);
+                setCart(c => ({...c, [p.id]: qty}));
                 onClose();
               }}
               disabled={qty===0}
