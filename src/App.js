@@ -294,12 +294,12 @@ const KN_NAMES = {"A2 Desi Cow Bilona Ghee":"A2 ದೇಸಿ ಹಸು ಬಿಲ
 
 const CATS = [
   { id: "all",        en: "All",          kn: "ಎಲ್ಲಾ" },
-  { id: "Fruits",     en: "🍎 Fruits",    kn: "🍎 ಹಣ್ಣುಗಳು" },
-  { id: "Vegetables", en: "🥦 Vegetables", kn: "🥦 ತರಕಾರಿಗಳು" },
-  { id: "Dairy",      en: "🥛 Dairy",     kn: "🥛 ಹಾಲಿನ ಪದಾರ್ಥ" },
-  { id: "Exotics",    en: "🥑 Exotics",   kn: "🥑 ವಿದೇಶಿ ಹಣ್ಣು" },
-  { id: "Spices",     en: "🌶️ Spices",    kn: "🌶️ ಮಸಾಲೆಗಳು" },
-  { id: "Flowers",    en: "🌸 Flowers",   kn: "🌸 ಹೂವುಗಳು" },
+  { id: "Fruits",     en: "Fruits",      kn: "ಹಣ್ಣುಗಳು" },
+  { id: "Vegetables", en: "Vegetables",  kn: "ತರಕಾರಿಗಳು" },
+  { id: "Dairy",      en: "Dairy",       kn: "ಹಾಲಿನ ಪದಾರ್ಥ" },
+  { id: "Exotics",    en: "Exotics",     kn: "ವಿದೇಶಿ ಹಣ್ಣು" },
+  { id: "Spices",     en: "Spices",      kn: "ಮಸಾಲೆಗಳು" },
+  { id: "Flowers",    en: "Flowers",     kn: "ಹೂವುಗಳು" },
 ];
 
 // Translate group key (first word of product name) to Kannada
