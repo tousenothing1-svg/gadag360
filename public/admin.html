@@ -85,6 +85,8 @@ input[type=password],input[type=text],input[type=number],select,textarea{width:1
       <div class="nav-item" onclick="showPage('vendors',this)">🏪 Suppliers</div>
       <div class="nav-section">Customers</div>
       <div class="nav-item" onclick="showPage('customers',this)">👥 Customers</div>
+      <div class="nav-section">Delivery</div>
+      <div class="nav-item" onclick="showPage('delivery',this)">🛵 Delivery Boys</div>
       <div class="nav-section">Links</div>
       <div class="nav-item" onclick="window.open('https://gadag360.vercel.app','_blank')">🌐 Live App</div>
     </div>
@@ -153,6 +155,62 @@ input[type=password],input[type=text],input[type=number],select,textarea{width:1
         </table></div></div>
       </div>
 
+      <div class="page" id="page-delivery">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+          <div style="font-size:22px;font-weight:800">🛵 Delivery Boys</div>
+          <button class="btn btn-green" onclick="showAddDeliveryBoy()">+ Add Delivery Boy</button>
+        </div>
+        <div class="card"><div class="table-wrap"><table>
+          <thead><tr><th>ID</th><th>Name</th><th>Phone</th><th>Status</th><th>Orders Today</th><th>Action</th></tr></thead>
+          <tbody id="deliveryBody"><tr><td colspan="6" style="text-align:center;padding:20px"><span class="spinner"></span>Loading...</td></tr></tbody>
+        </table></div></div>
+
+        <div style="font-size:18px;font-weight:800;margin:24px 0 14px">📦 Assign Delivery Boy to Orders</div>
+        <div class="search-bar">
+          <select id="assignFilter" onchange="loadUnassignedOrders()" style="min-width:160px">
+            <option value="unassigned">Unassigned Orders</option>
+            <option value="all">All Active Orders</option>
+          </select>
+          <button class="btn btn-green" onclick="loadUnassignedOrders()">🔄 Refresh</button>
+        </div>
+        <div class="card"><div class="table-wrap"><table>
+          <thead><tr><th>Order ID</th><th>Date</th><th>Amount</th><th>Address</th><th>Status</th><th>Delivery Boy</th><th>Action</th></tr></thead>
+          <tbody id="assignBody"><tr><td colspan="7" style="text-align:center;padding:20px"><span class="spinner"></span>Loading...</td></tr></tbody>
+        </table></div></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Delivery Boy Modal -->
+<div class="modal-overlay" id="deliveryBoyModal">
+  <div class="modal">
+    <div style="font-size:17px;font-weight:800;margin-bottom:16px" id="dbModalTitle">Add Delivery Boy</div>
+    <div class="form-grid">
+      <div><label>ID (login username)</label><input id="dbId" placeholder="e.g. db1, raju"/></div>
+      <div><label>Name</label><input id="dbName" placeholder="Full name"/></div>
+      <div><label>Phone</label><input id="dbPhone" placeholder="10-digit phone"/></div>
+      <div><label>Password</label><input id="dbPass" placeholder="Set login password"/></div>
+    </div>
+    <input type="hidden" id="dbIdHidden"/>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
+      <button class="btn btn-gray" onclick="closeDeliveryBoyModal()">Cancel</button>
+      <button class="btn btn-green" onclick="saveDeliveryBoy()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Assign Delivery Boy Modal -->
+<div class="modal-overlay" id="assignModal">
+  <div class="modal">
+    <div style="font-size:17px;font-weight:800;margin-bottom:16px">Assign Delivery Boy</div>
+    <div style="color:#555;font-size:13px;margin-bottom:16px">Order: <b id="assignOrderId"></b></div>
+    <label>Select Delivery Boy</label>
+    <select id="assignSelect" style="margin-bottom:16px"></select>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn btn-gray" onclick="closeAssignModal()">Cancel</button>
+      <button class="btn btn-green" onclick="confirmAssign()">Assign</button>
     </div>
   </div>
 </div>
@@ -270,6 +328,7 @@ function showPage(p,el){
   if(p==="products")loadProducts();
   if(p==="vendors")loadVendors();
   if(p==="customers")loadCustomers();
+  if(p==="delivery"){loadDeliveryBoys();loadUnassignedOrders();}
 }
 
 function toast(msg,color="#1A6B3C"){
@@ -552,6 +611,137 @@ async function delCustomer(id){
     await fetch(`${URL}/users?id=eq.${id}`,{method:"DELETE",headers:H});
     toast("🗑️ Customer deleted","#E53935");loadCustomers();
   }catch(e){toast("Error","#E53935");}
+}
+
+// ── DELIVERY BOYS ────────────────────────────────────────────
+let allDeliveryBoys = [];
+
+async function loadDeliveryBoys(){
+  document.getElementById("deliveryBody").innerHTML="<tr><td colspan='6' style='text-align:center;padding:20px'><span class='spinner'></span>Loading...</td></tr>";
+  try {
+    allDeliveryBoys = await db("delivery_boys", {filter:"order=created_at.desc"});
+    if(!allDeliveryBoys || allDeliveryBoys.length===0){
+      document.getElementById("deliveryBody").innerHTML="<tr><td colspan='6' style='text-align:center;color:#aaa;padding:20px'>No delivery boys added yet</td></tr>";
+      return;
+    }
+    // get today's order counts
+    const today = new Date().toISOString().split("T")[0];
+    const todayOrders = await db("orders", {filter:`delivery_boy_id=not.is.null&created_at=gte.${today}T00:00:00`}).catch(()=>[]);
+    document.getElementById("deliveryBody").innerHTML = allDeliveryBoys.map(b=>{
+      const cnt = (todayOrders||[]).filter(o=>o.delivery_boy_id===b.id&&o.status==="delivered").length;
+      return `<tr>
+        <td><b>${b.id}</b></td>
+        <td>${b.name}</td>
+        <td>${b.phone||"—"}</td>
+        <td><span class="badge ${b.active?"badge-green":"badge-red"}">${b.active?"Active":"Inactive"}</span></td>
+        <td>${cnt} delivered</td>
+        <td style="display:flex;gap:4px">
+          <button class="btn btn-gray btn-sm" onclick='editDeliveryBoy(${JSON.stringify(b).replace(/'/g,"&#39;")})'>Edit</button>
+          <button class="btn btn-sm ${b.active?"btn-red":"btn-green"}" onclick="toggleDeliveryBoy('${b.id}',${b.active})">${b.active?"Deactivate":"Activate"}</button>
+        </td>
+      </tr>`;
+    }).join("");
+  } catch(e){ document.getElementById("deliveryBody").innerHTML=`<tr><td colspan='6' style='color:red;text-align:center;padding:20px'>Error: ${e.message}</td></tr>`; }
+}
+
+function showAddDeliveryBoy(){
+  document.getElementById("dbModalTitle").textContent="Add Delivery Boy";
+  ["dbId","dbName","dbPhone","dbPass","dbIdHidden"].forEach(id=>document.getElementById(id).value="");
+  document.getElementById("dbId").disabled=false;
+  document.getElementById("deliveryBoyModal").classList.add("open");
+}
+
+function editDeliveryBoy(b){
+  document.getElementById("dbModalTitle").textContent="Edit Delivery Boy";
+  document.getElementById("dbIdHidden").value=b.id;
+  document.getElementById("dbId").value=b.id;
+  document.getElementById("dbId").disabled=true;
+  document.getElementById("dbName").value=b.name||"";
+  document.getElementById("dbPhone").value=b.phone||"";
+  document.getElementById("dbPass").value=b.password||"";
+  document.getElementById("deliveryBoyModal").classList.add("open");
+}
+
+function closeDeliveryBoyModal(){ document.getElementById("deliveryBoyModal").classList.remove("open"); }
+
+async function saveDeliveryBoy(){
+  const isEdit = !!document.getElementById("dbIdHidden").value;
+  const id = document.getElementById(isEdit?"dbIdHidden":"dbId").value.trim();
+  const data = {
+    name: document.getElementById("dbName").value.trim(),
+    phone: document.getElementById("dbPhone").value.trim(),
+    password: document.getElementById("dbPass").value.trim(),
+    active: true
+  };
+  if(!id||!data.name||!data.password){ toast("Fill all required fields","#E53935"); return; }
+  try {
+    if(isEdit){
+      await fetch(`${URL}/delivery_boys?id=eq.${id}`,{method:"PATCH",headers:H,body:JSON.stringify(data)});
+      toast("✅ Delivery boy updated!");
+    } else {
+      data.id = id;
+      await fetch(`${URL}/delivery_boys`,{method:"POST",headers:H,body:JSON.stringify(data)});
+      toast("✅ Delivery boy added!");
+    }
+    closeDeliveryBoyModal(); loadDeliveryBoys();
+  } catch(e){ toast("Error: "+e.message,"#E53935"); }
+}
+
+async function toggleDeliveryBoy(id, active){
+  try {
+    await fetch(`${URL}/delivery_boys?id=eq.${id}`,{method:"PATCH",headers:H,body:JSON.stringify({active:!active})});
+    toast(active?"Deactivated":"✅ Activated"); loadDeliveryBoys();
+  } catch(e){ toast("Error","#E53935"); }
+}
+
+// ── ASSIGN DELIVERY BOY TO ORDER ─────────────────────────────
+let assigningOrderId = null;
+
+async function loadUnassignedOrders(){
+  document.getElementById("assignBody").innerHTML="<tr><td colspan='7' style='text-align:center;padding:20px'><span class='spinner'></span>Loading...</td></tr>";
+  try {
+    const mode = document.getElementById("assignFilter").value;
+    const filter = mode==="unassigned"
+      ? "delivery_boy_id=is.null&status=not.eq.cancelled&status=not.eq.delivered&order=created_at.desc"
+      : "status=not.eq.cancelled&status=not.eq.delivered&order=created_at.desc";
+    const orders = await db("orders", {filter});
+    if(!orders || orders.length===0){
+      document.getElementById("assignBody").innerHTML="<tr><td colspan='7' style='text-align:center;color:#aaa;padding:20px'>No orders to assign</td></tr>";
+      return;
+    }
+    document.getElementById("assignBody").innerHTML = orders.map(o=>`<tr>
+      <td><b>#${o.id}</b></td>
+      <td>${o.created_at?new Date(o.created_at).toLocaleDateString("en-IN"):"—"}</td>
+      <td><b>₹${o.total}</b></td>
+      <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${o.address||"—"}</td>
+      <td><span class="badge badge-green">${o.status||"placed"}</span></td>
+      <td>${o.delivery_boy_name ? `<span class="badge badge-green">🛵 ${o.delivery_boy_name}</span>` : '<span style="color:#aaa;font-size:12px">Not assigned</span>'}</td>
+      <td><button class="btn btn-green btn-sm" onclick="openAssignModal('${o.id}')">Assign</button></td>
+    </tr>`).join("");
+  } catch(e){ document.getElementById("assignBody").innerHTML=`<tr><td colspan='7' style='color:red;text-align:center;padding:20px'>Error: ${e.message}</td></tr>`; }
+}
+
+function openAssignModal(orderId){
+  assigningOrderId = orderId;
+  document.getElementById("assignOrderId").textContent = "#"+orderId;
+  const boys = allDeliveryBoys.filter(b=>b.active);
+  if(boys.length===0){ toast("No active delivery boys. Add one first.","#E53935"); return; }
+  document.getElementById("assignSelect").innerHTML = boys.map(b=>`<option value="${b.id}" data-name="${b.name}">${b.name} (${b.id})</option>`).join("");
+  document.getElementById("assignModal").classList.add("open");
+}
+
+function closeAssignModal(){ document.getElementById("assignModal").classList.remove("open"); assigningOrderId=null; }
+
+async function confirmAssign(){
+  if(!assigningOrderId) return;
+  const sel = document.getElementById("assignSelect");
+  const boyId = sel.value;
+  const boyName = sel.options[sel.selectedIndex].dataset.name;
+  try {
+    await fetch(`${URL}/orders?id=eq.${assigningOrderId}`,{method:"PATCH",headers:H,body:JSON.stringify({delivery_boy_id:boyId, delivery_boy_name:boyName, status:"confirmed"})});
+    toast(`✅ Assigned to ${boyName}!`);
+    closeAssignModal(); loadUnassignedOrders();
+  } catch(e){ toast("Error: "+e.message,"#E53935"); }
 }
 </script>
 </body>
