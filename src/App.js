@@ -486,7 +486,6 @@ const ProductSliderModal = ({p, onClose, setCart, initialQty}) => {
             {/* Add button */}
             <button onClick={(e)=>{
                 e.stopPropagation();
-                alert(`DEBUG: qty=${qty} id=${p.id}`);
                 setCart(c => ({...c, [p.id]: qty}));
                 onClose();
               }}
@@ -869,6 +868,7 @@ export default function Gadag360() {
           await supabase.from("products").update({ stock_qty: newQty, in_stock: newQty > 0 }).eq("id", item.id);
         }
       }
+    } catch(e) {}
 
     // ── SAVE TO SUPABASE ──
     try {
@@ -906,6 +906,7 @@ export default function Gadag360() {
           .update({ coins: coins + coinsEarned })
           .eq("id", currentUserId);
       }
+    } catch(e) {}
 
     const steps = [
       [1200, 1, {x:20,y:70}],
@@ -1054,6 +1055,7 @@ const verifyOtp = async () => {
             items: (o.order_items||[]).map(i => ({id:i.product_id, name:i.product_name, qty:i.quantity, price:i.price}))
           })));
         }
+      } catch(e) {}
 
       // Always login regardless of Supabase success
       const profileData = {
@@ -1123,6 +1125,7 @@ const verifyOtp = async () => {
           if (savedUserId) setCurrentUserId(savedUserId);
           setIsLoggedIn(true);
         }
+      } catch(e) {}
     };
     restoreSession();
 
