@@ -1139,7 +1139,20 @@ const verifyOtp = async () => {
             } catch(e) {}
           }
           if (savedCoins) setCoins(parseInt(savedCoins)||120);
-          if (savedUserId) setCurrentUserId(savedUserId);
+          if (savedUserId) {
+            setCurrentUserId(savedUserId);
+            // Fetch order history on session restore (not just after login)
+            try {
+              const { data: orders } = await supabase
+                .from("orders").select("*, order_items(*)").eq("user_id", savedUserId).order("created_at", {ascending:false});
+              if (orders) setOrderHistory(orders.map(o => ({
+                id: o.id, total: o.total, address: o.address,
+                payment: o.payment, slot: o.delivery_slot,
+                date: new Date(o.created_at).toLocaleDateString("en-IN"),
+                items: (o.order_items||[]).map(i => ({id:i.product_id, name:i.product_name, qty:i.quantity, price:i.price}))
+              })));
+            } catch(e) {}
+          }
           setIsLoggedIn(true);
         }
       } catch(e) {}
