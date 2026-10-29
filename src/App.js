@@ -652,6 +652,7 @@ export default function Gadag360() {
   const [query, setQuery] = useState("");
   const [cart, setCart] = useState({});
   const [address, setAddress] = useState("");
+  const [gpsCoords, setGpsCoords] = useState(null); // {lat, lon} from GPS
   const [payment, setPayment] = useState("upi");
   const [orderStatusIdx, setOrderStatusIdx] = useState(0);
   const [riderPos, setRiderPos] = useState({x:20, y:70});
@@ -859,7 +860,7 @@ export default function Gadag360() {
 
   const placeOrder = async () => {
     const orderId = "GD" + Math.floor(1000 + Math.random()*9000);
-    const newOrder = {id:orderId, items:cartItems, total:finalTotal, address, payment, slot:deliverySlot, date: new Date().toLocaleDateString("en-IN"), customer_phone: userProfile.phone, customer_name: userProfile.name};
+    const newOrder = {id:orderId, items:cartItems, total:finalTotal, address, gps_lat: gpsCoords?.lat || null, gps_lon: gpsCoords?.lon || null, payment, slot:deliverySlot, date: new Date().toLocaleDateString("en-IN"), customer_phone: userProfile.phone, customer_name: userProfile.name};
     setActiveOrders(v => [newOrder, ...v]);
       sendOwnerNotification(newOrder);
     setOrderHistory(h => [newOrder, ...h]);
@@ -897,6 +898,8 @@ export default function Gadag360() {
         delivery_fee: deliveryFee,
         discount: minOrderDiscount,
         address,
+        gps_lat: gpsCoords ? gpsCoords.lat : null,
+        gps_lon: gpsCoords ? gpsCoords.lon : null,
         delivery_slot: deliverySlot || "Standard",
         payment,
         user_id: currentUserId || null,
@@ -1019,6 +1022,9 @@ export default function Gadag360() {
     // ── OWNER NOTIFICATIONS ──
     const sendOwnerNotification = (order) => {
       // WhatsApp notification to owner
+      const mapsLink = order.gps_lat && order.gps_lon
+        ? `\n📍 GPS Location: https://maps.google.com/?q=${order.gps_lat},${order.gps_lon}`
+        : "";
       const waMsg = encodeURIComponent(
         `🛒 NEW ORDER - GADAG 360\n` +
         `Order ID: #${order.id}\n` +
@@ -1026,7 +1032,7 @@ export default function Gadag360() {
         `Phone: ${order.customer_phone || ""}\n` +
         `Items: ${(order.items||[]).map(i=>i.name+" x"+i.qty).join(", ")}\n` +
         `Total: ₹${order.total}\n` +
-        `Address: ${order.address}\n` +
+        `Address: ${order.address}${mapsLink}\n` +
         `Slot: ${order.slot}\n` +
         `Payment: ${order.payment}`
       );
@@ -1921,38 +1927,42 @@ const verifyOtp = async () => {
                 <div style={{backgroundColor:"white",margin:"8px 0",padding:"14px"}}>
                   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
                     <div style={{fontSize:12,fontWeight:700,color:ink}}>📍 {lang==="kn"?"ಡೆಲಿವರಿ ವಿಳಾಸ":"Delivery Address"}</div>
-                    <button onClick={async()=>{
+                    <button onClick={()=>{
                       if(!navigator.geolocation){alert("GPS not supported on this device");return;}
                       setAddress(lang==="kn"?"ಸ್ಥಳ ಪತ್ತೆ ಮಾಡಲಾಗುತ್ತಿದೆ...":"Detecting location...");
-                      navigator.geolocation.getCurrentPosition(async(pos)=>{
-                        try{
-                          const {latitude:lat,longitude:lon} = pos.coords;
-                          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`);
-                          const data = await res.json();
-                          const a = data.address||{};
-                          const parts = [
-                            a.house_number, a.road||a.pedestrian||a.footway,
-                            a.suburb||a.neighbourhood||a.quarter,
-                            a.city||a.town||a.village||a.county,
-                            a.state, a.postcode
-                          ].filter(Boolean);
-                          setAddress(parts.join(", "));
-                        }catch(e){setAddress("");}
+                      setGpsCoords(null);
+                      navigator.geolocation.getCurrentPosition((pos)=>{
+                        const {latitude:lat,longitude:lon} = pos.coords;
+                        setGpsCoords({lat,lon});
+                        setAddress(lang==="kn"?"GPS ಸ್ಥಳ ಪಿನ್ ಮಾಡಲಾಗಿದೆ ✓":"GPS location pinned ✓");
                       },(err)=>{
                         setAddress("");
-                        if(err.code===1) alert(lang==="kn"?"ದಯವಿಟ್ಟು ಲೊಕೇಶನ್ ಅನುಮತಿ ನೀಡಿ":"Please allow location permission");
-                        else alert(lang==="kn"?"ಸ್ಥಳ ಪತ್ತೆ ವಿಫಲವಾಗಿದೆ":"Could not detect location");
-                      },{timeout:10000,enableHighAccuracy:true});
+                        if(err.code===1) alert(lang==="kn"?"ದಯವಿಟ್ಟು ಲೊಕೇಶನ್ ಅನುಮತಿ ನೀಡಿ":"Please allow location permission in your browser");
+                        else alert(lang==="kn"?"ಸ್ಥಳ ಪತ್ತೆ ವಿಫಲವಾಗಿದೆ":"Could not detect location, please type your address");
+                      },{timeout:15000,enableHighAccuracy:true,maximumAge:0});
                     }} style={{display:"flex",alignItems:"center",gap:4,fontSize:11,fontWeight:700,color:basil,backgroundColor:"#f0faf4",border:`1px solid ${basil}`,borderRadius:20,padding:"5px 12px",cursor:"pointer"}}>
                       <MapPin size={12}/> {lang==="kn"?"GPS ಬಳಸಿ":"Use GPS"}
                     </button>
                   </div>
-                  <textarea value={address} onChange={e=>setAddress(e.target.value)} placeholder={lang==="kn"?"ನಿಮ್ಮ ವಿಳಾಸ ನಮೂದಿಸಿ...":"Enter your delivery address..."} rows={2}
-                    style={{width:"100%",borderRadius:10,padding:"10px 12px",fontSize:13,border:`1px solid ${line}`,outline:"none",resize:"none",boxSizing:"border-box"}}/>
+                  {/* Show GPS pin confirmation */}
+                  {gpsCoords ? (
+                    <div style={{backgroundColor:"#f0faf4",borderRadius:10,padding:"10px 12px",border:`1px solid ${basil}`,marginBottom:8}}>
+                      <div style={{fontSize:12,fontWeight:700,color:basil,marginBottom:4}}>📍 {lang==="kn"?"GPS ಸ್ಥಳ ಪಿನ್ ಮಾಡಲಾಗಿದೆ":"GPS Location Pinned"}</div>
+                      <a href={`https://maps.google.com/?q=${gpsCoords.lat},${gpsCoords.lon}`} target="_blank" rel="noreferrer"
+                        style={{fontSize:11,color:basil,textDecoration:"underline"}}>
+                        🗺️ {lang==="kn"?"ಗೂಗಲ್ ಮ್ಯಾಪ್‌ನಲ್ಲಿ ನೋಡಿ":"View on Google Maps"} ↗
+                      </a>
+                      <div style={{fontSize:10,color:soil,marginTop:4}}>{lang==="kn"?"ಮನೆ ನಂ / ಲ್ಯಾಂಡ್‌ಮಾರ್ಕ್ ಕೆಳಗೆ ಸೇರಿಸಿ":"Add flat no. / landmark below"}</div>
+                    </div>
+                  ) : null}
+                  <textarea value={gpsCoords ? address.replace("GPS location pinned ✓","").replace("GPS ಸ್ಥಳ ಪಿನ್ ಮಾಡಲಾಗಿದೆ ✓","") : address}
+                    onChange={e=>{ setAddress(e.target.value); if(!e.target.value) setGpsCoords(null); }}
+                    placeholder={gpsCoords ? (lang==="kn"?"ಮನೆ ನಂ, ಲ್ಯಾಂಡ್‌ಮಾರ್ಕ್ ಸೇರಿಸಿ (ಐಚ್ಛಿಕ)":"Add flat no., landmark (optional)") : (lang==="kn"?"ನಿಮ್ಮ ವಿಳಾಸ ನಮೂದಿಸಿ...":"Enter your delivery address...")} rows={2}
+                    style={{width:"100%",borderRadius:10,padding:"10px 12px",fontSize:13,border:`1px solid ${gpsCoords?basil:line}`,outline:"none",resize:"none",boxSizing:"border-box"}}/>
                   {savedAddresses.length>0 && (
                     <div style={{display:"flex",gap:6,marginTop:6,overflowX:"auto",scrollbarWidth:"none"}}>
                       {savedAddresses.map((a,i)=>(
-                        <button key={i} onClick={()=>setAddress(a)} style={{flexShrink:0,fontSize:10,padding:"4px 10px",borderRadius:12,backgroundColor:address===a?basil:"#f0f0f0",color:address===a?"white":soil,border:"none",cursor:"pointer"}}>
+                        <button key={i} onClick={()=>{ setAddress(a); setGpsCoords(null); }} style={{flexShrink:0,fontSize:10,padding:"4px 10px",borderRadius:12,backgroundColor:address===a?basil:"#f0f0f0",color:address===a?"white":soil,border:"none",cursor:"pointer"}}>
                           📍 {a.substring(0,20)}...
                         </button>
                       ))}
