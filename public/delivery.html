@@ -276,7 +276,7 @@ async function loadOrders() {
     return;
   }
 
-  const active    = orders.filter(o => o.status === "placed" || o.status === "picked_up" || o.status === "pickedup");
+  const active    = orders.filter(o => !["delivered","cancelled"].includes(o.status));
   const delivered = orders.filter(o => o.status === "delivered");
 
   // Stats
@@ -315,8 +315,8 @@ function orderCard(o, isActive) {
     `<div class="item-row"><span class="item-name">${i.product_name}</span><span class="item-qty">x${i.quantity} — ₹${i.price * i.quantity}</span></div>`
   ).join("");
 
-  const statusLabel = { placed: "New Order", picked_up: "Picked Up", pickedup: "Picked Up", delivered: "Delivered" }[o.status] || o.status;
-  const statusClass = { placed: "status-placed", picked_up: "status-picked", pickedup: "status-picked", delivered: "status-delivered" }[o.status] || "";
+  const statusLabel = { placed: "New Order", confirmed: "Confirmed", pickedup: "Picked Up", picked_up: "Picked Up", delivered: "Delivered", cancelled: "Cancelled" }[o.status] || o.status;
+  const statusClass = { placed: "status-placed", confirmed: "status-placed", pickedup: "status-picked", picked_up: "status-picked", delivered: "status-delivered" }[o.status] || "";
 
   const dropMap  = o.gps_lat && o.gps_lon
     ? `https://maps.google.com/?q=${o.gps_lat},${o.gps_lon}`
@@ -339,9 +339,9 @@ function orderCard(o, isActive) {
 
   let actionBtn = "";
   if (isActive) {
-    if (o.status === "placed") {
+    if (o.status === "placed" || o.status === "confirmed") {
       actionBtn = `<button class="action-btn btn-pickup" onclick="updateStatus('${o.id}', 'pickedup')">✅ Mark as Picked Up</button>`;
-    } else if (o.status === "picked_up" || o.status === "pickedup") {
+    } else if (o.status === "pickedup" || o.status === "picked_up") {
       actionBtn = `<button class="action-btn btn-deliver" onclick="updateStatus('${o.id}', 'delivered')">🏠 Mark as Delivered</button>`;
     }
   } else {
