@@ -645,7 +645,7 @@ const ProductSliderModal = ({p, onClose, setCart, initialQty}) => {
   );
 }
 
-// ── VENDOR MODEL: Orders routed to individual kirana partners ──
+// ── GADAG 360: Single-warehouse grocery delivery ──
 export default function Gadag360() {
   const [screen, setScreen] = useState("home");
   const [activeCat, setActiveCat] = useState("all");
@@ -1462,7 +1462,7 @@ const verifyOtp = async () => {
                             <div class="meta-box" style="flex:2"><div class="label">Delivery Slot</div>
                               <div>${o.slot||"Standard Delivery"}</div>
                               <div class="label" style="margin-top:8px">Delivered By</div>
-                              <div>GADAG 360 · Local Kirana Network</div>
+                              <div>GADAG 360</div>
                             </div>
                           </div>
                           <table>
@@ -1604,7 +1604,7 @@ const verifyOtp = async () => {
 
           {/* GENERAL INFO */}
           {profileSection==="info" && <div className="space-y-3">
-            {[{title:"About GADAG 360",body:"Gadag's first hyperlocal grocery delivery app. Fresh produce delivered from local kirana partners to your doorstep in under 2 hours."},{title:"Service Areas",body:"Gadag · Betageri · Laxmeshwar · Shirahatti · Naragund · Ron · Mundaragi"},{title:"Delivery Hours",body:"7:00 AM – 9:00 PM, all days including Sundays"},{title:"Contact",body:"📞 +91 98765 43210\n✉️ hello@gadag360.in\n📍 Gadag-Betageri, Karnataka 582101"}].map((s,i)=>(
+            {[{title:"About GADAG 360",body:"Gadag's first hyperlocal grocery delivery app. Fresh produce delivered straight from our warehouse to your doorstep in under 2 hours."},{title:"Service Areas",body:"Gadag · Betageri · Laxmeshwar · Shirahatti · Naragund · Ron · Mundaragi"},{title:"Delivery Hours",body:"7:00 AM – 9:00 PM, all days including Sundays"},{title:"Contact",body:"📞 +91 98765 43210\n✉️ hello@gadag360.in\n📍 Gadag-Betageri, Karnataka 582101"}].map((s,i)=>(
               <div key={i} className="rounded-2xl p-4" style={{backgroundColor:panel,border:`1px solid ${line}`}}>
                 <div className="font-semibold text-sm mb-1">{s.title}</div>
                 <div className="text-xs whitespace-pre-line" style={{color:soil}}>{s.body}</div>
