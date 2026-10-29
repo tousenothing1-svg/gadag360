@@ -702,16 +702,21 @@ export default function Gadag360() {
   const [showCatDrawer, setShowCatDrawer] = useState(false);
 
   // ── LIVE PRODUCTS (merged with Supabase prices) ──
+  // Match by name first (admin panel assigns timestamp IDs like "p1791..." not "p10")
+  // then fall back to id match for safety
+  const findDbProduct = (p) =>
+    dbProducts.find(d => d.name && p.name && d.name.toLowerCase() === p.name.toLowerCase()) ||
+    dbProducts.find(d => d.id === p.id);
   const getLivePrice = (p) => {
-    const dbP = dbProducts.find(d => d.id === p.id);
+    const dbP = findDbProduct(p);
     return dbP ? dbP.price : p.price;
   };
   const isInStock = (p) => {
-    const dbP = dbProducts.find(d => d.id === p.id);
+    const dbP = findDbProduct(p);
     return dbP ? dbP.in_stock !== false : true;
   };
   const getStockQty = (p) => {
-    const dbP = dbProducts.find(d => d.id === p.id);
+    const dbP = findDbProduct(p);
     return dbP ? (dbP.stock_qty ?? 100) : 100;
   };
   const LIVE_PRODUCTS = PRODUCTS.map(p => ({
@@ -865,7 +870,11 @@ export default function Gadag360() {
         const prod = LIVE_PRODUCTS.find(p => p.id === item.id);
         if (prod) {
           const newQty = Math.max(0, (prod.stock_qty || 100) - item.qty);
-          await supabase.from("products").update({ stock_qty: newQty, in_stock: newQty > 0 }).eq("id", item.id);
+          // Match by name since admin-added products use timestamp IDs, not hardcoded IDs
+          const dbProd = dbProducts.find(d => d.name && prod.name && d.name.toLowerCase() === prod.name.toLowerCase()) || dbProducts.find(d => d.id === item.id);
+          if (dbProd) {
+            await supabase.from("products").update({ stock_qty: newQty, in_stock: newQty > 0 }).eq("id", dbProd.id);
+          }
         }
       }
     } catch(e) {}
@@ -1132,7 +1141,7 @@ const verifyOtp = async () => {
     // Load products from Supabase (overrides hardcoded prices)
     const loadProductsFromDB = async (attempt = 1) => {
       try {
-        const { data, error } = await supabase.from("products").select("id, price, in_stock, stock_qty");
+        const { data, error } = await supabase.from("products").select("id, name, price, in_stock, stock_qty");
         if (error) throw error;
         if (data && data.length > 0) {
           setDbProducts(data);
