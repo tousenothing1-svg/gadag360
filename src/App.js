@@ -719,12 +719,20 @@ export default function Gadag360() {
     const dbP = findDbProduct(p);
     return dbP ? (dbP.stock_qty ?? 100) : 100;
   };
-  const LIVE_PRODUCTS = PRODUCTS.map(p => ({
-    ...p,
-    price: getLivePrice(p),
-    in_stock: isInStock(p),
-    stock_qty: getStockQty(p)
-  }));
+  const LIVE_PRODUCTS = PRODUCTS.map(p => {
+    const livePrice = getLivePrice(p);
+    // If admin changed the base price, scale variant prices proportionally
+    const scaledVariants = p.variants && p.price && livePrice !== p.price
+      ? p.variants.map(v => ({ ...v, price: Math.round((v.price / p.price) * livePrice) }))
+      : p.variants;
+    return {
+      ...p,
+      price: livePrice,
+      variants: scaledVariants,
+      in_stock: isInStock(p),
+      stock_qty: getStockQty(p)
+    };
+  });
 
   // ── STATIC DATA ──
   const BUNDLES = [
