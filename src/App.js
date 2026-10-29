@@ -1919,7 +1919,34 @@ const verifyOtp = async () => {
 
                 {/* Delivery address */}
                 <div style={{backgroundColor:"white",margin:"8px 0",padding:"14px"}}>
-                  <div style={{fontSize:12,fontWeight:700,color:ink,marginBottom:8}}>📍 {lang==="kn"?"ಡೆಲಿವರಿ ವಿಳಾಸ":"Delivery Address"}</div>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                    <div style={{fontSize:12,fontWeight:700,color:ink}}>📍 {lang==="kn"?"ಡೆಲಿವರಿ ವಿಳಾಸ":"Delivery Address"}</div>
+                    <button onClick={async()=>{
+                      if(!navigator.geolocation){alert("GPS not supported on this device");return;}
+                      setAddress(lang==="kn"?"ಸ್ಥಳ ಪತ್ತೆ ಮಾಡಲಾಗುತ್ತಿದೆ...":"Detecting location...");
+                      navigator.geolocation.getCurrentPosition(async(pos)=>{
+                        try{
+                          const {latitude:lat,longitude:lon} = pos.coords;
+                          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`);
+                          const data = await res.json();
+                          const a = data.address||{};
+                          const parts = [
+                            a.house_number, a.road||a.pedestrian||a.footway,
+                            a.suburb||a.neighbourhood||a.quarter,
+                            a.city||a.town||a.village||a.county,
+                            a.state, a.postcode
+                          ].filter(Boolean);
+                          setAddress(parts.join(", "));
+                        }catch(e){setAddress("");}
+                      },(err)=>{
+                        setAddress("");
+                        if(err.code===1) alert(lang==="kn"?"ದಯವಿಟ್ಟು ಲೊಕೇಶನ್ ಅನುಮತಿ ನೀಡಿ":"Please allow location permission");
+                        else alert(lang==="kn"?"ಸ್ಥಳ ಪತ್ತೆ ವಿಫಲವಾಗಿದೆ":"Could not detect location");
+                      },{timeout:10000,enableHighAccuracy:true});
+                    }} style={{display:"flex",alignItems:"center",gap:4,fontSize:11,fontWeight:700,color:basil,backgroundColor:"#f0faf4",border:`1px solid ${basil}`,borderRadius:20,padding:"5px 12px",cursor:"pointer"}}>
+                      <MapPin size={12}/> {lang==="kn"?"GPS ಬಳಸಿ":"Use GPS"}
+                    </button>
+                  </div>
                   <textarea value={address} onChange={e=>setAddress(e.target.value)} placeholder={lang==="kn"?"ನಿಮ್ಮ ವಿಳಾಸ ನಮೂದಿಸಿ...":"Enter your delivery address..."} rows={2}
                     style={{width:"100%",borderRadius:10,padding:"10px 12px",fontSize:13,border:`1px solid ${line}`,outline:"none",resize:"none",boxSizing:"border-box"}}/>
                   {savedAddresses.length>0 && (
