@@ -424,11 +424,11 @@ function HandpickdLayout({ filtered, activeCat, setActiveCat, cart, setCart, add
   const currentGroups = grouped[sidebarCat] || {};
 
   // Product slider modal (img5)
-const ProductSliderModal = ({p, onClose, setCart, initialQty}) => {
+const ProductSliderModal = ({p, onClose, setCart, initialQty, livePrice}) => {
     const [qty, setQty] = useState(initialQty||0);
     const sel = selectedVariant[p.id]||p.variants?.[0]?.label;
     const selVar = p.variants?.find(v=>v.label===sel)||p.variants?.[0];
-    const price = selVar?.price||p.price;
+    const price = selVar?.price||(livePrice||p.price);
     return (
       <div style={{position:"fixed",inset:0,zIndex:60,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-end",backgroundColor:"rgba(0,0,0,0.4)"}} onClick={onClose}>
         <div style={{width:"100%",maxWidth:448,backgroundColor:"white",borderRadius:"24px 24px 0 0",padding:"0 0 24px"}} onClick={e=>e.stopPropagation()}>
@@ -502,7 +502,7 @@ const ProductSliderModal = ({p, onClose, setCart, initialQty}) => {
   return (
     <>
       {/* Product slider modal */}
-      {selectedProduct && <ProductSliderModal p={selectedProduct} onClose={()=>setSelectedProduct(null)} setCart={setCart} initialQty={0}/>}
+      {selectedProduct && <ProductSliderModal p={selectedProduct} onClose={()=>setSelectedProduct(null)} setCart={setCart} initialQty={0} livePrice={getLivePrice(selectedProduct)}/>}
 
       {/* Product group detail modal */}
       {selectedGroup && (
