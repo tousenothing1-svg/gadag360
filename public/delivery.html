@@ -1,220 +1,403 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>GADAG 360 Delivery</title>
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Segoe UI',system-ui,sans-serif;background:#f5f5f5;color:#1a1a1a}
-:root{--green:#1A6B3C;--red:#E53935;--orange:#FF6B35;--line:#e0e0e0}
-.header{background:var(--green);color:white;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
-.header h1{font-size:18px;font-weight:800}
-.btn{padding:10px 18px;border-radius:10px;border:none;cursor:pointer;font-size:14px;font-weight:700}
-.btn-green{background:var(--green);color:white}
-.btn-red{background:var(--red);color:white}
-.btn-gray{background:#f0f0f0;color:#555}
-.btn-orange{background:var(--orange);color:white}
-.btn-sm{padding:6px 12px;font-size:12px}
-.login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,#1A6B3C,#2d9e5f);padding:20px}
-.login-box{background:white;border-radius:20px;padding:32px;width:100%;max-width:360px}
-.login-logo{font-size:26px;font-weight:900;color:var(--green);margin-bottom:4px}
-label{font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:4px;margin-top:14px}
-input{width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;font-size:14px;outline:none}
-.order-card{background:white;border-radius:14px;padding:18px;margin-bottom:14px;border:1px solid var(--line);box-shadow:0 2px 8px rgba(0,0,0,0.06)}
-.order-card.delivered{opacity:0.6;border-left:4px solid var(--green)}
-.order-card.pickedup{border-left:4px solid var(--orange)}
-.order-card.assigned{border-left:4px solid #2196F3}
-.badge{display:inline-block;padding:3px 10px;border-radius:10px;font-size:11px;font-weight:700}
-.badge-blue{background:#e3f2fd;color:#1565C0}
-.badge-orange{background:#fff3e0;color:#E65100}
-.badge-green{background:#e8f5e9;color:var(--green)}
-.spinner{display:inline-block;width:20px;height:20px;border:3px solid #f0f0f0;border-top-color:var(--green);border-radius:50%;animation:spin 0.8s linear infinite;vertical-align:middle;margin-right:8px}
-@keyframes spin{to{transform:rotate(360deg)}}
-.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:12px 24px;border-radius:12px;color:white;font-size:14px;font-weight:600;z-index:300;box-shadow:0 4px 20px rgba(0,0,0,0.2);white-space:nowrap}
-.empty{text-align:center;padding:60px 20px;color:#aaa}
-.empty-icon{font-size:48px;margin-bottom:12px}
-.section-title{font-size:13px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1px;margin:20px 0 10px}
-</style>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>GADAG 360 – Delivery Panel</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f4f6f8; min-height: 100vh; }
+
+    /* ── HEADER ── */
+    .header {
+      background: #1a7c4a; color: #fff;
+      padding: 14px 16px; display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 10; box-shadow: 0 2px 8px rgba(0,0,0,.2);
+    }
+    .header h1 { font-size: 17px; font-weight: 700; letter-spacing: .3px; }
+    .header .sub { font-size: 12px; opacity: .8; margin-top: 2px; }
+    .logout-btn { background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.3);
+      color: #fff; padding: 6px 12px; border-radius: 8px; font-size: 13px; cursor: pointer; }
+    .logout-btn:hover { background: rgba(255,255,255,.25); }
+
+    /* ── LOGIN ── */
+    #loginScreen {
+      display: flex; align-items: center; justify-content: center;
+      min-height: 100vh; padding: 24px;
+    }
+    .login-card {
+      background: #fff; border-radius: 16px; padding: 32px 24px;
+      width: 100%; max-width: 360px; box-shadow: 0 4px 24px rgba(0,0,0,.1);
+    }
+    .login-logo { text-align: center; margin-bottom: 24px; }
+    .login-logo .icon { font-size: 48px; }
+    .login-logo h2 { font-size: 20px; font-weight: 700; color: #1a7c4a; margin-top: 8px; }
+    .login-logo p { font-size: 13px; color: #888; margin-top: 4px; }
+    .field { margin-bottom: 16px; }
+    .field label { display: block; font-size: 13px; font-weight: 600; color: #444; margin-bottom: 6px; }
+    .field input {
+      width: 100%; padding: 12px 14px; border: 1.5px solid #ddd; border-radius: 10px;
+      font-size: 15px; outline: none; transition: border-color .2s;
+    }
+    .field input:focus { border-color: #1a7c4a; }
+    .login-btn {
+      width: 100%; padding: 14px; background: #1a7c4a; color: #fff;
+      border: none; border-radius: 10px; font-size: 16px; font-weight: 700;
+      cursor: pointer; margin-top: 8px;
+    }
+    .login-btn:hover { background: #156038; }
+    .login-btn:disabled { background: #aaa; cursor: not-allowed; }
+    .err-msg { color: #e53935; font-size: 13px; text-align: center; margin-top: 10px; }
+
+    /* ── MAIN PANEL ── */
+    #mainPanel { display: none; }
+    .tabs {
+      display: flex; background: #fff; border-bottom: 1px solid #e0e0e0;
+      position: sticky; top: 60px; z-index: 9;
+    }
+    .tab {
+      flex: 1; text-align: center; padding: 12px 4px; font-size: 13px; font-weight: 600;
+      color: #888; cursor: pointer; border-bottom: 3px solid transparent; transition: all .2s;
+    }
+    .tab.active { color: #1a7c4a; border-bottom-color: #1a7c4a; }
+    .tab .badge {
+      display: inline-block; background: #e53935; color: #fff;
+      border-radius: 10px; font-size: 11px; padding: 1px 6px; margin-left: 4px;
+    }
+
+    .section { display: none; padding: 16px; }
+    .section.active { display: block; }
+
+    /* ── ORDER CARD ── */
+    .order-card {
+      background: #fff; border-radius: 14px; margin-bottom: 14px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.07); overflow: hidden;
+    }
+    .order-card-header {
+      padding: 14px 16px 10px;
+      border-bottom: 1px solid #f0f0f0;
+      display: flex; justify-content: space-between; align-items: flex-start;
+    }
+    .order-id { font-size: 15px; font-weight: 700; color: #111; }
+    .order-time { font-size: 12px; color: #999; margin-top: 2px; }
+    .status-badge {
+      font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px;
+      text-transform: uppercase; letter-spacing: .5px;
+    }
+    .status-placed { background: #fff3e0; color: #e65100; }
+    .status-picked { background: #e3f2fd; color: #1565c0; }
+    .status-delivered { background: #e8f5e9; color: #1b5e20; }
+
+    .order-items { padding: 12px 16px; }
+    .order-items .item-row { display: flex; justify-content: space-between; font-size: 14px; padding: 3px 0; }
+    .item-name { color: #333; }
+    .item-qty { color: #666; font-weight: 600; }
+
+    .order-footer { padding: 12px 16px; background: #fafafa; border-top: 1px solid #f0f0f0; }
+    .order-meta { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+    .meta-pill {
+      font-size: 12px; padding: 4px 10px; border-radius: 20px; font-weight: 600;
+    }
+    .meta-total { background: #e8f5e9; color: #1b5e20; }
+    .meta-payment { background: #f3e5f5; color: #6a1b9a; }
+    .meta-slot { background: #e3f2fd; color: #1565c0; }
+
+    .map-links { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+    .map-btn {
+      flex: 1; min-width: 140px; text-decoration: none; display: flex; align-items: center;
+      justify-content: center; gap: 6px; padding: 10px 12px; border-radius: 10px;
+      font-size: 13px; font-weight: 600; border: none; cursor: pointer;
+    }
+    .map-pickup { background: #fff8e1; color: #f57f17; border: 1.5px solid #ffe082; }
+    .map-pickup:hover { background: #fff3cd; }
+    .map-drop { background: #e8f5e9; color: #1b5e20; border: 1.5px solid #a5d6a7; }
+    .map-drop:hover { background: #dcedc8; }
+    .map-drop.no-gps { background: #f5f5f5; color: #999; border-color: #e0e0e0; cursor: default; }
+
+    .address-text { font-size: 13px; color: #555; margin-bottom: 10px; line-height: 1.4; }
+
+    .action-btn {
+      width: 100%; padding: 12px; border: none; border-radius: 10px;
+      font-size: 14px; font-weight: 700; cursor: pointer; transition: all .2s;
+    }
+    .btn-pickup { background: #1565c0; color: #fff; }
+    .btn-pickup:hover { background: #0d47a1; }
+    .btn-deliver { background: #1a7c4a; color: #fff; }
+    .btn-deliver:hover { background: #156038; }
+    .btn-done { background: #f5f5f5; color: #aaa; cursor: default; }
+
+    /* ── EMPTY STATE ── */
+    .empty { text-align: center; padding: 60px 20px; color: #aaa; }
+    .empty .icon { font-size: 48px; margin-bottom: 12px; }
+    .empty p { font-size: 15px; }
+
+    /* ── LOADING ── */
+    .loading { text-align: center; padding: 40px; color: #888; font-size: 14px; }
+
+    /* ── REFRESH BTN ── */
+    .refresh-row { display: flex; justify-content: flex-end; margin-bottom: 12px; }
+    .refresh-btn {
+      background: #fff; border: 1.5px solid #ddd; border-radius: 8px;
+      padding: 7px 14px; font-size: 13px; font-weight: 600; color: #444;
+      cursor: pointer; display: flex; align-items: center; gap: 6px;
+    }
+    .refresh-btn:hover { background: #f5f5f5; }
+
+    /* ── STATS ── */
+    .stats-row { display: flex; gap: 10px; margin-bottom: 16px; }
+    .stat-box {
+      flex: 1; background: #fff; border-radius: 12px; padding: 14px 12px;
+      text-align: center; box-shadow: 0 2px 6px rgba(0,0,0,.06);
+    }
+    .stat-num { font-size: 24px; font-weight: 800; color: #1a7c4a; }
+    .stat-label { font-size: 11px; color: #888; margin-top: 2px; font-weight: 600; }
+  </style>
 </head>
 <body>
 
-<!-- Login Screen -->
-<div id="loginScreen" style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,#1A6B3C,#2d9e5f);padding:20px">
-  <div style="background:white;border-radius:20px;padding:32px;width:100%;max-width:360px">
-    <div style="font-size:26px;font-weight:900;color:var(--green)">🛵 GADAG 360</div>
-    <div style="color:#888;font-size:13px;margin-bottom:8px">Delivery Panel</div>
-    <label>Delivery Boy ID</label>
-    <input id="dbId" placeholder="e.g. db1" onkeydown="if(event.key==='Enter')doLogin()"/>
-    <label>Password</label>
-    <input type="password" id="dbPass" placeholder="Enter password" onkeydown="if(event.key==='Enter')doLogin()"/>
-    <div id="loginError" style="color:var(--red);font-size:12px;margin-top:8px"></div>
-    <button class="btn btn-green" style="width:100%;padding:13px;margin-top:18px;font-size:15px" onclick="doLogin()">Login</button>
+<!-- LOGIN -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="icon">🛵</div>
+      <h2>GADAG 360</h2>
+      <p>Delivery Partner Login</p>
+    </div>
+    <div class="field">
+      <label>Phone Number</label>
+      <input type="tel" id="loginPhone" placeholder="9876543210" inputmode="numeric"/>
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="loginPass" placeholder="Enter your password"/>
+    </div>
+    <button class="login-btn" id="loginBtn" onclick="doLogin()">Login</button>
+    <div class="err-msg" id="loginErr"></div>
   </div>
 </div>
 
-<!-- Main App -->
-<div id="mainApp" style="display:none">
+<!-- MAIN PANEL -->
+<div id="mainPanel">
   <div class="header">
-    <h1>🛵 My Orders</h1>
-    <div style="display:flex;gap:8px;align-items:center">
-      <span id="boyName" style="font-size:13px;opacity:0.85"></span>
-      <button class="btn btn-gray btn-sm" onclick="logout()">Logout</button>
+    <div>
+      <div class="h1" style="font-size:17px;font-weight:700;" id="headerName">🛵 Delivery Panel</div>
+      <div class="sub" id="headerSub">GADAG 360</div>
     </div>
+    <button class="logout-btn" onclick="doLogout()">Logout</button>
   </div>
 
-  <div style="padding:16px;max-width:600px;margin:0 auto">
-    <div style="display:flex;gap:10px;margin-bottom:16px">
-      <button class="btn btn-green btn-sm" onclick="loadMyOrders()" style="flex:1">🔄 Refresh</button>
+  <div class="tabs">
+    <div class="tab active" id="tab-active" onclick="switchTab('active')">
+      Active <span class="badge" id="activeBadge" style="display:none">0</span>
     </div>
+    <div class="tab" id="tab-done" onclick="switchTab('done')">Delivered</div>
+  </div>
 
-    <!-- Stats -->
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px">
-      <div style="background:white;border-radius:12px;padding:12px;text-align:center;border:1px solid var(--line)">
-        <div style="font-size:22px;font-weight:800;color:#2196F3" id="statAssigned">0</div>
-        <div style="font-size:11px;color:#888;margin-top:2px">Assigned</div>
-      </div>
-      <div style="background:white;border-radius:12px;padding:12px;text-align:center;border:1px solid var(--line)">
-        <div style="font-size:22px;font-weight:800;color:var(--orange)" id="statPickedup">0</div>
-        <div style="font-size:11px;color:#888;margin-top:2px">Picked Up</div>
-      </div>
-      <div style="background:white;border-radius:12px;padding:12px;text-align:center;border:1px solid var(--line)">
-        <div style="font-size:22px;font-weight:800;color:var(--green)" id="statDelivered">0</div>
-        <div style="font-size:11px;color:#888;margin-top:2px">Delivered</div>
-      </div>
+  <div class="section active" id="section-active">
+    <div class="stats-row" id="statsRow" style="display:none">
+      <div class="stat-box"><div class="stat-num" id="statToday">0</div><div class="stat-label">Today</div></div>
+      <div class="stat-box"><div class="stat-num" id="statTotal">0</div><div class="stat-label">Total</div></div>
+      <div class="stat-box"><div class="stat-num" id="statEarnings">₹0</div><div class="stat-label">Today's ₹</div></div>
     </div>
+    <div class="refresh-row">
+      <button class="refresh-btn" onclick="loadOrders()">🔄 Refresh</button>
+    </div>
+    <div id="activeOrders"><div class="loading">Loading orders…</div></div>
+  </div>
 
-    <div id="ordersContainer"><div style="text-align:center;padding:40px"><span class="spinner"></span> Loading orders...</div></div>
+  <div class="section" id="section-done">
+    <div class="refresh-row">
+      <button class="refresh-btn" onclick="loadOrders()">🔄 Refresh</button>
+    </div>
+    <div id="doneOrders"><div class="loading">Loading…</div></div>
   </div>
 </div>
-
-<div id="toast" class="toast" style="display:none"></div>
 
 <script>
-const URL = "https://lykhjuizzvurklywxflz.supabase.co/rest/v1";
-const KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx5a2hqdWl6enZ1cmtseXd4Zmx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEzODg3OTMsImV4cCI6MjEwNjk2NDc5M30.2gO3aK030mJ0pYTeMd95B7uZF-dHnFzDOSaPwt9hZ6Q";
-const H = {"apikey":KEY,"Authorization":"Bearer "+KEY,"Content-Type":"application/json"};
+const SUPABASE_URL = "https://lykhjuizzvurklywxflz.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx5a2hqdWl6enZ1cmtseXd4Zmx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEzODg3OTMsImV4cCI6MjEwNjk2NDc5M30.2gO3aK030mJ0pYTeMd95B7uZF-dHnFzDOSaPwt9hZ6Q";
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-let currentBoy = null;
+// ── WAREHOUSE LOCATION ──
+const WAREHOUSE = {
+  lat: 15.426861,
+  lon: 75.614917,
+  name: "GADAG 360 Warehouse"
+};
+const WAREHOUSE_MAP = `https://maps.google.com/?q=${WAREHOUSE.lat},${WAREHOUSE.lon}`;
 
-async function db(table, opts={}) {
-  const {method="GET", filter="", body=null} = opts;
-  const res = await fetch(`${URL}/${table}?${filter}`, {method, headers:H, body:body?JSON.stringify(body):null});
-  if(!res.ok) throw new Error(await res.text());
-  return method==="DELETE" ? [] : res.json();
-}
+let currentDeliveryBoy = null;
 
+// ── AUTH ──
 async function doLogin() {
-  const id = document.getElementById("dbId").value.trim();
-  const pass = document.getElementById("dbPass").value.trim();
-  if(!id || !pass){ document.getElementById("loginError").textContent="Enter ID and password"; return; }
-  try {
-    const boys = await db("delivery_boys", {filter:`id=eq.${id}`});
-    if(!boys || boys.length===0){ document.getElementById("loginError").textContent="Delivery boy ID not found"; return; }
-    const boy = boys[0];
-    if(boy.password !== pass){ document.getElementById("loginError").textContent="Wrong password"; return; }
-    if(!boy.active){ document.getElementById("loginError").textContent="Account inactive. Contact admin."; return; }
-    currentBoy = boy;
-    document.getElementById("loginScreen").style.display="none";
-    document.getElementById("mainApp").style.display="block";
-    document.getElementById("boyName").textContent = boy.name;
-    loadMyOrders();
-  } catch(e){ document.getElementById("loginError").textContent="Error: "+e.message; }
+  const phone = document.getElementById("loginPhone").value.trim();
+  const pass  = document.getElementById("loginPass").value.trim();
+  const btn   = document.getElementById("loginBtn");
+  const err   = document.getElementById("loginErr");
+  err.textContent = "";
+  if (!phone || !pass) { err.textContent = "Enter phone and password"; return; }
+  btn.disabled = true; btn.textContent = "Logging in…";
+  const { data, error } = await sb.from("delivery_boys")
+    .select("*").eq("phone", phone).eq("password", pass).eq("active", true).single();
+  btn.disabled = false; btn.textContent = "Login";
+  if (error || !data) { err.textContent = "❌ Wrong phone or password"; return; }
+  currentDeliveryBoy = data;
+  localStorage.setItem("gd360_db", JSON.stringify(data));
+  showPanel();
 }
 
-function logout(){
-  currentBoy=null;
-  document.getElementById("loginScreen").style.display="flex";
-  document.getElementById("mainApp").style.display="none";
-  document.getElementById("dbId").value="";
-  document.getElementById("dbPass").value="";
+function doLogout() {
+  localStorage.removeItem("gd360_db");
+  currentDeliveryBoy = null;
+  document.getElementById("mainPanel").style.display = "none";
+  document.getElementById("loginScreen").style.display = "flex";
 }
 
-async function loadMyOrders(){
-  document.getElementById("ordersContainer").innerHTML='<div style="text-align:center;padding:40px"><span class="spinner"></span> Loading...</div>';
-  try {
-    const orders = await db("orders", {filter:`delivery_boy_id=eq.${currentBoy.id}&order=created_at.desc`});
-    const active = (orders||[]).filter(o=>o.status!=="delivered"&&o.status!=="cancelled");
-    const delivered = (orders||[]).filter(o=>o.status==="delivered");
-    const pickedup = (orders||[]).filter(o=>o.status==="pickedup");
-    const assigned = (orders||[]).filter(o=>o.status!=="delivered"&&o.status!=="cancelled"&&o.status!=="pickedup");
+function showPanel() {
+  document.getElementById("loginScreen").style.display = "none";
+  document.getElementById("mainPanel").style.display = "block";
+  document.getElementById("headerName").textContent = "🛵 " + currentDeliveryBoy.name;
+  loadOrders();
+  // Auto-refresh every 60 seconds
+  setInterval(loadOrders, 60000);
+}
 
-    document.getElementById("statAssigned").textContent = assigned.length;
-    document.getElementById("statPickedup").textContent = pickedup.length;
-    document.getElementById("statDelivered").textContent = delivered.length;
+// ── ORDERS ──
+async function loadOrders() {
+  const { data: orders, error } = await sb
+    .from("orders")
+    .select("*, order_items(*)")
+    .eq("delivery_boy_id", currentDeliveryBoy.id)
+    .order("created_at", { ascending: false });
 
-    if(!orders || orders.length===0){
-      document.getElementById("ordersContainer").innerHTML=`<div class="empty"><div class="empty-icon">📦</div><div style="font-weight:700;font-size:16px">No orders assigned yet</div><div style="font-size:13px;margin-top:6px">Check back later</div></div>`;
-      return;
-    }
-
-    let html = "";
-    if(active.length>0){
-      html += `<div class="section-title">🔔 Active Orders (${active.length})</div>`;
-      html += active.map(o=>renderCard(o)).join("");
-    }
-    if(delivered.length>0){
-      html += `<div class="section-title">✅ Delivered Today (${delivered.length})</div>`;
-      html += delivered.map(o=>renderCard(o)).join("");
-    }
-    document.getElementById("ordersContainer").innerHTML = html;
-  } catch(e){
-    document.getElementById("ordersContainer").innerHTML=`<div style="color:red;text-align:center;padding:40px">Error: ${e.message}</div>`;
+  if (error || !orders) {
+    document.getElementById("activeOrders").innerHTML = `<div class="empty"><div class="icon">⚠️</div><p>Could not load orders</p></div>`;
+    return;
   }
-}
 
-function renderCard(o){
-  const date = o.created_at ? new Date(o.created_at).toLocaleString("en-IN",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}) : "—";
-  const statusBadge = o.status==="delivered"
-    ? `<span class="badge badge-green">✅ Delivered</span>`
-    : o.status==="pickedup"
-    ? `<span class="badge badge-orange">🛵 Picked Up</span>`
-    : `<span class="badge badge-blue">📋 Assigned</span>`;
+  const active    = orders.filter(o => o.status === "placed" || o.status === "picked_up");
+  const delivered = orders.filter(o => o.status === "delivered");
 
-  const mapsLink = o.address ? `https://maps.google.com/?q=${encodeURIComponent(o.address)}` : null;
+  // Stats
+  const today = new Date().toLocaleDateString("en-IN");
+  const todayDelivered = delivered.filter(o => new Date(o.created_at).toLocaleDateString("en-IN") === today);
+  const todayEarnings  = todayDelivered.reduce((s, o) => s + (o.delivery_fee || 0), 0);
+  document.getElementById("statToday").textContent    = todayDelivered.length;
+  document.getElementById("statTotal").textContent    = delivered.length;
+  document.getElementById("statEarnings").textContent = "₹" + todayEarnings;
+  document.getElementById("statsRow").style.display   = delivered.length > 0 ? "flex" : "none";
 
-  const actionBtns = o.status==="delivered"||o.status==="cancelled" ? "" : o.status==="pickedup"
-    ? `<button class="btn btn-green" style="flex:1" onclick="updateStatus('${o.id}','delivered')">✅ Mark Delivered</button>`
-    : `<button class="btn btn-orange" style="flex:1" onclick="updateStatus('${o.id}','pickedup')">🛵 Picked Up</button>`;
-
-  return `<div class="order-card ${o.status==="delivered"?"delivered":o.status==="pickedup"?"pickedup":"assigned"}">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-      <div style="font-weight:800;font-size:15px">#${o.id}</div>
-      ${statusBadge}
-    </div>
-    <div style="font-size:13px;color:#555;margin-bottom:6px">🕐 ${date}</div>
-    <div style="font-size:13px;margin-bottom:4px"><b>📍 Address:</b> ${o.address||"—"}</div>
-    <div style="font-size:13px;margin-bottom:4px"><b>💰 Amount:</b> ₹${o.total} (${o.payment==="upi"?"UPI":"COD"})</div>
-    ${o.items ? `<div style="font-size:12px;color:#777;margin-bottom:10px">🛒 ${Array.isArray(o.items)?o.items.map(i=>i.name||i).join(", "):o.items}</div>` : ""}
-    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
-      ${actionBtns}
-      ${mapsLink ? `<button class="btn btn-gray btn-sm" onclick="window.open('${mapsLink}','_blank')" style="flex:1">🗺️ Navigate</button>` : ""}
-      <button class="btn btn-gray btn-sm" onclick="callAdmin()" style="flex:1">📞 Call Admin</button>
-    </div>
-  </div>`;
-}
-
-async function updateStatus(id, status){
-  try {
-    await fetch(`${URL}/orders?id=eq.${id}`, {method:"PATCH", headers:H, body:JSON.stringify({status})});
-    toast(status==="delivered" ? "✅ Order marked as delivered!" : "🛵 Order picked up!", status==="delivered"?"#1A6B3C":"#FF6B35");
-    loadMyOrders();
-  } catch(e){ toast("Error: "+e.message, "#E53935"); }
-}
-
-function callAdmin(){
-  // Replace with your actual business number when ready
-  const adminNumber = "+919886888924";
-  if(confirm("Call admin/owner?")){
-    window.location.href = "tel:"+adminNumber;
+  // Badge
+  if (active.length > 0) {
+    document.getElementById("activeBadge").textContent    = active.length;
+    document.getElementById("activeBadge").style.display  = "inline-block";
+  } else {
+    document.getElementById("activeBadge").style.display = "none";
   }
+
+  renderOrders("activeOrders", active, true);
+  renderOrders("doneOrders",   delivered, false);
 }
 
-function toast(msg, color="#1A6B3C"){
-  const t = document.getElementById("toast");
-  t.textContent=msg; t.style.background=color; t.style.display="block";
-  setTimeout(()=>t.style.display="none", 3000);
+function renderOrders(containerId, orders, isActive) {
+  const el = document.getElementById(containerId);
+  if (!orders.length) {
+    el.innerHTML = `<div class="empty"><div class="icon">${isActive ? "✅" : "📦"}</div><p>${isActive ? "No active orders right now" : "No delivered orders yet"}</p></div>`;
+    return;
+  }
+  el.innerHTML = orders.map(o => orderCard(o, isActive)).join("");
 }
+
+function orderCard(o, isActive) {
+  const items = o.order_items || [];
+  const itemRows = items.map(i =>
+    `<div class="item-row"><span class="item-name">${i.product_name}</span><span class="item-qty">x${i.quantity} — ₹${i.price * i.quantity}</span></div>`
+  ).join("");
+
+  const statusLabel = { placed: "New Order", picked_up: "Picked Up", delivered: "Delivered" }[o.status] || o.status;
+  const statusClass = { placed: "status-placed", picked_up: "status-picked", delivered: "status-delivered" }[o.status] || "";
+
+  const dropMap  = o.gps_lat && o.gps_lon
+    ? `https://maps.google.com/?q=${o.gps_lat},${o.gps_lon}`
+    : null;
+
+  const mapsLinks = `
+    <div class="map-links">
+      <a class="map-btn map-pickup" href="${WAREHOUSE_MAP}" target="_blank">
+        📦 Pickup Point
+      </a>
+      ${dropMap
+        ? `<a class="map-btn map-drop" href="${dropMap}" target="_blank">🏠 Drop Location</a>`
+        : `<span class="map-btn map-drop no-gps">📝 Address Only</span>`
+      }
+    </div>
+  `;
+
+  const addressLine = o.address && o.address !== "GPS location pinned ✓" && o.address !== "GPS ಸ್ಥಳ ಪಿನ್ ಮಾಡಲಾಗಿದೆ ✓"
+    ? `<div class="address-text">📍 ${o.address}</div>` : "";
+
+  let actionBtn = "";
+  if (isActive) {
+    if (o.status === "placed") {
+      actionBtn = `<button class="action-btn btn-pickup" onclick="updateStatus('${o.id}', 'picked_up')">✅ Mark as Picked Up</button>`;
+    } else if (o.status === "picked_up") {
+      actionBtn = `<button class="action-btn btn-deliver" onclick="updateStatus('${o.id}', 'delivered')">🏠 Mark as Delivered</button>`;
+    }
+  } else {
+    actionBtn = `<button class="action-btn btn-done" disabled>✓ Delivered</button>`;
+  }
+
+  const time = new Date(o.created_at).toLocaleTimeString("en-IN", {hour:"2-digit", minute:"2-digit"});
+  const date = new Date(o.created_at).toLocaleDateString("en-IN");
+
+  return `
+    <div class="order-card">
+      <div class="order-card-header">
+        <div>
+          <div class="order-id">#${o.id}</div>
+          <div class="order-time">${date} · ${time}</div>
+        </div>
+        <span class="status-badge ${statusClass}">${statusLabel}</span>
+      </div>
+      <div class="order-items">${itemRows}</div>
+      <div class="order-footer">
+        <div class="order-meta">
+          <span class="meta-pill meta-total">₹${o.total}</span>
+          <span class="meta-pill meta-payment">${o.payment === "cod" ? "💵 COD" : "📱 " + o.payment.toUpperCase()}</span>
+          <span class="meta-pill meta-slot">🕐 ${o.delivery_slot || "Standard"}</span>
+        </div>
+        ${mapsLinks}
+        ${addressLine}
+        ${actionBtn}
+      </div>
+    </div>
+  `;
+}
+
+async function updateStatus(orderId, newStatus) {
+  const { error } = await sb.from("orders").update({ status: newStatus }).eq("id", orderId);
+  if (error) { alert("Failed to update. Try again."); return; }
+  await loadOrders();
+}
+
+function switchTab(tab) {
+  document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+  document.querySelectorAll(".section").forEach(s => s.classList.remove("active"));
+  document.getElementById("tab-" + tab).classList.add("active");
+  document.getElementById("section-" + tab).classList.add("active");
+}
+
+// ── RESTORE SESSION ──
+window.onload = () => {
+  const saved = localStorage.getItem("gd360_db");
+  if (saved) {
+    try {
+      currentDeliveryBoy = JSON.parse(saved);
+      showPanel();
+    } catch(e) { localStorage.removeItem("gd360_db"); }
+  }
+};
 </script>
 </body>
 </html>
