@@ -1925,49 +1925,57 @@ const verifyOtp = async () => {
                       if(!navigator.geolocation){alert("GPS not supported on this device");return;}
                       setAddress(lang==="kn"?"ಸ್ಥಳ ಪತ್ತೆ ಮಾಡಲಾಗುತ್ತಿದೆ...":"Detecting location...");
                       setGpsCoords(null);
-                      // Strategy: accept first reading immediately, keep refining for 8s if accuracy is poor
+                      // Strategy:
+                      // - Keep watching and always store best reading so far
+                      // - Accept (show to user) only once accuracy <= 500m (rejects obvious cell-tower junk)
+                      // - Keep refining until accuracy <= 50m or 20s passes
+                      // - Hard stop at 25s: use best we have, or error if nothing good enough
                       let watchId = null;
-                      let bestFix = null;
+                      let bestFix = null;  // best reading seen so far (may not be accepted yet)
+                      const ACCEPT_THRESHOLD = 500;  // show to user once under this
+                      const GREAT_THRESHOLD = 50;    // stop early if this good
                       const accept = (lat,lon,acc)=>{
                         bestFix = {lat,lon,accuracy:Math.round(acc)};
                         setGpsCoords(bestFix);
                         setAddress(lang==="kn"?"GPS ಸ್ಥಳ ಪಿನ್ ಮಾಡಲಾಗಿದೆ ✓":"GPS location pinned ✓");
                       };
-                      // Hard stop after 15s — take whatever we have or show error
+                      // Hard stop at 25s — use best fix if decent, else show error
                       const hardStop = setTimeout(()=>{
                         if(watchId!=null) navigator.geolocation.clearWatch(watchId);
-                        if(!bestFix){
+                        if(bestFix && bestFix.accuracy <= ACCEPT_THRESHOLD){
+                          // already accepted, nothing to do
+                        } else if(bestFix){
+                          // has a fix but poor — accept it anyway with a warning note
+                          accept(bestFix.lat, bestFix.lon, bestFix.accuracy);
+                        } else {
                           setAddress("");
-                          alert(lang==="kn"?"ಲೊಕೇಶನ್ ಅನುಮತಿ ನಿರಾಕರಿಸಲಾಗಿದೆ ಅಥವಾ ಲಭ್ಯವಿಲ್ಲ. ವಿಳಾಸ ಟೈಪ್ ಮಾಡಿ":"Location unavailable. Please type your address");
+                          alert(lang==="kn"?"ಲೊಕೇಶನ್ ಪತ್ತೆ ವಿಫಲ. ವಿಳಾಸ ಟೈಪ್ ಮಾಡಿ":"Could not detect location. Please type your address");
                         }
-                      }, 15000);
-                      // Refine stop after 8s — if we already have a fix, stop watching
-                      const refineStop = setTimeout(()=>{
-                        if(watchId!=null) navigator.geolocation.clearWatch(watchId);
-                        clearTimeout(hardStop);
-                      }, 8000);
+                      }, 25000);
                       watchId = navigator.geolocation.watchPosition((pos)=>{
                         const {latitude:lat, longitude:lon, accuracy} = pos.coords;
-                        // Always accept — update to better accuracy if improved
+                        // Always track best reading
                         if(!bestFix || accuracy < bestFix.accuracy) {
-                          accept(lat,lon,accuracy);
+                          bestFix = {lat, lon, accuracy: Math.round(accuracy)};
                         }
-                        // Stop early if accuracy is already great
-                        if(accuracy <= 50) {
-                          clearTimeout(refineStop);
+                        // Accept once reading is good enough (under 500m)
+                        if(accuracy <= ACCEPT_THRESHOLD){
+                          accept(lat, lon, accuracy);
+                        }
+                        // Stop early if very accurate
+                        if(accuracy <= GREAT_THRESHOLD){
                           clearTimeout(hardStop);
                           navigator.geolocation.clearWatch(watchId);
                         }
                       },(err)=>{
-                        clearTimeout(refineStop);
                         clearTimeout(hardStop);
                         if(watchId!=null) navigator.geolocation.clearWatch(watchId);
-                        if(!bestFix){
+                        if(!bestFix || bestFix.accuracy > ACCEPT_THRESHOLD){
                           setAddress("");
                           if(err.code===1) alert(lang==="kn"?"ದಯವಿಟ್ಟು ಲೊಕೇಶನ್ ಅನುಮತಿ ನೀಡಿ":"Please allow location permission in your browser");
                           else alert(lang==="kn"?"ಸ್ಥಳ ಪತ್ತೆ ವಿಫಲವಾಗಿದೆ":"Could not detect location, please type your address");
                         }
-                      },{enableHighAccuracy:true, maximumAge:0, timeout:15000});
+                      },{enableHighAccuracy:true, maximumAge:0, timeout:25000});
                     }} style={{display:"flex",alignItems:"center",gap:4,fontSize:11,fontWeight:700,color:basil,backgroundColor:"#f0faf4",border:`1px solid ${basil}`,borderRadius:20,padding:"5px 12px",cursor:"pointer"}}>
                       <MapPin size={12}/> {lang==="kn"?"GPS ಬಳಸಿ":"Use GPS"}
                     </button>
