@@ -1039,22 +1039,15 @@ export default function Gadag360() {
       window.open(`https://wa.me/919886888924?text=${waMsg}`, "_blank");
     };
 
-// 🔥 FIREBASE OTP
+// 📱 SIMPLE LOGIN (no OTP — will add Firebase OTP later)
 const sendOtp = async () => {
   if(loginPhone.length!==10){ alert("Enter valid 10-digit number"); return; }
-  try {
-    if(!window.recaptchaVerifier){
-      window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', { size: 'invisible' });
-    }
-    const confirmation = await signInWithPhoneNumber(auth, "+91"+loginPhone, window.recaptchaVerifier);
-    window.confirmationResult = confirmation;
-    setOtpSent(true); setLoginStep("otp");
-  } catch(e){ console.error(e); alert("Failed to send OTP: "+e.message); }
+  setLoginStep("otp"); // go to name step
 };
 const verifyOtp = async () => {
-  if(loginOtp.length!==6){ alert("Enter 6-digit OTP"); return; }
+  if(!loginOtp.trim()){ alert("Enter your name"); return; }
   try {
-    await window.confirmationResult.confirm(loginOtp);
+    // loginOtp field is reused for name input temporarily
       // Define existingUser at outer scope so it's always accessible
       let existingUser = null;
       try {
@@ -1063,8 +1056,11 @@ const verifyOtp = async () => {
         existingUser = existingUsers && existingUsers.length > 0 ? existingUsers[0] : null;
         if (!existingUser) {
           const { data: newUser } = await supabase
-            .from("users").insert({ phone: loginPhone, coins: 120 }).select().single();
+            .from("users").insert({ phone: loginPhone, name: loginOtp.trim(), coins: 120 }).select().single();
           existingUser = newUser;
+        } else if (loginOtp.trim() && !existingUser.name) {
+          // Save name if not set yet
+          await supabase.from("users").update({ name: loginOtp.trim() }).eq("id", existingUser.id);
         }
         if (existingUser) {
           setCurrentUserId(existingUser.id);
@@ -1082,22 +1078,22 @@ const verifyOtp = async () => {
 
       // Always login regardless of Supabase success
       const profileData = {
-        name: existingUser?.name||"",
+        name: loginOtp.trim() || existingUser?.name || "",
         phone: loginPhone,
-        email: existingUser?.email||""
+        email: existingUser?.email || ""
       };
       setUserProfile(profileData);
       setEditProfile(profileData);
       setIsLoggedIn(true);
 
-      // Save session — save to BOTH storage methods
+      // Save session
       await Storage.set("gd360_loggedIn", "true");
       await Storage.set("gd360_profile", JSON.stringify(profileData));
       await Storage.set("gd360_userId", existingUser?.id||"");
       await Storage.set("gd360_coins", String(existingUser?.coins||120));
 
       setLoginPhone(""); setLoginOtp(""); setLoginStep("phone");
-  } catch(e){ alert("Wrong OTP. Please try again."); }  };
+  } catch(e){ alert("Login failed. Please try again."); }  };
   const toggleWishlist = (id) => setWishlist(w=>({...w,[id]:!w[id]}));
 
 
@@ -1342,20 +1338,18 @@ const verifyOtp = async () => {
                     style={{flex:1,padding:"12px 14px",border:"none",outline:"none",fontSize:15,color:ink}}/>
                 </div>
                 <button onClick={sendOtp} style={{width:"100%",padding:"14px",borderRadius:14,backgroundColor:basil,color:"white",border:"none",cursor:"pointer",fontSize:15,fontWeight:800}}>
-                  <div id="recaptcha-container"></div>
-                  {lang==="kn"?"OTP ಕಳುಹಿಸಿ":"Send OTP"} →
+                  {lang==="kn"?"ಮುಂದುವರೆಯಿರಿ":"Continue"} →
                 </button>
                 <div style={{textAlign:"center",marginTop:20,fontSize:11,color:soil}}>
                   {lang==="kn"?"ಮುಂದುವರೆಯುವ ಮೂಲಕ ನೀವು ನಮ್ಮ ನಿಯಮಗಳನ್ನು ಒಪ್ಪಿಕೊಳ್ಳುತ್ತೀರಿ":"By continuing you agree to our Terms & Privacy Policy"}
                 </div>
               </> : <>
-                <div style={{fontSize:12,fontWeight:600,color:soil,marginBottom:6}}>{lang==="kn"?`+91 ${loginPhone} ಗೆ OTP ಕಳುಹಿಸಲಾಗಿದೆ`:`OTP sent to +91 ${loginPhone}`}</div>
-                <input type="tel" maxLength={6} value={loginOtp} onChange={e=>setLoginOtp(e.target.value.replace(/\D/g,""))}
-                  placeholder="• • • •"
-                  style={{width:"100%",padding:"16px",borderRadius:14,border:`2px solid ${basil}`,outline:"none",textAlign:"center",fontSize:28,fontWeight:800,letterSpacing:8,color:ink,boxSizing:"border-box",marginBottom:6}}/>
-                <div style={{textAlign:"center",fontSize:11,color:soil,marginBottom:20}}>{lang==="kn"?"ಡೆಮೊಗಾಗಿ 1234 ಬಳಸಿ":"Use 1234 for demo"}</div>
+                <div style={{fontSize:12,fontWeight:600,color:soil,marginBottom:6}}>{lang==="kn"?"ನಿಮ್ಮ ಹೆಸರು":"Your Name"}</div>
+                <input type="text" value={loginOtp} onChange={e=>setLoginOtp(e.target.value)}
+                  placeholder={lang==="kn"?"ಹೆಸರು ನಮೂದಿಸಿ":"Enter your name"}
+                  style={{width:"100%",padding:"14px",borderRadius:14,border:`2px solid ${basil}`,outline:"none",fontSize:16,color:ink,boxSizing:"border-box",marginBottom:16}}/>
                 <button onClick={verifyOtp} style={{width:"100%",padding:"14px",borderRadius:14,backgroundColor:basil,color:"white",border:"none",cursor:"pointer",fontSize:15,fontWeight:800,marginBottom:10}}>
-                  {lang==="kn"?"ಯಡವಿ ಮಾಡಿ & ಲಾಗಿನ್":"Verify & Login"}
+                  {lang==="kn"?"ಲಾಗಿನ್ ಮಾಡಿ":"Login"} →
                 </button>
                 <button onClick={()=>setLoginStep("phone")} style={{width:"100%",padding:"10px",borderRadius:14,backgroundColor:"#f7f7f7",color:soil,border:"none",cursor:"pointer",fontSize:13,fontWeight:600}}>
                   {lang==="kn"?"← ನಂಬರ್ ಬದಲಾಯಿಸಿ":"← Change number"}
