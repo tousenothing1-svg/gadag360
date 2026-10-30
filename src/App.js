@@ -317,47 +317,43 @@ function ProductImage({ p }) {
   return <img src={p.img} alt={p.name} style={{width:"100%",height:"100%",objectFit:"contain",objectPosition:"center"}} onError={() => setErr(true)} loading="lazy" />;
 }
 
-// Gadag centre + route waypoints [lat, lng]
-const SHOP_POS  = [15.4220, 75.6180]; // shop
-const HOME_POS  = [15.4080, 75.6050]; // customer
-const WAYPOINTS = [
-  [15.4220, 75.6180],
-  [15.4200, 75.6150],
-  [15.4170, 75.6120],
-  [15.4140, 75.6090],
-  [15.4110, 75.6070],
-  [15.4080, 75.6050],
-];
+// Real warehouse location
+const WAREHOUSE_POS = [15.426861, 75.614917];
 
-function LeafletMap({ riderPos, orderStatusIdx, basil }) {
+function LeafletMap({ orderStatusIdx, basil, customerLat, customerLon }) {
   const mapRef = useRef(null);
   const leafletRef = useRef(null);
-  const markerRef = useRef(null);
+
+  const shopPos = WAREHOUSE_POS;
+  const homePos = (customerLat && customerLon) ? [customerLat, customerLon] : null;
 
   useEffect(() => {
-    // Load Leaflet CSS
     if (!document.getElementById("lf-css")) {
       const link = document.createElement("link");
       link.id = "lf-css"; link.rel = "stylesheet";
       link.href = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css";
       document.head.appendChild(link);
     }
-    // Load Leaflet JS then init map
     const init = () => {
       if (leafletRef.current || !mapRef.current) return;
       const L = window.L;
+      // Center map between warehouse and customer, or just warehouse
+      const centerLat = homePos ? (shopPos[0] + homePos[0]) / 2 : shopPos[0];
+      const centerLon = homePos ? (shopPos[1] + homePos[1]) / 2 : shopPos[1];
       const map = L.map(mapRef.current, { zoomControl:false, attributionControl:false })
-        .setView([15.4150, 75.6115], 15);
+        .setView([centerLat, centerLon], homePos ? 13 : 15);
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
-      // Route polyline
-      L.polyline(WAYPOINTS, { color: basil, weight:4, dashArray:"8,5" }).addTo(map);
-      // Shop & home markers
-      const shopIcon = L.divIcon({ html:`<div style="background:#F2A33B;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3)">🏪</div>`, className:"", iconAnchor:[14,14] });
-      const homeIcon = L.divIcon({ html:`<div style="background:#C0392B;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3)">🏠</div>`, className:"", iconAnchor:[14,14] });
-      const bikeIcon = L.divIcon({ html:`<div style="background:${basil};width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.4)">🛵</div>`, className:"", iconAnchor:[17,17] });
-      L.marker(SHOP_POS, {icon:shopIcon}).addTo(map);
-      L.marker(HOME_POS, {icon:homeIcon}).addTo(map);
-      markerRef.current = L.marker(WAYPOINTS[0], {icon:bikeIcon}).addTo(map);
+      // Warehouse marker
+      const shopIcon = L.divIcon({ html:`<div style="background:#F2A33B;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3)">🏪</div>`, className:"", iconAnchor:[16,16] });
+      L.marker(shopPos, {icon:shopIcon}).bindPopup("Warehouse (Pickup)").addTo(map);
+      // Customer marker + route line
+      if (homePos) {
+        const homeIcon = L.divIcon({ html:`<div style="background:#C0392B;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3)">🏠</div>`, className:"", iconAnchor:[16,16] });
+        L.marker(homePos, {icon:homeIcon}).bindPopup("Delivery Location").addTo(map);
+        L.polyline([shopPos, homePos], { color: basil, weight:4, dashArray:"8,5" }).addTo(map);
+        // Fit map to show both markers
+        map.fitBounds(L.latLngBounds([shopPos, homePos]), {padding:[30,30]});
+      }
       leafletRef.current = map;
     };
     if (window.L) { init(); }
@@ -368,15 +364,8 @@ function LeafletMap({ riderPos, orderStatusIdx, basil }) {
         s.onload = init; document.head.appendChild(s);
       } else { const iv = setInterval(()=>{ if(window.L){clearInterval(iv);init();} },100); }
     }
-    return () => { if(leafletRef.current){ leafletRef.current.remove(); leafletRef.current=null; markerRef.current=null; } };
-  }, []);
-
-  // Move rider along waypoints as status advances
-  useEffect(() => {
-    if (!markerRef.current) return;
-    const idx = Math.min(orderStatusIdx, WAYPOINTS.length-1);
-    markerRef.current.setLatLng(WAYPOINTS[idx]);
-  }, [orderStatusIdx]);
+    return () => { if(leafletRef.current){ leafletRef.current.remove(); leafletRef.current=null; } };
+  }, [customerLat, customerLon]);
 
   return (
     <div className="relative mx-4 mt-4 rounded-2xl overflow-hidden" style={{height:220, border:"1px solid #E1DACB"}}>
@@ -384,6 +373,7 @@ function LeafletMap({ riderPos, orderStatusIdx, basil }) {
       <div className="absolute bottom-2 right-2 px-2 py-1 rounded-lg text-xs font-bold" style={{backgroundColor:"white",color:basil,boxShadow:"0 2px 6px rgba(0,0,0,0.2)",zIndex:1000}}>
         {orderStatusIdx < 3 ? `~${Math.max(2,14-orderStatusIdx*4)} min` : "✓ Delivered"}
       </div>
+      {!homePos && <div style={{position:"absolute",bottom:36,left:0,right:0,textAlign:"center",fontSize:11,color:soil,zIndex:1000,backgroundColor:"rgba(255,255,255,0.8)",padding:"2px 0"}}>No GPS — showing warehouse only</div>}
     </div>
   );
 }
@@ -2093,7 +2083,7 @@ const verifyOtp = async () => {
             </div>
           </div>
           {/* Map */}
-          <LeafletMap riderPos={riderPos} orderStatusIdx={orderStatusIdx} basil={basil}/>
+          <LeafletMap orderStatusIdx={orderStatusIdx} basil={basil} customerLat={activeOrders[0]?.gps_lat} customerLon={activeOrders[0]?.gps_lon}/>
           {/* Status timeline */}
           <div style={{backgroundColor:"white",margin:"8px 0",padding:"16px"}}>
             <div style={{fontSize:14,fontWeight:800,color:ink,marginBottom:14}}>{lang==="kn"?"ಆರ್ಡರ್ ಸ್ಥಿತಿ":"Order Status"}</div>
@@ -2193,7 +2183,7 @@ const verifyOtp = async () => {
         <div className="flex-1 overflow-y-auto pb-6">
 
           {/* Leaflet OSM Map — real Gadag streets */}
-          <LeafletMap riderPos={riderPos} orderStatusIdx={orderStatusIdx} basil={basil} />
+          <LeafletMap orderStatusIdx={orderStatusIdx} basil={basil} customerLat={activeOrders[0]?.gps_lat} customerLon={activeOrders[0]?.gps_lon} />
 
           {/* Status timeline */}
           <div className="mx-4 mt-5">
