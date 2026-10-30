@@ -934,17 +934,16 @@ export default function Gadag360() {
     } catch(e) {}
 
     const steps = [
-      [1200, 1, {x:20,y:70}],
-      [2800, 2, {x:38,y:55}],
-      [5000, 2, {x:55,y:42}],
-      [7500, 3, {x:68,y:30}],
-      [10000,3, {x:78,y:20}],
-      [13000,4, {x:82,y:14}],
+      [1200, 1],
+      [2800, 2],
+      [5000, 2],
+      [7500, 3],
+      [10000,3],
+      [13000,4],
     ];
-    steps.forEach(([ms, idx, pos]) => {
+    steps.forEach(([ms, idx]) => {
       timerRef.current = setTimeout(() => {
         setOrderStatusIdx(idx);
-        setRiderPos(pos);
         if (idx === 4) setShowRating(true);
       }, ms);
     });
@@ -1222,33 +1221,33 @@ const verifyOtp = async () => {
   // ── LIVE RIDER TRACKING POLL ──
   // When customer is on checkout or confirmation screen AND order is picked up,
   // poll Supabase every 10s for the delivery boy's GPS location.
+  const activeOrderId = activeOrders[0]?.id || null;
+  const activeOrderStatus = activeOrders[0]?.status || null;
   useEffect(() => {
     const isTrackingScreen = screen === "checkout" || screen === "confirmation";
-    const orderId = activeOrders[0]?.id;
-    const orderStatus = activeOrders[0]?.status;
-    const isPickedUp = orderStatus === "pickedup" || orderStatus === "picked_up";
+    const isPickedUp = activeOrderStatus === "pickedup" || activeOrderStatus === "picked_up";
 
-    if (isTrackingScreen && orderId && isPickedUp) {
+    if (isTrackingScreen && activeOrderId && isPickedUp) {
       const pollRider = async () => {
         try {
           const { data } = await supabase
             .from("orders")
-            .select("rider_lat, rider_lon, rider_updated_at")
-            .eq("id", orderId)
+            .select("rider_lat, rider_lon")
+            .eq("id", activeOrderId)
             .single();
           if (data?.rider_lat && data?.rider_lon) {
             setRiderPos({ lat: data.rider_lat, lon: data.rider_lon });
           }
         } catch(e) {}
       };
-      pollRider(); // immediate first poll
+      pollRider();
       riderPollRef.current = setInterval(pollRider, 10000);
     } else {
       if (riderPollRef.current) { clearInterval(riderPollRef.current); riderPollRef.current = null; }
       if (!isPickedUp) setRiderPos(null);
     }
     return () => { if (riderPollRef.current) { clearInterval(riderPollRef.current); riderPollRef.current = null; } };
-  }, [screen, activeOrders]);
+  }, [screen, activeOrderId, activeOrderStatus]);
 
   // ── BOTTOM NAV ──
   // BottomNav removed — profile accessed via header avatar
