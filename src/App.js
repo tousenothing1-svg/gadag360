@@ -1925,30 +1925,49 @@ const verifyOtp = async () => {
                       if(!navigator.geolocation){alert("GPS not supported on this device");return;}
                       setAddress(lang==="kn"?"ಸ್ಥಳ ಪತ್ತೆ ಮಾಡಲಾಗುತ್ತಿದೆ...":"Detecting location...");
                       setGpsCoords(null);
-                      // Use watchPosition to wait for accurate GPS fix (accuracy < 50m)
+                      // Strategy: accept first reading immediately, keep refining for 8s if accuracy is poor
                       let watchId = null;
-                      const fallbackTimer = setTimeout(()=>{
+                      let bestFix = null;
+                      const accept = (lat,lon,acc)=>{
+                        bestFix = {lat,lon,accuracy:Math.round(acc)};
+                        setGpsCoords(bestFix);
+                        setAddress(lang==="kn"?"GPS ಸ್ಥಳ ಪಿನ್ ಮಾಡಲಾಗಿದೆ ✓":"GPS location pinned ✓");
+                      };
+                      // Hard stop after 15s — take whatever we have or show error
+                      const hardStop = setTimeout(()=>{
                         if(watchId!=null) navigator.geolocation.clearWatch(watchId);
-                        setAddress("");
-                        alert(lang==="kn"?"ಸ್ಥಳ ಪತ್ತೆ ವಿಫಲವಾಗಿದೆ, ವಿಳಾಸ ಟೈಪ್ ಮಾಡಿ":"Could not get accurate location, please type your address");
-                      }, 20000);
+                        if(!bestFix){
+                          setAddress("");
+                          alert(lang==="kn"?"ಲೊಕೇಶನ್ ಅನುಮತಿ ನಿರಾಕರಿಸಲಾಗಿದೆ ಅಥವಾ ಲಭ್ಯವಿಲ್ಲ. ವಿಳಾಸ ಟೈಪ್ ಮಾಡಿ":"Location unavailable. Please type your address");
+                        }
+                      }, 15000);
+                      // Refine stop after 8s — if we already have a fix, stop watching
+                      const refineStop = setTimeout(()=>{
+                        if(watchId!=null) navigator.geolocation.clearWatch(watchId);
+                        clearTimeout(hardStop);
+                      }, 8000);
                       watchId = navigator.geolocation.watchPosition((pos)=>{
                         const {latitude:lat, longitude:lon, accuracy} = pos.coords;
-                        // Accept once accuracy is under 50m, or take best we get
-                        if(accuracy <= 50 || accuracy <= 150) {
-                          clearTimeout(fallbackTimer);
-                          navigator.geolocation.clearWatch(watchId);
-                          setGpsCoords({lat, lon, accuracy: Math.round(accuracy)});
-                          setAddress(lang==="kn"?"GPS ಸ್ಥಳ ಪಿನ್ ಮಾಡಲಾಗಿದೆ ✓":"GPS location pinned ✓");
+                        // Always accept — update to better accuracy if improved
+                        if(!bestFix || accuracy < bestFix.accuracy) {
+                          accept(lat,lon,accuracy);
                         }
-                        // else keep watching for better accuracy
+                        // Stop early if accuracy is already great
+                        if(accuracy <= 50) {
+                          clearTimeout(refineStop);
+                          clearTimeout(hardStop);
+                          navigator.geolocation.clearWatch(watchId);
+                        }
                       },(err)=>{
-                        clearTimeout(fallbackTimer);
+                        clearTimeout(refineStop);
+                        clearTimeout(hardStop);
                         if(watchId!=null) navigator.geolocation.clearWatch(watchId);
-                        setAddress("");
-                        if(err.code===1) alert(lang==="kn"?"ದಯವಿಟ್ಟು ಲೊಕೇಶನ್ ಅನುಮತಿ ನೀಡಿ":"Please allow location permission in your browser");
-                        else alert(lang==="kn"?"ಸ್ಥಳ ಪತ್ತೆ ವಿಫಲವಾಗಿದೆ":"Could not detect location, please type your address");
-                      },{enableHighAccuracy:true, maximumAge:0, timeout:20000});
+                        if(!bestFix){
+                          setAddress("");
+                          if(err.code===1) alert(lang==="kn"?"ದಯವಿಟ್ಟು ಲೊಕೇಶನ್ ಅನುಮತಿ ನೀಡಿ":"Please allow location permission in your browser");
+                          else alert(lang==="kn"?"ಸ್ಥಳ ಪತ್ತೆ ವಿಫಲವಾಗಿದೆ":"Could not detect location, please type your address");
+                        }
+                      },{enableHighAccuracy:true, maximumAge:0, timeout:15000});
                     }} style={{display:"flex",alignItems:"center",gap:4,fontSize:11,fontWeight:700,color:basil,backgroundColor:"#f0faf4",border:`1px solid ${basil}`,borderRadius:20,padding:"5px 12px",cursor:"pointer"}}>
                       <MapPin size={12}/> {lang==="kn"?"GPS ಬಳಸಿ":"Use GPS"}
                     </button>
