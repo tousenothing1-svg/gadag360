@@ -375,9 +375,46 @@ function orderCard(o, isActive) {
   `;
 }
 
+// ── LIVE GPS TRACKING ──
+let riderWatchId = null;
+let riderTrackingOrderId = null;
+
+function startRiderTracking(orderId) {
+  if (!navigator.geolocation) return;
+  riderTrackingOrderId = orderId;
+  // Push GPS to Supabase every 10s
+  riderWatchId = navigator.geolocation.watchPosition(async (pos) => {
+    const { latitude: lat, longitude: lon } = pos.coords;
+    await sb.from("orders").update({
+      rider_lat: lat,
+      rider_lon: lon,
+      rider_updated_at: new Date().toISOString()
+    }).eq("id", orderId);
+  }, null, { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 });
+}
+
+function stopRiderTracking() {
+  if (riderWatchId !== null) {
+    navigator.geolocation.clearWatch(riderWatchId);
+    riderWatchId = null;
+  }
+  // Clear rider location from order
+  if (riderTrackingOrderId) {
+    sb.from("orders").update({ rider_lat: null, rider_lon: null, rider_updated_at: null })
+      .eq("id", riderTrackingOrderId);
+    riderTrackingOrderId = null;
+  }
+}
+
 async function updateStatus(orderId, newStatus) {
   const { error } = await sb.from("orders").update({ status: newStatus }).eq("id", orderId);
   if (error) { alert("Failed to update. Try again."); return; }
+  // Start GPS sharing when picked up, stop when delivered
+  if (newStatus === "pickedup") {
+    startRiderTracking(orderId);
+  } else if (newStatus === "delivered") {
+    stopRiderTracking();
+  }
   await loadOrders();
 }
 
