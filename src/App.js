@@ -1925,60 +1925,35 @@ const verifyOtp = async () => {
                       if(!navigator.geolocation){alert("GPS not supported on this device");return;}
                       setAddress(lang==="kn"?"ಸ್ಥಳ ಪತ್ತೆ ಮಾಡಲಾಗುತ್ತಿದೆ...":"Detecting location...");
                       setGpsCoords(null);
-                      // GPS strategy:
-                      // 1. Ignore any reading that arrives in < 1.5s (cached/stale — iOS Safari issue)
-                      // 2. Only accept readings with accuracy <= 300m
-                      // 3. Keep refining until accuracy <= 50m (great fix)
-                      // 4. Hard stop at 30s: use best fix seen, or show error
+                      // GPS strategy: accept ANY reading immediately, keep refining silently.
+                      // Phone GPS chip may only give cell-tower accuracy (7421m) — that's OK,
+                      // we save the coords for rough area + customer types exact address below.
                       let watchId = null;
-                      let bestFix = null;
-                      const startTime = Date.now();
-                      const STALE_SKIP_MS = 1500;   // ignore readings arriving too fast (cached)
-                      const ACCEPT_THRESHOLD = 300;  // only accept readings under this accuracy
-                      const GREAT_THRESHOLD = 50;    // stop refining when this accurate
-                      const showFix = (lat,lon,acc)=>{
-                        bestFix = {lat,lon,accuracy:Math.round(acc)};
-                        setGpsCoords(bestFix);
-                        setAddress(lang==="kn"?"GPS ಸ್ಥಳ ಪಿನ್ ಮಾಡಲಾಗಿದೆ ✓":"GPS location pinned ✓");
-                      };
-                      const hardStop = setTimeout(()=>{
+                      let bestAccuracy = Infinity;
+                      // Stop watching after 15s (keep best reading we got)
+                      const stopTimer = setTimeout(()=>{
                         if(watchId!=null) navigator.geolocation.clearWatch(watchId);
-                        if(bestFix){
-                          // show whatever best we got even if over threshold
-                          setGpsCoords(bestFix);
-                          setAddress(lang==="kn"?"GPS ಸ್ಥಳ ಪಿನ್ ಮಾಡಲಾಗಿದೆ ✓":"GPS location pinned ✓");
-                        } else {
-                          setAddress("");
-                          alert(lang==="kn"?"ಲೊಕೇಶನ್ ಪತ್ತೆ ವಿಫಲ. ವಿಳಾಸ ಟೈಪ್ ಮಾಡಿ":"Could not detect location. Please type your address");
-                        }
-                      }, 30000);
+                      }, 15000);
                       watchId = navigator.geolocation.watchPosition((pos)=>{
-                        const age = Date.now() - startTime;
                         const {latitude:lat, longitude:lon, accuracy} = pos.coords;
-                        // Skip stale cached readings (iOS Safari returns old location immediately)
-                        if(age < STALE_SKIP_MS) return;
-                        // Track best reading regardless
-                        if(!bestFix || accuracy < bestFix.accuracy){
-                          bestFix = {lat, lon, accuracy: Math.round(accuracy)};
-                        }
-                        // Only show to user once accuracy is good enough
-                        if(accuracy <= ACCEPT_THRESHOLD){
-                          showFix(lat, lon, accuracy);
+                        // Always update if this reading is better than what we have
+                        if(accuracy < bestAccuracy){
+                          bestAccuracy = accuracy;
+                          setGpsCoords({lat, lon, accuracy: Math.round(accuracy)});
+                          setAddress(lang==="kn"?"GPS ಸ್ಥಳ ಪಿನ್ ಮಾಡಲಾಗಿದೆ ✓":"GPS location pinned ✓");
                         }
                         // Stop early if excellent fix
-                        if(accuracy <= GREAT_THRESHOLD){
-                          clearTimeout(hardStop);
+                        if(accuracy <= 50){
+                          clearTimeout(stopTimer);
                           navigator.geolocation.clearWatch(watchId);
                         }
                       },(err)=>{
-                        clearTimeout(hardStop);
+                        clearTimeout(stopTimer);
                         if(watchId!=null) navigator.geolocation.clearWatch(watchId);
-                        if(!bestFix){
-                          setAddress("");
-                          if(err.code===1) alert(lang==="kn"?"ದಯವಿಟ್ಟು ಲೊಕೇಶನ್ ಅನುಮತಿ ನೀಡಿ":"Please allow location permission in your browser");
-                          else alert(lang==="kn"?"ಸ್ಥಳ ಪತ್ತೆ ವಿಫಲವಾಗಿದೆ":"Could not detect location, please type your address");
-                        }
-                      },{enableHighAccuracy:true, maximumAge:0, timeout:30000});
+                        setAddress("");
+                        if(err.code===1) alert(lang==="kn"?"ದಯವಿಟ್ಟು ಲೊಕೇಶನ್ ಅನುಮತಿ ನೀಡಿ":"Please allow location permission in your browser");
+                        else alert(lang==="kn"?"ಸ್ಥಳ ಪತ್ತೆ ವಿಫಲ. ವಿಳಾಸ ಟೈಪ್ ಮಾಡಿ":"GPS failed. Please type your address");
+                      },{enableHighAccuracy:true, maximumAge:0, timeout:15000});
                     }} style={{display:"flex",alignItems:"center",gap:4,fontSize:11,fontWeight:700,color:basil,backgroundColor:"#f0faf4",border:`1px solid ${basil}`,borderRadius:20,padding:"5px 12px",cursor:"pointer"}}>
                       <MapPin size={12}/> {lang==="kn"?"GPS ಬಳಸಿ":"Use GPS"}
                     </button>
@@ -1986,20 +1961,25 @@ const verifyOtp = async () => {
                   {/* Show GPS pin confirmation */}
                   {gpsCoords ? (
                     <div style={{backgroundColor:"#f0faf4",borderRadius:10,padding:"10px 12px",border:`1px solid ${basil}`,marginBottom:8}}>
-                      <div style={{fontSize:12,fontWeight:700,color:basil,marginBottom:4}}>📍 {lang==="kn"?"GPS ಸ್ಥಳ ಪಿನ್ ಮಾಡಲಾಗಿದೆ":"GPS Location Pinned"}</div>
+                      <div style={{fontSize:12,fontWeight:700,color:basil,marginBottom:4}}>
+                        📍 {lang==="kn"?"GPS ಸ್ಥಳ ಪಿನ್ ಮಾಡಲಾಗಿದೆ":"GPS Location Pinned"}
+                        {gpsCoords.accuracy > 500 && <span style={{color:"#e67e22",fontWeight:600}}> · ±{gpsCoords.accuracy}m</span>}
+                        {gpsCoords.accuracy <= 500 && <span style={{color:basil,fontWeight:400}}> · ±{gpsCoords.accuracy}m</span>}
+                      </div>
                       <a href={`https://maps.google.com/?q=${gpsCoords.lat},${gpsCoords.lon}`} target="_blank" rel="noreferrer"
                         style={{fontSize:11,color:basil,textDecoration:"underline"}}>
                         🗺️ {lang==="kn"?"ಗೂಗಲ್ ಮ್ಯಾಪ್‌ನಲ್ಲಿ ನೋಡಿ":"View on Google Maps"} ↗
                       </a>
-                      <div style={{fontSize:10,color:soil,marginTop:4}}>
-                        {gpsCoords?.accuracy ? `±${gpsCoords.accuracy}m accuracy · ` : ""}
-                        {lang==="kn"?"ಮನೆ ನಂ / ಲ್ಯಾಂಡ್‌ಮಾರ್ಕ್ ಕೆಳಗೆ ಸೇರಿಸಿ":"Add flat no. / landmark below"}
-                      </div>
+                      {gpsCoords.accuracy > 500 && (
+                        <div style={{fontSize:11,color:"#e67e22",marginTop:4,fontWeight:500}}>
+                          ⚠️ {lang==="kn"?"ನಿಖರ ವಿಳಾಸ ಕೆಳಗೆ ಟೈಪ್ ಮಾಡಿ":"Low accuracy — please type your exact address below"}
+                        </div>
+                      )}
                     </div>
                   ) : null}
                   <textarea value={gpsCoords ? address.replace("GPS location pinned ✓","").replace("GPS ಸ್ಥಳ ಪಿನ್ ಮಾಡಲಾಗಿದೆ ✓","") : address}
                     onChange={e=>{ setAddress(e.target.value); if(!e.target.value) setGpsCoords(null); }}
-                    placeholder={gpsCoords ? (lang==="kn"?"ಮನೆ ನಂ, ಲ್ಯಾಂಡ್‌ಮಾರ್ಕ್ ಸೇರಿಸಿ (ಐಚ್ಛಿಕ)":"Add flat no., landmark (optional)") : (lang==="kn"?"ನಿಮ್ಮ ವಿಳಾಸ ನಮೂದಿಸಿ...":"Enter your delivery address...")} rows={2}
+                    placeholder={gpsCoords ? (lang==="kn"?"ಮನೆ ನಂ, ಲ್ಯಾಂಡ್‌ಮಾರ್ಕ್, ಬೀದಿ ಹೆಸರು ನಮೂದಿಸಿ *":"Enter house no., landmark, street name *") : (lang==="kn"?"ನಿಮ್ಮ ವಿಳಾಸ ನಮೂದಿಸಿ...":"Enter your delivery address...")} rows={2}
                     style={{width:"100%",borderRadius:10,padding:"10px 12px",fontSize:13,border:`1px solid ${gpsCoords?basil:line}`,outline:"none",resize:"none",boxSizing:"border-box"}}/>
                   {savedAddresses.length>0 && (
                     <div style={{display:"flex",gap:6,marginTop:6,overflowX:"auto",scrollbarWidth:"none"}}>
