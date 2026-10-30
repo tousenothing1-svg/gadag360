@@ -652,7 +652,7 @@ export default function Gadag360() {
   const [query, setQuery] = useState("");
   const [cart, setCart] = useState({});
   const [address, setAddress] = useState("");
-  const [gpsCoords, setGpsCoords] = useState(null); // {lat, lon} from GPS
+  const [gpsCoords, setGpsCoords] = useState(null); // {lat, lon, accuracy} from GPS
   const [payment, setPayment] = useState("upi");
   const [orderStatusIdx, setOrderStatusIdx] = useState(0);
   const [riderPos, setRiderPos] = useState({x:20, y:70});
@@ -1931,15 +1931,30 @@ const verifyOtp = async () => {
                       if(!navigator.geolocation){alert("GPS not supported on this device");return;}
                       setAddress(lang==="kn"?"ಸ್ಥಳ ಪತ್ತೆ ಮಾಡಲಾಗುತ್ತಿದೆ...":"Detecting location...");
                       setGpsCoords(null);
-                      navigator.geolocation.getCurrentPosition((pos)=>{
-                        const {latitude:lat,longitude:lon} = pos.coords;
-                        setGpsCoords({lat,lon});
-                        setAddress(lang==="kn"?"GPS ಸ್ಥಳ ಪಿನ್ ಮಾಡಲಾಗಿದೆ ✓":"GPS location pinned ✓");
+                      // Use watchPosition to wait for accurate GPS fix (accuracy < 50m)
+                      let watchId = null;
+                      const fallbackTimer = setTimeout(()=>{
+                        if(watchId!=null) navigator.geolocation.clearWatch(watchId);
+                        setAddress("");
+                        alert(lang==="kn"?"ಸ್ಥಳ ಪತ್ತೆ ವಿಫಲವಾಗಿದೆ, ವಿಳಾಸ ಟೈಪ್ ಮಾಡಿ":"Could not get accurate location, please type your address");
+                      }, 20000);
+                      watchId = navigator.geolocation.watchPosition((pos)=>{
+                        const {latitude:lat, longitude:lon, accuracy} = pos.coords;
+                        // Accept once accuracy is under 50m, or take best we get
+                        if(accuracy <= 50 || accuracy <= 150) {
+                          clearTimeout(fallbackTimer);
+                          navigator.geolocation.clearWatch(watchId);
+                          setGpsCoords({lat, lon, accuracy: Math.round(accuracy)});
+                          setAddress(lang==="kn"?"GPS ಸ್ಥಳ ಪಿನ್ ಮಾಡಲಾಗಿದೆ ✓":"GPS location pinned ✓");
+                        }
+                        // else keep watching for better accuracy
                       },(err)=>{
+                        clearTimeout(fallbackTimer);
+                        if(watchId!=null) navigator.geolocation.clearWatch(watchId);
                         setAddress("");
                         if(err.code===1) alert(lang==="kn"?"ದಯವಿಟ್ಟು ಲೊಕೇಶನ್ ಅನುಮತಿ ನೀಡಿ":"Please allow location permission in your browser");
                         else alert(lang==="kn"?"ಸ್ಥಳ ಪತ್ತೆ ವಿಫಲವಾಗಿದೆ":"Could not detect location, please type your address");
-                      },{timeout:15000,enableHighAccuracy:true,maximumAge:0});
+                      },{enableHighAccuracy:true, maximumAge:0, timeout:20000});
                     }} style={{display:"flex",alignItems:"center",gap:4,fontSize:11,fontWeight:700,color:basil,backgroundColor:"#f0faf4",border:`1px solid ${basil}`,borderRadius:20,padding:"5px 12px",cursor:"pointer"}}>
                       <MapPin size={12}/> {lang==="kn"?"GPS ಬಳಸಿ":"Use GPS"}
                     </button>
@@ -1952,7 +1967,10 @@ const verifyOtp = async () => {
                         style={{fontSize:11,color:basil,textDecoration:"underline"}}>
                         🗺️ {lang==="kn"?"ಗೂಗಲ್ ಮ್ಯಾಪ್‌ನಲ್ಲಿ ನೋಡಿ":"View on Google Maps"} ↗
                       </a>
-                      <div style={{fontSize:10,color:soil,marginTop:4}}>{lang==="kn"?"ಮನೆ ನಂ / ಲ್ಯಾಂಡ್‌ಮಾರ್ಕ್ ಕೆಳಗೆ ಸೇರಿಸಿ":"Add flat no. / landmark below"}</div>
+                      <div style={{fontSize:10,color:soil,marginTop:4}}>
+                        {gpsCoords?.accuracy ? `±${gpsCoords.accuracy}m accuracy · ` : ""}
+                        {lang==="kn"?"ಮನೆ ನಂ / ಲ್ಯಾಂಡ್‌ಮಾರ್ಕ್ ಕೆಳಗೆ ಸೇರಿಸಿ":"Add flat no. / landmark below"}
+                      </div>
                     </div>
                   ) : null}
                   <textarea value={gpsCoords ? address.replace("GPS location pinned ✓","").replace("GPS ಸ್ಥಳ ಪಿನ್ ಮಾಡಲಾಗಿದೆ ✓","") : address}
