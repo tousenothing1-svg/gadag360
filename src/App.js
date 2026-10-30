@@ -1951,7 +1951,7 @@ const verifyOtp = async () => {
                         clearTimeout(stopTimer);
                         if(watchId!=null) navigator.geolocation.clearWatch(watchId);
                         setAddress("");
-                        if(err.code===1) alert(lang==="kn"?"ದಯವಿಟ್ಟು ಲೊಕೇಶನ್ ಅನುಮತಿ ನೀಡಿ":"Please allow location permission in your browser");
+                        if(err.code===1) alert(lang==="kn"?"ಲೊಕೇಶನ್ ಅನುಮತಿ ನಿರಾಕರಿಸಲಾಗಿದೆ.\n\niPhone ಬಳಕೆದಾರರು: Settings → Safari → Location → Allow\nಮತ್ತು Precise Location ಆನ್ ಮಾಡಿ\n\nAndroid: Browser settings → Site settings → Location → Allow":"Location permission denied.\n\niPhone users: Settings → Safari → Location → Allow\nAlso turn ON Precise Location\n\nAndroid: tap the 🔒 lock icon in address bar → allow Location");
                         else alert(lang==="kn"?"ಸ್ಥಳ ಪತ್ತೆ ವಿಫಲ. ವಿಳಾಸ ಟೈಪ್ ಮಾಡಿ":"GPS failed. Please type your address");
                       },{enableHighAccuracy:true, maximumAge:0, timeout:15000});
                     }} style={{display:"flex",alignItems:"center",gap:4,fontSize:11,fontWeight:700,color:basil,backgroundColor:"#f0faf4",border:`1px solid ${basil}`,borderRadius:20,padding:"5px 12px",cursor:"pointer"}}>
