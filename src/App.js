@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { auth } from "./firebase";
 import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
 import React, { useState, useMemo, useEffect, useRef } from "react";
+import ReactDOM from "react-dom";
 
 // ── DETECT IF RUNNING IN CAPACITOR (native Android/iOS) ──
 const isNative = () => {
@@ -2245,30 +2246,6 @@ const verifyOtp = async () => {
             <button onClick={()=>setNotifShown(false)} style={{background:"none",border:"none",color:"white",cursor:"pointer",fontSize:16}}>✕</button>
           </div>
         )}
-        {/* Rating modal on checkout screen */}
-        {showRating&&(
-          <div className="fixed inset-0 flex items-center justify-center" style={{backgroundColor:"rgba(0,0,0,0.6)",zIndex:9999}}>
-            <div className="mx-4 rounded-3xl p-6 w-full max-w-sm" style={{backgroundColor:panel}}>
-              <div className="text-center mb-4">
-                <div className="text-4xl mb-2">🎉</div>
-                <div className="font-bold text-lg" style={{fontFamily:display}}>{lang==="kn"?"ಆರ್ಡರ್ ತಲುಪಿತು!":"Order Delivered!"}</div>
-                <div className="text-sm mt-1" style={{color:soil}}>{lang==="kn"?"ನಿಮ್ಮ ಅನುಭವ ಹೇಗಿತ್ತು?":"How was your experience?"}</div>
-              </div>
-              <div className="flex justify-center gap-2 mb-4">
-                {[1,2,3,4,5].map(s=>(
-                  <button key={s} onClick={()=>setLastRating(s)} onMouseEnter={()=>setHoverRating(s)} onMouseLeave={()=>setHoverRating(0)}
-                    className="text-3xl transition-transform" style={{transform:s<=(hoverRating||lastRating)?"scale(1.2)":"scale(1)"}}>
-                    {s<=(hoverRating||lastRating)?"⭐":"☆"}
-                  </button>
-                ))}
-              </div>
-              <button disabled={!lastRating} onClick={()=>{setShowRating(false);setScreen("home");}}
-                className="w-full py-3 rounded-2xl font-bold text-sm" style={{backgroundColor:lastRating?basil:"#ccc",color:"white",border:"none",cursor:lastRating?"pointer":"default"}}>
-                {lang==="kn"?"ಸಲ್ಲಿಸಿ":"Submit Rating"}
-              </button>
-            </div>
-          </div>
-        )}
       </>}
 
       {screen === "confirmation" && <>
@@ -2336,36 +2313,36 @@ const verifyOtp = async () => {
           </div>
         )}
 
-        {/* F16 Rating modal — appears after delivery */}
-        {showRating && (
-          <div className="fixed inset-0 flex items-center justify-center" style={{backgroundColor:"rgba(0,0,0,0.6)",zIndex:9999}}>
-            <div className="mx-4 rounded-3xl p-6 w-full max-w-sm" style={{backgroundColor: panel}}>
-              <div className="text-center mb-4">
-                <div className="text-4xl mb-2">🎉</div>
-                <div className="font-bold text-lg" style={{fontFamily: display}}>{lang==="kn" ? "ಆರ್ಡರ್ ತಲುಪಿತು!" : "Order Delivered!"}</div>
-                <div className="text-sm mt-1" style={{color: soil}}>{lang==="kn" ? "ನಿಮ್ಮ ಅನುಭವ ಹೇಗಿತ್ತು?" : "How was your experience?"}</div>
-              </div>
-              <div className="flex justify-center gap-2 mb-2">
-                {[1,2,3,4,5].map(s => (
-                  <button key={s} onClick={() => setLastRating(s)} onMouseEnter={() => setHoverRating(s)} onMouseLeave={() => setHoverRating(0)}
-                    className="text-3xl transition-transform" style={{transform: s <= (hoverRating||lastRating) ? "scale(1.2)" : "scale(1)"}}>
-                    {s <= (hoverRating||lastRating) ? "⭐" : "☆"}
-                  </button>
-                ))}
-              </div>
-              <div className="text-center text-xs mb-4" style={{color: soil}}>
-                {lastRating === 5 ? "🤩 Excellent!" : lastRating === 4 ? "😊 Good!" : lastRating === 3 ? "😐 Okay" : lastRating > 0 ? "😞 We'll improve" : "Tap to rate"}
-              </div>
-              <button onClick={() => setShowRating(false)} disabled={!lastRating}
-                className="w-full py-3 rounded-2xl font-bold text-sm disabled:opacity-40" style={{backgroundColor: basil, color:"white"}}>
-                {lang==="kn" ? "ರೇಟಿಂಗ್ ಸಲ್ಲಿಸಿ" : "Submit Rating"} {lastRating > 0 && `· ${lastRating}★`}
-              </button>
-            </div>
-          </div>
-        )}
       </>}
 
-      
+      {/* Rating modal — portal to document.body so it's never clipped by parent overflow/transform */}
+      {showRating && ReactDOM.createPortal(
+        <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,zIndex:99999,display:"flex",alignItems:"center",justifyContent:"center",backgroundColor:"rgba(0,0,0,0.65)"}}>
+          <div style={{margin:"0 16px",borderRadius:24,padding:24,width:"100%",maxWidth:360,backgroundColor:panel,boxShadow:"0 8px 32px rgba(0,0,0,0.3)"}}>
+            <div style={{textAlign:"center",marginBottom:16}}>
+              <div style={{fontSize:48,marginBottom:8}}>🎉</div>
+              <div style={{fontWeight:700,fontSize:18,fontFamily:display}}>{lang==="kn"?"ಆರ್ಡರ್ ತಲುಪಿತು!":"Order Delivered!"}</div>
+              <div style={{fontSize:13,marginTop:4,color:soil}}>{lang==="kn"?"ನಿಮ್ಮ ಅನುಭವ ಹೇಗಿತ್ತು?":"How was your experience?"}</div>
+            </div>
+            <div style={{display:"flex",justifyContent:"center",gap:8,marginBottom:8}}>
+              {[1,2,3,4,5].map(s=>(
+                <button key={s} onClick={()=>setLastRating(s)} onMouseEnter={()=>setHoverRating(s)} onMouseLeave={()=>setHoverRating(0)}
+                  style={{fontSize:32,background:"none",border:"none",cursor:"pointer",transform:s<=(hoverRating||lastRating)?"scale(1.25)":"scale(1)",transition:"transform 0.15s"}}>
+                  {s<=(hoverRating||lastRating)?"⭐":"☆"}
+                </button>
+              ))}
+            </div>
+            <div style={{textAlign:"center",fontSize:12,marginBottom:16,color:soil}}>
+              {lastRating===5?"🤩 Excellent!":lastRating===4?"😊 Good!":lastRating===3?"😐 Okay":lastRating>0?"😞 We'll improve":"Tap a star to rate"}
+            </div>
+            <button disabled={!lastRating} onClick={()=>{setShowRating(false);setScreen("home");}}
+              style={{width:"100%",padding:"12px 0",borderRadius:16,fontWeight:700,fontSize:14,border:"none",cursor:lastRating?"pointer":"default",backgroundColor:lastRating?basil:"#ccc",color:"white"}}>
+              {lang==="kn"?"ರೇಟಿಂಗ್ ಸಲ್ಲಿಸಿ":"Submit Rating"}{lastRating>0?` · ${lastRating}★`:""}
+            </button>
+          </div>
+        </div>,
+        document.body
+      )}
 
     </div>
   );
