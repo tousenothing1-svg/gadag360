@@ -396,7 +396,7 @@ function startRiderTracking(orderId) {
   };
 
   pushLocation(); // push immediately on pickup
-  riderWatchId = setInterval(pushLocation, 10000); // then every 10s
+  riderWatchId = setInterval(pushLocation, 5000); // then every 5s
 }
 
 function stopRiderTracking() {

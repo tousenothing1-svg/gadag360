@@ -324,6 +324,8 @@ function LeafletMap({ orderStatusIdx, basil, customerLat, customerLon, riderPos 
   const mapRef = useRef(null);
   const leafletRef = useRef(null);
   const riderMarkerRef = useRef(null);
+  const animFrameRef = useRef(null);
+  const prevPosRef = useRef(null);
 
   const shopPos = WAREHOUSE_POS;
   const homePos = (customerLat && customerLon) ? [customerLat, customerLon] : null;
@@ -364,20 +366,42 @@ function LeafletMap({ orderStatusIdx, basil, customerLat, customerLon, riderPos 
         s.onload = init; document.head.appendChild(s);
       } else { const iv = setInterval(()=>{ if(window.L){clearInterval(iv);init();} },100); }
     }
-    return () => { if(leafletRef.current){ leafletRef.current.remove(); leafletRef.current=null; riderMarkerRef.current=null; } };
+    return () => { if(animFrameRef.current) cancelAnimationFrame(animFrameRef.current); if(leafletRef.current){ leafletRef.current.remove(); leafletRef.current=null; riderMarkerRef.current=null; prevPosRef.current=null; } };
   }, [customerLat, customerLon]);
 
-  // Update live rider marker whenever riderPos changes
+  // Update live rider marker whenever riderPos changes — smooth animation
   useEffect(() => {
     if (!leafletRef.current || !window.L || !riderPos) return;
     const L = window.L;
-    const pos = [riderPos.lat, riderPos.lon];
-    if (riderMarkerRef.current) {
-      riderMarkerRef.current.setLatLng(pos);
-    } else {
+    const toPos = [riderPos.lat, riderPos.lon];
+
+    if (!riderMarkerRef.current) {
+      // First appearance — create marker immediately
       const riderIcon = L.divIcon({ html:`<div style="background:#1a7c4a;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.4)">🏍️</div>`, className:"", iconAnchor:[18,18] });
-      riderMarkerRef.current = L.marker(pos, {icon:riderIcon}).bindPopup("Delivery Rider").addTo(leafletRef.current);
+      riderMarkerRef.current = L.marker(toPos, {icon:riderIcon}).bindPopup("Delivery Rider").addTo(leafletRef.current);
+      prevPosRef.current = toPos;
+      return;
     }
+
+    // Animate smoothly from current position to new position over 8s
+    const fromPos = prevPosRef.current || toPos;
+    prevPosRef.current = toPos;
+    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+
+    const duration = 8000; // 8 seconds (poll is every 10s, always moving)
+    const startTime = performance.now();
+
+    function animate(now) {
+      const elapsed = now - startTime;
+      const t = Math.min(elapsed / duration, 1);
+      // ease-in-out for natural movement
+      const ease = t < 0.5 ? 2*t*t : -1+(4-2*t)*t;
+      const lat = fromPos[0] + (toPos[0] - fromPos[0]) * ease;
+      const lon = fromPos[1] + (toPos[1] - fromPos[1]) * ease;
+      if (riderMarkerRef.current) riderMarkerRef.current.setLatLng([lat, lon]);
+      if (t < 1) animFrameRef.current = requestAnimationFrame(animate);
+    }
+    animFrameRef.current = requestAnimationFrame(animate);
   }, [riderPos]);
 
   return (
@@ -1245,7 +1269,7 @@ const verifyOtp = async () => {
     };
 
     pollOrder(); // immediate first poll
-    riderPollRef.current = setInterval(pollOrder, 5000);
+    riderPollRef.current = setInterval(pollOrder, 3000);
     return () => { if (riderPollRef.current) { clearInterval(riderPollRef.current); riderPollRef.current = null; } };
   }, [screen, activeOrderId]);
 
