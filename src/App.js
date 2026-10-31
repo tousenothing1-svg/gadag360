@@ -614,16 +614,33 @@ const ProductSliderModal = ({p, onClose, setCart, initialQty}) => {
                             return (
                               <div key={key}
                                 onClick={()=>{ if(hasMany){setExpandedGroup(isExpanded?null:groupKey);} else setSelectedProduct(first); }}
-                                style={{backgroundColor:"white",borderRadius:14,overflow:"hidden",cursor:"pointer",boxShadow:isExpanded?"0 2px 12px rgba(26,107,60,0.2)":"0 1px 4px rgba(0,0,0,0.06)",border:isExpanded?`1.5px solid ${basil}`:"1.5px solid transparent"}}>
-                                <div style={{position:"relative",paddingTop:"100%",backgroundColor:"#fafafa"}}>
-                                  <div style={{position:"absolute",inset:"8px"}}><ProductImage p={first}/></div>
-                                  {hasMany&&<div style={{position:"absolute",top:5,right:5,backgroundColor:"rgba(26,107,60,0.85)",borderRadius:8,padding:"1px 5px",fontSize:8,color:"white",fontWeight:700}}>+{products.length}</div>}
-                                  {qty>0&&!hasMany&&<div style={{position:"absolute",top:5,right:5,width:18,height:18,borderRadius:"50%",backgroundColor:basil,color:"white",fontSize:9,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center"}}>{qty}</div>}
+                                style={{backgroundColor:"white",borderRadius:8,overflow:"hidden",cursor:"pointer",
+                                  boxShadow:isExpanded?"0 2px 12px rgba(26,107,60,0.15)":"0 1px 4px rgba(0,0,0,0.06)",
+                                  border:isExpanded?`1.5px solid ${basil}`:"1px solid #ebebeb",
+                                  opacity:(!hasMany&&first.in_stock===false)?0.5:1}}>
+                                {/* Image area */}
+                                <div style={{position:"relative",paddingTop:"95%",backgroundColor:"#f8f8f8"}}>
+                                  <div style={{position:"absolute",inset:"6px"}}><ProductImage p={first}/></div>
+                                  {/* +N badge — green pill, top right */}
+                                  {hasMany&&<div style={{position:"absolute",top:5,right:5,backgroundColor:basil,
+                                    borderRadius:20,padding:"2px 6px",fontSize:9,fontWeight:700,color:"white"}}>+{products.length}</div>}
+                                  {/* Cart qty dot */}
+                                  {qty>0&&!hasMany&&<div style={{position:"absolute",top:5,right:5,width:18,height:18,
+                                    borderRadius:"50%",backgroundColor:basil,color:"white",fontSize:9,fontWeight:800,
+                                    display:"flex",alignItems:"center",justifyContent:"center"}}>{qty}</div>}
+                                  {/* Out of stock */}
+                                  {!hasMany&&first.in_stock===false&&<div style={{position:"absolute",inset:0,
+                                    backgroundColor:"rgba(255,255,255,0.78)",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                                    <span style={{fontSize:7,fontWeight:800,color:chili,padding:"2px 5px",backgroundColor:"#fee2e2",borderRadius:3}}>OUT</span>
+                                  </div>}
                                 </div>
-                                <div style={{padding:"6px 8px 10px"}}>
-                                  <div style={{fontSize:9,color:soil,marginBottom:2}}>{hasMany?`₹${minPrice}–₹${maxPrice}`:`₹${price}/${first.variants?.[0]?.label||first.unit}`}</div>
-                                  <div style={{fontSize:11,fontWeight:700,color:ink,lineHeight:1.3}}>{lang==="kn"?groupKeyKn(key,KN_NAMES):key}</div>
-                                  {hasMany&&<div style={{fontSize:9,color:basil,marginTop:2,fontWeight:600}}>{products.length} {lang==="kn"?"ಆಯ್ಕೆಗಳು":"varieties"} {isExpanded?"▲":"▼"}</div>}
+                                {/* Price + name below image */}
+                                <div style={{padding:"5px 7px 8px"}}>
+                                  <div style={{fontSize:9,color:"#888",marginBottom:2}}>
+                                    {hasMany?`₹${minPrice}–₹${maxPrice}`:`₹${price}/${first.variants?.[0]?.label||first.unit}`}
+                                  </div>
+                                  <div style={{fontSize:11,fontWeight:700,color:ink,lineHeight:1.25}}>{lang==="kn"?groupKeyKn(key,KN_NAMES):key}</div>
+                                  {hasMany&&<div style={{fontSize:9,color:"#666",marginTop:2}}>{products.length} {lang==="kn"?"ಆಯ್ಕೆಗಳು":"varieties"} {isExpanded?"▲":"▼"}</div>}
                                 </div>
                               </div>
                             );
