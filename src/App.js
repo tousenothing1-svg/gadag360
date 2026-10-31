@@ -592,142 +592,139 @@ const ProductSliderModal = ({p, onClose, setCart, initialQty}) => {
               <div style={{padding:"0 8px 4px"}}>
                 {(() => {
                   const entries = Object.entries(catGroups);
-                  const rows = [];
-                  let i = 0;
-                  while(i < entries.length){
-                    const [key, products] = entries[i];
-                    const hasMany = products.length > 1;
-                    const groupKey = `${cat.id}::${key}`;
-                    const isExpanded = expandedGroup === groupKey;
+                  // Filler tiles used when a wide card can't fit in the leftover slot of a row
+                  const FILLERS = ["Fresh Daily","Gadag 360","Farm Fresh"];
+                  const NAME_H = 24; // height of the name strip under narrow cards
+                  // Sequential packing into a 3-column grid:
+                  //   multi-variety product = span 2, single-variety product = span 1.
+                  //   If the next item is wide but only 1 slot is left, fill that slot and start a new row.
+                  const rowsData = [];
+                  let cur = [], used = 0, fillerN = 0;
+                  const pushRow = () => { if(cur.length) rowsData.push(cur); cur = []; used = 0; };
+                  entries.forEach(([key, products]) => {
+                    const span = products.length > 1 ? 2 : 1;
+                    if(used + span > 3){
+                      cur.push({filler:FILLERS[fillerN++ % FILLERS.length], start:used, span:3-used});
+                      pushRow();
+                    }
+                    cur.push({key, products, span, start:used});
+                    used += span;
+                    if(used === 3) pushRow();
+                  });
+                  pushRow();
 
-                    if(hasMany){
-                      // Multi-variety: takes 2 cols. Pair with next single if available
-                      const next = entries[i+1];
-                      const nextSingle = next && next[1].length === 1 ? next : null;
-                      const rowKey = `row-${i}`;
-                      rows.push(
-                        <div key={rowKey}>
-                          <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:8,marginBottom:isExpanded?0:8}}>
-                            {/* Wide multi-variety card */}
-                            {(()=>{
-                              const first = products[0];
+                  return rowsData.map((row, rIdx) => {
+                    const openItem = row.find(it => it.products && it.products.length>1 && expandedGroup===`${cat.id}::${it.key}`);
+                    return (
+                      <div key={`row-${rIdx}`}>
+                        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:openItem?0:10}}>
+                          {row.map((it, cIdx) => {
+                            /* ── Filler tile ── */
+                            if(it.filler){
+                              return (
+                                <div key={`f-${rIdx}-${cIdx}`} style={{display:"flex",flexDirection:"column"}}>
+                                  <div style={{flex:1,minHeight:96,borderRadius:12,border:"1.5px solid #e6e6e1",backgroundColor:"#f1f1ed",
+                                    display:"flex",alignItems:"center",justifyContent:"center",padding:8,textAlign:"center",
+                                    color:"#cdcdc6",fontWeight:800,fontSize:15,lineHeight:1.2,letterSpacing:0.5,textTransform:"uppercase"}}>
+                                    {it.filler}
+                                  </div>
+                                  <div style={{height:NAME_H}}/>
+                                </div>
+                              );
+                            }
+                            const {key, products} = it;
+                            const first = products[0];
+                            const displayName = lang==="kn"?groupKeyKn(key,KN_NAMES):key;
+                            const groupKey = `${cat.id}::${key}`;
+                            const isExpanded = expandedGroup===groupKey;
+
+                            /* ── Wide card: multi-variety ── */
+                            if(products.length > 1){
                               const minPrice = Math.min(...products.map(p=>p.price));
                               const maxPrice = Math.max(...products.map(p=>p.price));
-                              const displayName = lang==="kn"?groupKeyKn(key,KN_NAMES):key;
+                              const unit = first.variants?.[0]?.label||first.unit;
                               return (
-                                <div onClick={()=>setExpandedGroup(isExpanded?null:groupKey)}
-                                  style={{backgroundColor:"white",borderRadius:8,overflow:"hidden",cursor:"pointer",
-                                    boxShadow:isExpanded?"0 2px 12px rgba(26,107,60,0.15)":"0 1px 4px rgba(0,0,0,0.06)",
-                                    border:isExpanded?`1.5px solid ${basil}`:"1px solid #ebebeb",
-                                    display:"flex",flexDirection:"column"}}>
-                                  <div style={{padding:"8px 10px 0",fontSize:9,color:"#888"}}>₹{minPrice}–₹{maxPrice}</div>
-                                  <div style={{display:"flex",flex:1,alignItems:"center",padding:"6px 10px 6px"}}>
-                                    {/* Left: name + variety count */}
-                                    <div style={{flex:1,paddingRight:8}}>
-                                      <div style={{fontSize:13,fontWeight:700,color:ink,lineHeight:1.3,marginBottom:6}}>{displayName}</div>
-                                      <div style={{fontSize:28,fontWeight:900,color:ink,lineHeight:1}}>{products.length}</div>
-                                      <div style={{fontSize:10,color:"#888",marginTop:2}}>{lang==="kn"?"ಆಯ್ಕೆಗಳು":"varieties"} {isExpanded?"▲":"▼"}</div>
-                                    </div>
-                                    {/* Right: product image */}
-                                    <div style={{width:80,height:80,flexShrink:0}}>
-                                      <ProductImage p={first}/>
+                                <div key={key} style={{gridColumn:"span 2",display:"flex",flexDirection:"column"}}>
+                                  <div onClick={()=>setExpandedGroup(isExpanded?null:groupKey)}
+                                    style={{flex:1,backgroundColor:"white",borderRadius:12,cursor:"pointer",padding:"8px 10px 10px",
+                                      display:"flex",flexDirection:"column",
+                                      // stacked-sheets look hints "more than one variety inside"
+                                      boxShadow:"3px 3px 0 0 #efefea, 6px 6px 0 0 #e0e0da",
+                                      border:isExpanded?`1.5px solid ${basil}`:"1px solid #ebebeb"}}>
+                                    <div style={{fontSize:10,color:"#666"}}>₹{minPrice} – ₹{maxPrice}/{unit}</div>
+                                    <div style={{display:"flex",alignItems:"center",flex:1,gap:6}}>
+                                      <div style={{flex:1,minWidth:0}}>
+                                        <div style={{fontSize:14,fontWeight:700,color:ink,lineHeight:1.25,marginBottom:6,
+                                          overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{displayName}</div>
+                                        <div style={{fontSize:26,fontWeight:800,color:ink,lineHeight:1}}>{products.length}</div>
+                                        <div style={{fontSize:10,color:"#777",marginTop:2}}>{lang==="kn"?"ಆಯ್ಕೆಗಳು":"varieties"} {isExpanded?"▲":"▼"}</div>
+                                      </div>
+                                      <div style={{width:82,height:82,flexShrink:0}}><ProductImage p={first}/></div>
                                     </div>
                                   </div>
+                                  <div style={{height:NAME_H}}/>
                                 </div>
                               );
-                            })()}
-                            {/* Narrow single card next to it, or empty */}
-                            {nextSingle ? (()=>{
-                              const [nKey, nProducts] = nextSingle;
-                              const nFirst = nProducts[0];
-                              const nQty = cart[nFirst.id]||0;
-                              const nGroupKey = `${cat.id}::${nKey}`;
-                              return (
-                                <div onClick={()=>setSelectedProduct(nFirst)}
-                                  style={{backgroundColor:"white",borderRadius:8,overflow:"hidden",cursor:"pointer",
-                                    boxShadow:"0 1px 4px rgba(0,0,0,0.06)",border:"1px solid #ebebeb",
-                                    opacity:nFirst.in_stock===false?0.5:1,display:"flex",flexDirection:"column"}}>
-                                  <div style={{position:"relative",paddingTop:"85%",backgroundColor:"#f8f8f8"}}>
-                                    <div style={{position:"absolute",inset:"5px"}}><ProductImage p={nFirst}/></div>
-                                    {nQty>0&&<div style={{position:"absolute",top:4,right:4,width:16,height:16,borderRadius:"50%",backgroundColor:basil,color:"white",fontSize:8,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center"}}>{nQty}</div>}
+                            }
+
+                            /* ── Narrow card: single variety, name sits below the card ── */
+                            const qty = cart[first.id]||0;
+                            return (
+                              <div key={key} onClick={()=>setSelectedProduct(first)}
+                                style={{display:"flex",flexDirection:"column",cursor:"pointer",opacity:first.in_stock===false?0.55:1}}>
+                                <div style={{flex:1,backgroundColor:"white",borderRadius:12,boxShadow:"0 1px 4px rgba(0,0,0,0.08)",
+                                  border:"1px solid #ebebeb",overflow:"hidden",position:"relative"}}>
+                                  <div style={{padding:"6px 8px 0",fontSize:10,color:"#666"}}>₹{first.price}/{first.variants?.[0]?.label||first.unit}</div>
+                                  <div style={{position:"relative",paddingTop:"88%"}}>
+                                    <div style={{position:"absolute",inset:"6px 8px 8px"}}><ProductImage p={first}/></div>
                                   </div>
-                                  <div style={{padding:"5px 6px 7px"}}>
-                                    <div style={{fontSize:8,color:"#888",marginBottom:1}}>₹{nFirst.price}/{nFirst.variants?.[0]?.label||nFirst.unit}</div>
-                                    <div style={{fontSize:10,fontWeight:700,color:ink,lineHeight:1.25}}>{lang==="kn"?groupKeyKn(nKey,KN_NAMES):nKey}</div>
-                                  </div>
+                                  {qty>0&&<div style={{position:"absolute",top:5,right:5,width:17,height:17,borderRadius:"50%",backgroundColor:basil,color:"white",
+                                    fontSize:9,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center"}}>{qty}</div>}
+                                  {first.in_stock===false&&<div style={{position:"absolute",inset:0,backgroundColor:"rgba(255,255,255,0.78)",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                                    <span style={{fontSize:8,fontWeight:800,color:chili,padding:"2px 5px",backgroundColor:"#fee2e2",borderRadius:3}}>OUT</span></div>}
                                 </div>
-                              );
-                            })() : <div/>}
-                          </div>
-                          {/* Expanded variety picker */}
-                          {isExpanded&&(
-                            <div style={{backgroundColor:"#f0faf4",borderRadius:10,padding:"10px",marginBottom:8,border:`1px solid ${basil}20`}}>
-                              <div style={{fontSize:11,fontWeight:700,color:basil,marginBottom:8}}>{lang==="kn"?groupKeyKn(key,KN_NAMES):key} — {products.length} {lang==="kn"?"ಆಯ್ಕೆಗಳು":"varieties"}</div>
-                              <div style={{display:"flex",gap:8,overflowX:"auto",scrollbarWidth:"none",paddingBottom:4}}>
-                                {products.map(p=>{
-                                  const qty = cart[p.id]||0;
-                                  return (
-                                    <div key={p.id} onClick={e=>{e.stopPropagation();setSelectedProduct(p);}}
-                                      style={{flexShrink:0,width:85,backgroundColor:"white",borderRadius:8,overflow:"hidden",cursor:"pointer",boxShadow:"0 1px 4px rgba(0,0,0,0.08)",border:"1px solid #ebebeb"}}>
-                                      <div style={{position:"relative",paddingTop:"90%",backgroundColor:"#fafafa"}}>
-                                        <div style={{position:"absolute",inset:"5px"}}><ProductImage p={p}/></div>
-                                        {qty>0&&<div style={{position:"absolute",top:3,right:3,width:15,height:15,borderRadius:"50%",backgroundColor:basil,color:"white",fontSize:8,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center"}}>{qty}</div>}
-                                        {!p.in_stock&&<div style={{position:"absolute",inset:0,backgroundColor:"rgba(255,255,255,0.85)",display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{fontSize:7,fontWeight:800,color:chili,padding:"2px 4px",backgroundColor:"#fee2e2",borderRadius:3}}>OUT</span></div>}
-                                      </div>
-                                      <div style={{padding:"4px 5px 6px"}}>
-                                        <div style={{fontSize:8,color:"#888"}}>₹{p.price}/{p.variants?.[0]?.label||p.unit}</div>
-                                        <div style={{fontSize:9,fontWeight:700,color:ink,lineHeight:1.25,marginTop:1}}>{lang==="kn"?(KN_NAMES[p.name]||p.name):p.name}</div>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
+                                <div style={{height:NAME_H,paddingTop:5,textAlign:"center",fontSize:11,fontWeight:600,color:ink,
+                                  overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{displayName}</div>
                               </div>
+                            );
+                          })}
+                        </div>
+
+                        {/* ── Inline variety picker: full width under the row, notch points at the tapped card ── */}
+                        {openItem && (
+                          <div style={{position:"relative",backgroundColor:"#f4efe2",border:"1px solid #e6dcc3",borderRadius:12,
+                            padding:"12px 8px 10px",margin:"8px 0 12px"}}>
+                            <div style={{position:"absolute",top:-8,left:`calc(${((openItem.start+openItem.span/2)/3)*100}% - 8px)`,
+                              width:14,height:14,backgroundColor:"#f4efe2",borderLeft:"1px solid #e6dcc3",borderTop:"1px solid #e6dcc3",
+                              transform:"rotate(45deg)"}}/>
+                            <div style={{display:"flex",gap:8,overflowX:"auto",scrollbarWidth:"none",paddingBottom:4}}>
+                              {openItem.products.map(p=>{
+                                const pq = cart[p.id]||0;
+                                return (
+                                  <div key={p.id} onClick={e=>{e.stopPropagation();setSelectedProduct(p);}}
+                                    style={{flexShrink:0,width:96,cursor:"pointer",opacity:p.in_stock===false?0.55:1}}>
+                                    <div style={{backgroundColor:"white",borderRadius:12,border:"1px solid #ebebeb",overflow:"hidden",position:"relative"}}>
+                                      <div style={{padding:"6px 8px 0",fontSize:10,color:"#666"}}>₹{p.price}/{p.variants?.[0]?.label||p.unit}</div>
+                                      <div style={{position:"relative",paddingTop:"85%"}}>
+                                        <div style={{position:"absolute",inset:"6px 8px 8px"}}><ProductImage p={p}/></div>
+                                      </div>
+                                      {pq>0&&<div style={{position:"absolute",top:5,right:5,width:16,height:16,borderRadius:"50%",backgroundColor:basil,color:"white",
+                                        fontSize:9,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center"}}>{pq}</div>}
+                                      {p.in_stock===false&&<div style={{position:"absolute",inset:0,backgroundColor:"rgba(255,255,255,0.8)",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                                        <span style={{fontSize:8,fontWeight:800,color:chili,padding:"2px 5px",backgroundColor:"#fee2e2",borderRadius:3}}>OUT</span></div>}
+                                    </div>
+                                    <div style={{paddingTop:5,textAlign:"center",fontSize:11,fontWeight:600,color:ink,lineHeight:1.2}}>
+                                      {lang==="kn"?(KN_NAMES[p.name]||p.name):p.name}
+                                    </div>
+                                  </div>
+                                );
+                              })}
                             </div>
-                          )}
-                        </div>
-                      );
-                      i += nextSingle ? 2 : 1;
-                    } else {
-                      // Single-variety: pack 3 per row
-                      const rowItems = [];
-                      while(i < entries.length && rowItems.length < 3 && entries[i][1].length === 1){
-                        rowItems.push(entries[i]);
-                        i++;
-                      }
-                      // If we hit a multi-variety mid-row, we already stopped
-                      const rowKey = `row-single-${i}`;
-                      const expandedItem = rowItems.find(([k])=>expandedGroup===`${cat.id}::${k}`);
-                      rows.push(
-                        <div key={rowKey}>
-                          <div style={{display:"grid",gridTemplateColumns:`repeat(${rowItems.length},1fr)`,gap:8,marginBottom:expandedItem?0:8}}>
-                            {rowItems.map(([k,prods])=>{
-                              const first = prods[0];
-                              const qty = cart[first.id]||0;
-                              const gKey = `${cat.id}::${k}`;
-                              return (
-                                <div key={k} onClick={()=>setSelectedProduct(first)}
-                                  style={{backgroundColor:"white",borderRadius:8,overflow:"hidden",cursor:"pointer",
-                                    boxShadow:"0 1px 4px rgba(0,0,0,0.06)",border:"1px solid #ebebeb",
-                                    opacity:first.in_stock===false?0.5:1}}>
-                                  <div style={{position:"relative",paddingTop:"95%",backgroundColor:"#f8f8f8"}}>
-                                    <div style={{position:"absolute",inset:"6px"}}><ProductImage p={first}/></div>
-                                    {qty>0&&<div style={{position:"absolute",top:4,right:4,width:17,height:17,borderRadius:"50%",backgroundColor:basil,color:"white",fontSize:9,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center"}}>{qty}</div>}
-                                    {first.in_stock===false&&<div style={{position:"absolute",inset:0,backgroundColor:"rgba(255,255,255,0.78)",display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{fontSize:7,fontWeight:800,color:chili,padding:"2px 4px",backgroundColor:"#fee2e2",borderRadius:3}}>OUT</span></div>}
-                                  </div>
-                                  <div style={{padding:"5px 7px 8px"}}>
-                                    <div style={{fontSize:9,color:"#888",marginBottom:1}}>₹{first.price}/{first.variants?.[0]?.label||first.unit}</div>
-                                    <div style={{fontSize:11,fontWeight:700,color:ink,lineHeight:1.25}}>{lang==="kn"?groupKeyKn(k,KN_NAMES):k}</div>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                            {rowItems.length<3&&Array(3-rowItems.length).fill(0).map((_,x)=><div key={`e${x}`}/>)}
                           </div>
-                        </div>
-                      );
-                    }
-                  }
-                  return rows;
+                        )}
+                      </div>
+                    );
+                  });
                 })()}
               </div>
             </div>
