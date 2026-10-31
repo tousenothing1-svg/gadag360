@@ -1748,7 +1748,7 @@ const verifyOtp = async () => {
             {voiceError&&<div style={{fontSize:10,color:chili,marginTop:2}}>⚠️ {voiceError}</div>}
           </div>
           {/* Filter pills — "Ordered earlier", "Just arrived" etc */}
-          <div style={{display:"flex",gap:6,overflowX:"auto",padding:"0 12px 10px",scrollbarWidth:"none"}}>
+          <div style={{display:"flex",gap:8,overflowX:"auto",padding:"0 12px 12px",scrollbarWidth:"none",width:"100%",boxSizing:"border-box"}}>
             {[
               {label:lang==="kn"?"ಮೊದಲು ಆರ್ಡರ್":"Ordered earlier", color:"#4a7c3f"},
               {label:lang==="kn"?"ಹೊಸದಾಗಿ ಬಂದಿದೆ":"Just arrived",   color:"#7a5c2e"},
@@ -1757,7 +1757,7 @@ const verifyOtp = async () => {
               {label:lang==="kn"?"ಬಲ್ಕ್":"Bulk 12% off",             color:bulkMode?"#1565C0":"#555"},
             ].map((f,i)=>(
               <button key={i} onClick={i===4?()=>setBulkMode(b=>!b):undefined}
-                style={{flexShrink:0,padding:"10px 16px",borderRadius:10,fontSize:12,fontWeight:700,color:"white",backgroundColor:f.color,border:"none",cursor:"pointer",whiteSpace:"nowrap",lineHeight:1.3,minHeight:44}}>
+                style={{flexShrink:0,padding:"12px 20px",borderRadius:10,fontSize:13,fontWeight:700,color:"white",backgroundColor:f.color,border:"none",cursor:"pointer",whiteSpace:"nowrap",lineHeight:1.3,minHeight:48}}>
                 {f.label}
               </button>
             ))}
@@ -1772,42 +1772,23 @@ const verifyOtp = async () => {
           </div>
         )}
 
-        {/* ── HANDPICKD LAYOUT: LEFT SIDEBAR + GROUPED PRODUCTS ── */}
-        {/* Side category drawer toggle button */}
-        <div style={{position:"relative"}}>
-          {/* Arrow toggle button on left edge */}
-          <button onClick={()=>setShowCatDrawer(d=>!d)}
-            style={{position:"fixed",left:0,top:"50%",transform:"translateY(-50%)",zIndex:37,width:22,height:48,backgroundColor:basil,color:"white",border:"none",cursor:"pointer",borderRadius:"0 10px 10px 0",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"2px 2px 8px rgba(0,0,0,0.2)",fontSize:14}}>
-            {showCatDrawer?"‹":"›"}
-          </button>
-
-          {/* Category drawer overlay */}
-          {showCatDrawer && (
-            <>
-              <div onClick={()=>setShowCatDrawer(false)} style={{position:"fixed",inset:0,backgroundColor:"rgba(0,0,0,0.3)",zIndex:50}}/>
-              <div style={{position:"fixed",left:0,top:0,bottom:0,width:180,backgroundColor:"white",zIndex:51,boxShadow:"4px 0 20px rgba(0,0,0,0.15)",display:"flex",flexDirection:"column"}}>
-                <div style={{padding:"16px 14px 10px",borderBottom:`1px solid ${line}`}}>
-                  <div style={{fontSize:14,fontWeight:800,color:ink}}>{lang==="kn"?"ಕ್ಯಾಟಗರಿ":"Categories"}</div>
-                </div>
-                <div style={{flex:1,overflowY:"auto",padding:"8px 0"}}>
-                  {CATS.filter(c=>c.id!=="all").map(c=>(
-                    <button key={c.id} onClick={()=>{setActiveCat(c.id);setShowCatDrawer(false);}}
-                      style={{width:"100%",display:"flex",alignItems:"center",gap:12,padding:"12px 16px",border:"none",cursor:"pointer",textAlign:"left",
-                        backgroundColor:activeCat===c.id?"#f0faf4":"white",borderLeft:activeCat===c.id?`3px solid ${basil}`:"3px solid transparent"}}>
-                      <span style={{fontSize:22}}>{CAT_EMOJI[c.id]||"🛒"}</span>
-                      <span style={{fontSize:13,fontWeight:activeCat===c.id?700:500,color:activeCat===c.id?basil:ink}}>{c[lang]}</span>
-                    </button>
-                  ))}
-                </div>
-                <div style={{padding:"12px 14px",borderTop:`1px solid ${line}`}}>
-                  <button onClick={()=>{setActiveCat("all");setShowCatDrawer(false);}}
-                    style={{width:"100%",padding:"10px",borderRadius:10,backgroundColor:activeCat==="all"?basil:"#f7f7f7",color:activeCat==="all"?"white":ink,border:"none",cursor:"pointer",fontWeight:700,fontSize:13}}>
-                    {lang==="kn"?"ಎಲ್ಲಾ ಉತ್ಪನ್ನಗಳು":"All Products"}
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
+        {/* ── CATEGORY PILL BAR — horizontal scroll, fully inside app ── */}
+        <div style={{backgroundColor:"white",borderBottom:`1px solid ${line}`,position:"sticky",top:0,zIndex:30}}>
+          <div style={{display:"flex",gap:8,overflowX:"auto",scrollbarWidth:"none",padding:"10px 12px"}}>
+            <button onClick={()=>setActiveCat("all")}
+              style={{flexShrink:0,padding:"8px 16px",borderRadius:20,border:"none",cursor:"pointer",fontSize:13,fontWeight:700,
+                backgroundColor:activeCat==="all"?basil:"#f0f0f0",color:activeCat==="all"?"white":ink,whiteSpace:"nowrap"}}>
+              {lang==="kn"?"ಎಲ್ಲಾ":"All"}
+            </button>
+            {CATS.filter(c=>c.id!=="all").map(c=>(
+              <button key={c.id} onClick={()=>setActiveCat(c.id)}
+                style={{flexShrink:0,display:"flex",alignItems:"center",gap:6,padding:"8px 16px",borderRadius:20,border:"none",cursor:"pointer",fontSize:13,fontWeight:700,
+                  backgroundColor:activeCat===c.id?basil:"#f0f0f0",color:activeCat===c.id?"white":ink,whiteSpace:"nowrap"}}>
+                <span style={{fontSize:16}}>{CAT_EMOJI[c.id]||"🛒"}</span>
+                {c[lang]}
+              </button>
+            ))}
+          </div>
         </div>
 
         <HandpickdLayout
