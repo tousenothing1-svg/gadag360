@@ -2144,7 +2144,7 @@ const verifyOtp = async () => {
                   </div>
                   <div style={{paddingBottom:24,paddingTop:4}}>
                     <div style={{fontSize:13,fontWeight:active?700:done?600:400,color:active?basil:done?ink:soil}}>{label}</div>
-                    {active&&<div style={{fontSize:10,color:mango,marginTop:2}}>● {lang==="kn"?"ಪ್ರಕ್ರಿಯೆಯಲ್ಲಿದೆ...":"In progress..."}</div>}
+                    {active&&idx<3&&<div style={{fontSize:10,color:mango,marginTop:2}}>● {lang==="kn"?"ಪ್ರಕ್ರಿಯೆಯಲ್ಲಿದೆ...":"In progress..."}</div>}
                   </div>
                 </div>
               );
@@ -2221,6 +2221,30 @@ const verifyOtp = async () => {
             <button onClick={()=>setNotifShown(false)} style={{background:"none",border:"none",color:"white",cursor:"pointer",fontSize:16}}>✕</button>
           </div>
         )}
+        {/* Rating modal on checkout screen */}
+        {showRating&&(
+          <div className="fixed inset-0 z-50 flex items-center justify-center" style={{backgroundColor:"rgba(0,0,0,0.5)"}}>
+            <div className="mx-4 rounded-3xl p-6 w-full max-w-sm" style={{backgroundColor:panel}}>
+              <div className="text-center mb-4">
+                <div className="text-4xl mb-2">🎉</div>
+                <div className="font-bold text-lg" style={{fontFamily:display}}>{lang==="kn"?"ಆರ್ಡರ್ ತಲುಪಿತು!":"Order Delivered!"}</div>
+                <div className="text-sm mt-1" style={{color:soil}}>{lang==="kn"?"ನಿಮ್ಮ ಅನುಭವ ಹೇಗಿತ್ತು?":"How was your experience?"}</div>
+              </div>
+              <div className="flex justify-center gap-2 mb-4">
+                {[1,2,3,4,5].map(s=>(
+                  <button key={s} onClick={()=>setLastRating(s)} onMouseEnter={()=>setHoverRating(s)} onMouseLeave={()=>setHoverRating(0)}
+                    className="text-3xl transition-transform" style={{transform:s<=(hoverRating||lastRating)?"scale(1.2)":"scale(1)"}}>
+                    {s<=(hoverRating||lastRating)?"⭐":"☆"}
+                  </button>
+                ))}
+              </div>
+              <button disabled={!lastRating} onClick={()=>{setShowRating(false);setScreen("home");}}
+                className="w-full py-3 rounded-2xl font-bold text-sm" style={{backgroundColor:lastRating?basil:"#ccc",color:"white",border:"none",cursor:lastRating?"pointer":"default"}}>
+                {lang==="kn"?"ಸಲ್ಲಿಸಿ":"Submit Rating"}
+              </button>
+            </div>
+          </div>
+        )}
       </>}
 
       {screen === "confirmation" && <>
@@ -2253,7 +2277,7 @@ const verifyOtp = async () => {
                   </div>
                   <div className="pb-6 pt-1">
                     <div className="text-sm" style={{fontWeight: active ? 700 : done ? 600 : 400, color: active ? basil : done ? ink : soil}}>{label}</div>
-                    {active && <div className="text-xs mt-0.5 animate-pulse" style={{color: mango}}>● {lang==="kn" ? "ಪ್ರಕ್ರಿಯೆಯಲ್ಲಿದೆ..." : "In progress..."}</div>}
+                    {active && idx < 3 && <div className="text-xs mt-0.5 animate-pulse" style={{color: mango}}>● {lang==="kn" ? "ಪ್ರಕ್ರಿಯೆಯಲ್ಲಿದೆ..." : "In progress..."}</div>}
                     {done && <div className="text-xs mt-0.5" style={{color: soil}}>✓ {lang==="kn" ? "ಮುಗಿದಿದೆ" : "Done"}</div>}
                   </div>
                 </div>
