@@ -60,3 +60,17 @@ img {
 /* Safe area for notch phones */
 .safe-top { padding-top: env(safe-area-inset-top, 0px); }
 .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
+/* Press feedback for tappable product cards */
+.g-tap {
+  transition: transform 0.12s ease;
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+}
+.g-tap:active {
+  transform: scale(0.97);
+}
+.g-tap:focus-visible {
+  outline: 2px solid #1a6b3c;
+  outline-offset: 2px;
+  border-radius: 14px;
+}
