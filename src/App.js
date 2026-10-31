@@ -1207,19 +1207,21 @@ const verifyOtp = async () => {
   }, []); // Run once on mount
 
   // ── ORDER STATUS + RIDER GPS POLL ──
-  // Polls Supabase every 10s when customer is on tracking/confirmation screen.
+  // Polls Supabase every 5s when customer is on tracking/confirmation screen.
   // Updates real order status (placed→confirmed→pickedup→delivered) and live rider GPS.
   const STATUS_TO_IDX = { placed:0, confirmed:1, pickedup:2, picked_up:2, delivered:3 };
   const activeOrderId = activeOrders[0]?.id || null;
-  const activeOrderStatus = activeOrders[0]?.status || null;
+  const deliveredRef = useRef(false);
   useEffect(() => {
     const isTrackingScreen = screen === "checkout" || screen === "confirmation";
     if (!isTrackingScreen || !activeOrderId) {
       if (riderPollRef.current) { clearInterval(riderPollRef.current); riderPollRef.current = null; }
       return;
     }
+    deliveredRef.current = false;
 
     const pollOrder = async () => {
+      if (deliveredRef.current) return;
       try {
         const { data } = await supabase
           .from("orders")
@@ -1227,28 +1229,23 @@ const verifyOtp = async () => {
           .eq("id", activeOrderId)
           .single();
         if (!data) return;
-        // Update order status index
+        // Update order status index shown in UI
         const newIdx = STATUS_TO_IDX[data.status] ?? 0;
         setOrderStatusIdx(newIdx);
-        // Update active order status in state
-        setActiveOrders(prev => prev.map(o => o.id === activeOrderId ? {...o, status: data.status} : o));
-        // Update rider GPS if available
+        // Update rider GPS marker if available
         if (data.rider_lat && data.rider_lon) {
           setRiderPos({ lat: data.rider_lat, lon: data.rider_lon });
-        } else {
-          setRiderPos(null);
         }
-        // Show rating when delivered
+        // Show rating popup when delivered, stop polling
         if (data.status === "delivered") {
+          deliveredRef.current = true;
           setShowRating(true);
-          clearInterval(riderPollRef.current);
-          riderPollRef.current = null;
         }
       } catch(e) {}
     };
 
     pollOrder(); // immediate first poll
-    riderPollRef.current = setInterval(pollOrder, 10000);
+    riderPollRef.current = setInterval(pollOrder, 5000);
     return () => { if (riderPollRef.current) { clearInterval(riderPollRef.current); riderPollRef.current = null; } };
   }, [screen, activeOrderId]);
 
