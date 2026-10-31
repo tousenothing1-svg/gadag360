@@ -60,14 +60,17 @@ const Storage = {
 const SUPABASE_URL = "https://lykhjuizzvurklywxflz.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx5a2hqdWl6enZ1cmtseXd4Zmx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEzODg3OTMsImV4cCI6MjEwNjk2NDc5M30.2gO3aK030mJ0pYTeMd95B7uZF-dHnFzDOSaPwt9hZ6Q";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-import { MapPin, Search, ShoppingCart, Plus, Minus, ArrowLeft, Check, Store, X, Globe, Bike, Star, Gift, Clock, Package, Copy, Tag, Zap, Users, ThumbsUp, History, Bell, ChevronRight, Award, Repeat, RotateCcw, User, Heart, CreditCard, HelpCircle, RefreshCcw, Home, LogOut, Phone, Mail, Edit3, Lightbulb, Info } from "lucide-react";
+import { MapPin, Search, ShoppingCart, Plus, Minus, ArrowLeft, Check, Store, X, Globe, Bike, Star, Gift, Clock, Package, Copy, Tag, Zap, Users, ThumbsUp, History, Bell, ChevronRight, Award, Repeat, RotateCcw, User, Heart, CreditCard, HelpCircle, RefreshCcw, Home, LogOut, Phone, Mail, Edit3, Lightbulb, Info, Mic, ChevronDown, Menu } from "lucide-react";
 
-// ── HANDPICKD-INSPIRED DESIGN TOKENS ──
+// ── DESIGN TOKENS ──
+// Basil green: actions and selection. Haldi (turmeric): hand-lettered category tags. Sage: the shelf behind the cards.
 const basil = "#1A6B3C", basilDark = "#124D2A", mango = "#FF6B35";
-const chili = "#E53935", soil = "#888888", ink = "#1A1A1A", line = "#F0F0F0";
+const chili = "#D93A30", soil = "#6B716A", ink = "#1E2B22", line = "#E4E8E0";
 const bg = "#FFFFFF", panel = "#FFFFFF";
-const display = "'Inter', 'SF Pro Display', system-ui, sans-serif";
-const body = "'Inter', system-ui, sans-serif";
+const haldi = "#F2B53A", sage = "#EEF1EA";
+const display = "'Figtree', 'Noto Sans Kannada', system-ui, -apple-system, sans-serif";
+const body = "'Figtree', 'Noto Sans Kannada', system-ui, -apple-system, sans-serif";
+const hand = "'Kalam', 'Baloo Tamma 2', 'Figtree', 'Noto Sans Kannada', system-ui, sans-serif"; // hand-lettered market-tag voice
 
 
 const PRODUCTS = [
@@ -308,11 +311,85 @@ function groupKeyKn(key, KN_NAMES) {
 
 const CAT_EMOJI = { Fruits:"🍎", Vegetables:"🥦", Dairy:"🥛", Exotics:"🥑", Spices:"🌶️", Oils:"🫙", Flowers:"🌸" };
 
+// ── SHOP HELPERS ──
+const COL_LEFT = "max(0px, calc(50vw - 240px))"; // left/right edge of the centred 480px app column on desktop
+const rs = (n) => "₹" + Number(n || 0).toLocaleString("en-IN");
+const nm = (s) => String(s || "").toLowerCase().replace(/\s+/g, " ").trim();
+const ts = (s) => (s ? Date.parse(String(s).replace(" ", "T").replace(/(\.\d{3})\d+/, "$1")) : NaN);
+function readJSON(key, fallback) {
+  try { const v = JSON.parse(localStorage.getItem(key)); return v && typeof v === "object" ? v : fallback; } catch (e) { return fallback; }
+}
+// Price truth: a product sells at the size the customer picked, else its first size, else its base unit.
+// Cards, the product sheet, the cart and saved orders all use this, so the price shown is the price charged.
+function unitOf(p, picked) {
+  const vs = Array.isArray(p && p.variants) ? p.variants : [];
+  const want = picked && p ? picked[p.id] : undefined;
+  const v = vs.find(x => x.label === want) || vs[0];
+  return v ? { label: v.label, price: v.price } : { label: p.unit, price: p.price };
+}
+// Search matches English names, Kannada names and category names (both languages)
+function matchesQuery(p, q) {
+  const raw = String(q || "").trim();
+  if (!raw) return true;
+  const s = raw.toLowerCase();
+  const catKn = (CATS.find(c => c.id === p.cat) || {}).kn || "";
+  return nm(p.name).includes(s) || (KN_NAMES[p.name] || "").includes(raw) || (p.name_kn || "").includes(raw)
+    || (s.length >= 3 && nm(p.cat).startsWith(s)) || (raw.length >= 2 && catKn.startsWith(raw));
+}
+// Shelves under the search bar. "Ordered earlier" comes from the customer's orders; "Just arrived" lists products
+// added in the admin panel in the last 14 days. Fresh-cut and seasonal show the product ids listed in SHELF_PICKS.
+const SHELF_DEFS = [
+  { id: "ordered",  en: "Ordered earlier", kn: "ಮೊದಲು ಆರ್ಡರ್",   color: "#4a7c3f", empty: { en: "No orders yet",   kn: "ಇನ್ನೂ ಆರ್ಡರ್ ಇಲ್ಲ" } },
+  { id: "new",      en: "Just arrived",    kn: "ಹೊಸದಾಗಿ ಬಂದಿದೆ", color: "#7a5c2e", empty: { en: "Nothing new yet", kn: "ಇನ್ನೂ ಹೊಸದೇನೂ ಇಲ್ಲ" } },
+  { id: "freshcut", en: "Fresh-Cut @ 5AM", kn: "ತಾಜಾ ಕಟಾವು",    color: "#3a7a50", empty: { en: "Coming soon",     kn: "ಶೀಘ್ರದಲ್ಲೇ" } },
+  { id: "seasonal", en: "Seasonal favs",   kn: "ಸೀಸನ್ ಫೇವ್",     color: "#4a3728", empty: { en: "Coming soon",     kn: "ಶೀಘ್ರದಲ್ಲೇ" } },
+];
+const SHELF_PICKS = { freshcut: [], seasonal: [] }; // product ids, e.g. { freshcut: ["p161", "p123"], seasonal: ["p35"] }
+// Products are grouped by their first word ("Apple", "Onion"). Words like "Sweet" or "Raw" only describe,
+// so those groups use two words: "Sweet Corn" and "Sweet Potato" stay apart, "Dragon Fruit" stays together.
+const PREFIX_WORDS = new Set(["fresh", "raw", "sweet", "green", "red", "black", "yellow", "white", "baby", "bell", "ash",
+  "bitter", "bottle", "cherry", "dragon", "extra", "lady", "wild", "kasuri"]);
+function groupKeyOf(name) {
+  const w = String(name || "").split(/[\s(]+/).filter(Boolean);
+  const cap = x => x.charAt(0).toUpperCase() + x.slice(1);
+  let key = w.length > 1 && PREFIX_WORDS.has(w[0].toLowerCase()) ? `${cap(w[0])} ${cap(w[1])}` : cap(w[0] || "");
+  if (/\boil\b/i.test(name) && !/\boil$/i.test(key)) key += " Oil"; // mustard oil stays apart from mustard seeds
+  return key;
+}
+// English label for a group: the key, unless it's a code like "A2" — then the words all its names share
+function enGroupLabel(products, key) {
+  if (key.length > 2 && !/\d/.test(key)) return key;
+  const names = products.map(p => String(p.name).split(/\s+/).filter(Boolean));
+  const shared = [];
+  for (let i = 0; i < names[0].length && names.every(n => (n[i] || "").toLowerCase() === names[0][i].toLowerCase()); i++) shared.push(names[0][i]);
+  return shared.length > 1 ? shared.join(" ") : key;
+}
+// Kannada label for a group: the words its products' Kannada names share
+// ("ಸೇಬು" for every apple, "ಸ್ವೀಟ್ ಕಾರ್ನ್" for both kinds of sweet corn). Falls back to the English label.
+function knGroupLabel(products, fallback) {
+  const names = products.map(p => p.name_kn || KN_NAMES[p.name]).filter(Boolean)
+    .map(n => n.replace(/\([^)]*\)/g, " ").split(/\s+/).filter(Boolean));
+  if (!names.length) return fallback;
+  if (names.length === 1) return names[0].join(" ");
+  const shared = [];
+  for (let i = 0; i < names[0].length && names.every(n => n[i] === names[0][i]); i++) shared.push(names[0][i]);
+  if (shared.length) return shared.join(" ");
+  const count = {};
+  names.forEach(n => [...new Set(n)].forEach(w => { count[w] = (count[w] || 0) + 1; }));
+  let best = null;
+  names[0].forEach(w => { if (best === null || count[w] > count[best]) best = w; });
+  return best && count[best] > 1 ? best : fallback;
+}
+
 function ProductImage({ p }) {
   const [err, setErr] = useState(false);
   if (!p.img || err) return (
-    <div className="w-full h-full flex items-center justify-center text-3xl" style={{backgroundColor: bg}}>
-      {CAT_EMOJI[p.cat] || "🛒"}
+    // No photo yet (e.g. just added in the admin panel): category emoji on a soft disc
+    <div aria-hidden="true" style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ height: "78%", aspectRatio: "1 / 1", maxWidth: "100%", borderRadius: "50%", background: "#F4EFDF",
+        display: "flex", alignItems: "center", justifyContent: "center", fontSize: "clamp(20px, 8vw, 40px)", lineHeight: 1 }}>
+        {CAT_EMOJI[p.cat] || "🛒"}
+      </div>
     </div>
   );
   return <img src={p.img} alt={p.name} style={{width:"100%",height:"100%",objectFit:"contain",objectPosition:"center"}} onError={() => setErr(true)} loading="lazy" />;
@@ -417,354 +494,389 @@ function LeafletMap({ orderStatusIdx, basil, customerLat, customerLon, riderPos 
   );
 }
 
+// ── PRODUCT SHEET ──
+// Pick a size and how many. Opens with what's already in the cart, so it can also update or remove an item.
+function ProductSheet({ p, inCart, picked, lang, KN_NAMES, onCommit, onClose }) {
+  const kn = lang === "kn";
+  const sizes = Array.isArray(p.variants) ? p.variants : [];
+  const current = unitOf(p, picked);
+  const [size, setSize] = useState(current.label);
+  const [qty, setQty] = useState(inCart > 0 ? inCart : 1);
+  const closeRef = useRef(null);
+  const u = sizes.find(s => s.label === size) || current;
+  const oos = p.in_stock === false;
+  const maxQty = Math.max(1, Math.min(10, p.stock_qty ?? 10));
+  const name = kn ? (KN_NAMES[p.name] || p.name_kn || p.name) : p.name;
+  const changed = qty !== inCart || (inCart > 0 && size !== current.label);
+  const total = rs(qty * u.price);
+
+  useEffect(() => {
+    if (closeRef.current) closeRef.current.focus({ preventScroll: true });
+    const onKey = e => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { window.removeEventListener("keydown", onKey); document.body.style.overflow = prev; };
+  }, []);
+
+  let cta, kind = "go", disabled = false;
+  if (oos) { cta = kn ? "ದಾಸ್ತಾನಿಲ್ಲ" : "Out of stock"; disabled = true; }
+  else if (inCart > 0 && qty === 0) { cta = kn ? "ಬುಟ್ಟಿಯಿಂದ ತೆಗೆದುಹಾಕಿ" : "Remove from cart"; kind = "remove"; }
+  else if (inCart > 0 && !changed) { cta = kn ? "ಸರಿ" : "Done"; kind = "quiet"; }
+  else if (inCart > 0) { cta = kn ? `ಬುಟ್ಟಿ ನವೀಕರಿಸಿ: ${total} ಗೆ ${qty}` : `Update cart: ${qty} for ${total}`; }
+  else if (qty === 0) { cta = kn ? "ಎಷ್ಟು ಬೇಕು ಆರಿಸಿ" : "Choose how many"; disabled = true; }
+  else { cta = kn ? `${total} ಗೆ ${qty} ಸೇರಿಸಿ` : `Add ${qty} for ${total}`; }
+
+  const ctaStyle = kind === "remove" ? { background: "#fff", color: chili, border: `1.5px solid ${chili}` }
+    : kind === "quiet" ? { background: "#EEF2EB", color: ink, border: "1.5px solid transparent" }
+    : { background: disabled ? "#C9CFC5" : basil, color: "#fff", border: "1.5px solid transparent" };
+  const step = { width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", cursor: "pointer", color: ink, padding: 0 };
+
+  return ReactDOM.createPortal(
+    <div onClick={onClose} className="g-fade" style={{ position: "fixed", inset: 0, zIndex: 80, background: "rgba(22,32,24,0.45)",
+      backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+      <div role="dialog" aria-modal="true" aria-label={name} className="g-sheet" onClick={e => e.stopPropagation()}
+        style={{ width: "100%", maxWidth: 480, background: "#fff", borderRadius: "24px 24px 0 0", maxHeight: "92vh", overflowY: "auto",
+          padding: "10px 18px calc(18px + env(safe-area-inset-bottom, 0px))", boxShadow: "0 -10px 40px rgba(22,32,24,0.18)",
+          fontFamily: body, color: ink }}>
+        <div aria-hidden="true" style={{ width: 40, height: 4, borderRadius: 2, background: "#D9DED3", margin: "0 auto 14px" }}/>
+        <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+          <div style={{ width: 112, height: 112, flexShrink: 0, borderRadius: 16, background: "#F5F7F2", padding: 8 }}><ProductImage p={p}/></div>
+          <div style={{ flex: 1, minWidth: 0, paddingTop: 2 }}>
+            <div style={{ fontSize: 19, fontWeight: 700, lineHeight: 1.25 }}>{name}</div>
+            <div style={{ marginTop: 6, fontSize: 15 }}>
+              <span style={{ fontWeight: 800 }}>{rs(u.price)}</span><span style={{ color: soil }}> / {u.label}</span>
+            </div>
+            {oos
+              ? <div style={{ marginTop: 6, fontSize: 13, fontWeight: 700, color: chili }}>{kn ? "ಸದ್ಯಕ್ಕೆ ದಾಸ್ತಾನಿಲ್ಲ" : "Out of stock right now"}</div>
+              : inCart > 0 ? <div style={{ marginTop: 6, fontSize: 13, fontWeight: 600, color: basil }}>{kn ? `ಬುಟ್ಟಿಯಲ್ಲಿ ${inCart} ಇದೆ` : `${inCart} in your cart`}</div> : null}
+          </div>
+          <button ref={closeRef} onClick={onClose} aria-label={kn ? "ಮುಚ್ಚಿ" : "Close"} className="g-reset"
+            style={{ width: 36, height: 36, borderRadius: 18, background: "#EEF2EB", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <X size={18}/>
+          </button>
+        </div>
+
+        {sizes.length > 1 && <>
+          <div style={{ marginTop: 20, fontSize: 13, fontWeight: 700 }}>{kn ? "ಗಾತ್ರ ಆರಿಸಿ" : "Choose size"}</div>
+          <div role="radiogroup" aria-label={kn ? "ಗಾತ್ರ" : "Size"} style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+            {sizes.map(s => {
+              const on = s.label === size;
+              return (
+                <button key={s.label} role="radio" aria-checked={on} onClick={() => setSize(s.label)} className="g-reset g-tap"
+                  style={{ minWidth: 78, padding: "8px 12px", borderRadius: 12, border: `1.5px solid ${on ? basil : line}`, background: on ? "#EEF7F1" : "#fff" }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: on ? basil : ink }}>{s.label}</div>
+                  <div style={{ fontSize: 12, color: on ? basil : soil, marginTop: 1 }}>{rs(s.price)}</div>
+                </button>
+              );
+            })}
+          </div>
+        </>}
+
+        {!oos && <>
+          <div style={{ marginTop: 20, display: "flex", alignItems: "center", gap: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", border: `1.5px solid ${line}`, borderRadius: 14 }}>
+              <button onClick={() => setQty(q => Math.max(0, q - 1))} disabled={qty === 0} aria-label={kn ? "ಒಂದು ಕಡಿಮೆ" : "One less"}
+                style={{ ...step, opacity: qty === 0 ? 0.35 : 1 }}><Minus size={18}/></button>
+              <div aria-live="polite" style={{ minWidth: 40, textAlign: "center", fontSize: 19, fontWeight: 800 }}>{qty}</div>
+              <button onClick={() => setQty(q => Math.min(maxQty, q + 1))} disabled={qty >= maxQty} aria-label={kn ? "ಒಂದು ಹೆಚ್ಚು" : "One more"}
+                style={{ ...step, opacity: qty >= maxQty ? 0.35 : 1 }}><Plus size={18}/></button>
+            </div>
+            <div style={{ flex: 1, textAlign: "right" }}>
+              <div style={{ fontSize: 12, color: soil }}>{qty} × {u.label}</div>
+              <div style={{ fontSize: 19, fontWeight: 800 }}>{total}</div>
+            </div>
+          </div>
+          <input type="range" className="g-range" min={0} max={maxQty} step={1} value={qty}
+            onChange={e => setQty(Number(e.target.value))} aria-label={kn ? "ಪ್ರಮಾಣ" : "Quantity"}
+            style={{ width: "100%", marginTop: 16, "--fill": `${(qty / maxQty) * 100}%` }}/>
+        </>}
+
+        <button disabled={disabled} className="g-reset g-tap"
+          onClick={() => {
+            if (disabled) return;
+            if (kind === "quiet") { onClose(); return; }
+            onCommit(qty, sizes.length ? size : undefined);
+            onClose();
+          }}
+          style={{ width: "100%", marginTop: 18, padding: "15px 16px", borderRadius: 14, fontSize: 16, fontWeight: 800, textAlign: "center",
+            cursor: disabled ? "not-allowed" : "pointer", ...ctaStyle }}>
+          {cta}
+        </button>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 // ── HANDPICKD LAYOUT COMPONENT ──
-function HandpickdLayout({ filtered, activeCat, setActiveCat, cart, setCart, addToCart, removeFromCart,
-  selectedVariant, setSelectedVariant, wishlist, toggleWishlist, bulkMode, lang, query,
-  CATS, CAT_EMOJI, KN_NAMES, basil, soil, ink, line, chili }) {
+// Category sections with sticky turmeric tags, or a flat list for search results and shelves.
+function HandpickdLayout({ filtered, listMode, onClearList, suggestions, onSuggest, cart, setCart, addToCart, removeFromCart,
+  selectedVariant, setSelectedVariant, lang, onOpenDrawer, CATS, KN_NAMES, basil, soil, ink, line, chili }) {
 
-  const [selectedGroup, setSelectedGroup] = useState(null); // kept for back-compat
-  const [expandedGroup, setExpandedGroup] = useState(null); // inline dropdown key
-  const [selectedProduct, setSelectedProduct] = useState(null); // for slider modal
-  const [sliderQty, setSliderQty] = useState(0);
+  const [expandedGroup, setExpandedGroup] = useState(null); // wide card whose varieties are open
+  const [sheetProduct, setSheetProduct] = useState(null);   // product open in the sheet
+  const topRef = useRef(null);
+  const kn = lang === "kn";
+  const pname = p => kn ? (KN_NAMES[p.name] || p.name_kn || p.name) : p.name;
+  const gname = (key, products) => kn ? knGroupLabel(products || [], key) : enGroupLabel(products || [], key);
+  const qtyOf = p => cart[p.id] || 0;
 
-  // Build groups: cat → group name → [products]
+  // cat → group (first word of the name) → [products]
   const grouped = useMemo(() => {
     const result = {};
     filtered.forEach(p => {
-      const cat = p.cat;
-      if (!result[cat]) result[cat] = {};
-      const firstName = p.name.split(/[\s(]/)[0];
-      const key = firstName;
-      if (!result[cat][key]) result[cat][key] = [];
-      result[cat][key].push(p);
+      const key = groupKeyOf(p.name);
+      if (!result[p.cat]) result[p.cat] = {};
+      if (!result[p.cat][key]) result[p.cat][key] = [];
+      result[p.cat][key].push(p);
     });
     return result;
   }, [filtered]);
-
-  // Categories that have products
   const activeCats = CATS.filter(c => c.id !== "all" && grouped[c.id]);
-  const displayCat = activeCat === "all" ? (activeCats[0]?.id || "") : activeCat;
-  const [sidebarCat, setSidebarCat] = useState(displayCat);
 
+  // A new search or shelf starts at the top of its results
+  const listKey = listMode ? listMode.key : "";
   useEffect(() => {
-    setSidebarCat(activeCat === "all" ? (activeCats[0]?.id || "") : activeCat);
-  }, [activeCat, filtered.length]);
+    if (!listMode || !topRef.current) return;
+    const stick = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--g-sticky")) || 0;
+    const top = topRef.current.getBoundingClientRect().top;
+    if (top < stick) window.scrollTo({ top: window.scrollY + top - stick });
+  }, [listKey]);
 
-  const currentGroups = grouped[sidebarCat] || {};
+  const commit = (p, qty, label) => {
+    if (label) setSelectedVariant(sv => ({ ...sv, [p.id]: label }));
+    setCart(c => { const n = { ...c }; if (qty > 0) n[p.id] = qty; else delete n[p.id]; return n; });
+  };
 
-  // Product slider modal (img5)
-const ProductSliderModal = ({p, onClose, setCart, initialQty}) => {
-    const [qty, setQty] = useState(initialQty||0);
-    const sel = selectedVariant[p.id]||p.variants?.[0]?.label;
-    const selVar = p.variants?.find(v=>v.label===sel)||p.variants?.[0];
-    const price = selVar?.price||p.price;
+  const NAME_H = 40; // name strip under narrow cards (room for 2 lines)
+  const FILLERS = kn ? ["ಪ್ರತಿದಿನ ತಾಜಾ", "2 ಗಂಟೆಯಲ್ಲಿ ಡೆಲಿವರಿ", "ಗದಗ 360"] : ["Fresh daily", "Delivered in 2 hrs", "Gadag 360"];
+  const cardShadow = "0 1px 2px rgba(30,43,34,0.06), 0 4px 14px rgba(30,43,34,0.06)";
+  const clamp2 = { display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" };
+  const miniBtn = { width: 34, height: 32, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" };
+
+  /* ── Quick add: "+" on the card, then a − n + stepper once it's in the cart ── */
+  const quickAdd = (p) => {
+    if (p.in_stock === false) return null;
+    const q = qtyOf(p), name = pname(p);
+    const max = Math.max(1, Math.min(10, p.stock_qty ?? 10));
+    const pos = { position: "absolute", right: 6, bottom: NAME_H + 6, zIndex: 2 };
+    if (q === 0) return (
+      <button className="g-reset g-tap" aria-label={kn ? `${name} ಬುಟ್ಟಿಗೆ ಸೇರಿಸಿ` : `Add ${name} to cart`}
+        onClick={() => addToCart(p.id)}
+        style={{ ...pos, width: 32, height: 32, borderRadius: 10, border: `1.5px solid ${basil}`, background: "#fff", color: basil,
+          display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 1px 4px rgba(30,43,34,0.15)" }}>
+        <Plus size={17} strokeWidth={2.6}/>
+      </button>
+    );
     return (
-      <div style={{position:"fixed",inset:0,zIndex:60,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-end",backgroundColor:"rgba(0,0,0,0.4)"}} onClick={onClose}>
-        <div style={{width:"100%",maxWidth:448,backgroundColor:"white",borderRadius:"24px 24px 0 0",padding:"0 0 24px"}} onClick={e=>e.stopPropagation()}>
-          {/* Blurred product image header */}
-          <div style={{position:"relative",borderRadius:"24px 24px 0 0",overflow:"hidden",height:200,backgroundColor:"#f0f0f0"}}>
-            <div style={{position:"absolute",inset:0,filter:"blur(20px)",opacity:0.4,transform:"scale(1.2)"}}><ProductImage p={p}/></div>
-            <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
-              <div style={{width:130,height:130,borderRadius:16,overflow:"hidden",backgroundColor:"white",boxShadow:"0 4px 20px rgba(0,0,0,0.15)"}}>
-                <ProductImage p={p}/>
-              </div>
-            </div>
-            <button onClick={onClose} style={{position:"absolute",top:12,right:12,width:30,height:30,borderRadius:"50%",backgroundColor:"white",border:"none",cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 8px rgba(0,0,0,0.2)"}}>✕</button>
-          </div>
-          {/* Content */}
-          <div style={{padding:"16px 20px"}}>
-            <div style={{fontSize:17,fontWeight:800,color:ink}}>{lang==="kn"?(KN_NAMES[p.name]||p.name):p.name}</div>
-            {/* Variant selector */}
-            {p.variants && p.variants.length>0 && (
-              <div style={{display:"flex",gap:6,marginTop:10,flexWrap:"wrap"}}>
-                {p.variants.map(v=>(
-                  <button key={v.label} onClick={()=>setSelectedVariant(sv=>({...sv,[p.id]:v.label}))}
-                    style={{padding:"5px 12px",borderRadius:20,fontSize:11,fontWeight:600,cursor:"pointer",border:`1.5px solid ${sel===v.label?basil:line}`,backgroundColor:sel===v.label?"#f0faf4":"white",color:sel===v.label?basil:soil}}>
-                    {v.label} · ₹{v.price}
-                  </button>
-                ))}
-              </div>
-            )}
-            {/* Price */}
-            <div style={{display:"flex",alignItems:"baseline",gap:6,marginTop:12}}>
-              <span style={{fontSize:22,fontWeight:800,color:ink}}>₹{price}</span>
-              <span style={{fontSize:12,color:soil}}>/{sel||p.unit}</span>
-            </div>
-            {/* Slider + buttons quantity (img3) */}
-            <div style={{marginTop:16}}>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
-                <span style={{fontSize:12,color:soil}}>{lang==="kn"?"ಪ್ರಮಾಣ ಆಯ್ಕೆ ಮಾಡಿ":"Select quantity"}</span>
-                <span style={{fontSize:13,fontWeight:700,color:basil}}>₹{qty*price}</span>
-              </div>
-              {/* +/- stepper */}
-              <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:20,marginBottom:14}}>
-                <button onClick={()=>setQty(Math.max(0,qty-1))} style={{width:40,height:40,borderRadius:"50%",backgroundColor:qty===0?"#f0f0f0":basil,color:qty===0?soil:"white",border:"none",cursor:"pointer",fontSize:22,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700}}>−</button>
-                <div style={{minWidth:60,textAlign:"center"}}>
-                  <div style={{fontSize:28,fontWeight:800,color:ink,lineHeight:1}}>{qty}</div>
-                  <div style={{fontSize:10,color:soil}}>{sel||"pack"}</div>
-                </div>
-                <button onClick={()=>setQty(Math.min(10,qty+1))} style={{width:40,height:40,borderRadius:"50%",backgroundColor:basil,color:"white",border:"none",cursor:"pointer",fontSize:22,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700}}>+</button>
-              </div>
-              {/* Slider */}
-              <input type="range" min="0" max="10" value={qty} onChange={e=>setQty(Number(e.target.value))}
-                style={{width:"100%",accentColor:basil,height:4,cursor:"pointer"}}/>
-              <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:soil,marginTop:4}}>
-                <span>0</span><span>5</span><span>10</span>
-              </div>
-            </div>
-            {/* Add button */}
-            <button onClick={(e)=>{
-                e.stopPropagation();
-                setCart(c => ({...c, [p.id]: qty}));
-                onClose();
-              }}
-              disabled={qty===0}
-              style={{width:"100%",marginTop:16,padding:"14px",borderRadius:12,backgroundColor:qty===0?"#ccc":basil,color:"white",border:"none",cursor:qty===0?"not-allowed":"pointer",fontSize:15,fontWeight:800}}>
-              {qty===0?"Select quantity to add":`Add ${qty} · ₹${qty*price}`}
-            </button>
-          </div>
-        </div>
+      <div style={{ ...pos, left: 6, height: 32, borderRadius: 10, background: basil, color: "#fff",
+        display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 2px 8px rgba(26,107,60,0.35)" }}>
+        <button className="g-reset" aria-label={kn ? `${name} ಒಂದು ಕಡಿಮೆ` : `Remove one ${name}`}
+          onClick={() => removeFromCart(p.id)} style={miniBtn}><Minus size={15} strokeWidth={2.6}/></button>
+        <span aria-live="polite" style={{ fontSize: 14, fontWeight: 800 }}>{q}</span>
+        <button className="g-reset" aria-label={kn ? `${name} ಇನ್ನೊಂದು` : `Add one more ${name}`} disabled={q >= max}
+          onClick={() => { if (q < max) addToCart(p.id); }} style={{ ...miniBtn, opacity: q >= max ? 0.45 : 1 }}><Plus size={15} strokeWidth={2.6}/></button>
       </div>
     );
   };
 
-  return (
-    <>
-      {/* Product slider modal */}
-      {selectedProduct && <ProductSliderModal p={selectedProduct} onClose={()=>setSelectedProduct(null)} setCart={setCart} initialQty={0}/>}
-
-      {/* Product group detail modal */}
-      {selectedGroup && (
-        <div style={{position:"fixed",inset:0,zIndex:50,backgroundColor:"#f8f8f6",display:"flex",flexDirection:"column"}}>
-          {/* Back button */}
-          <div style={{display:"flex",alignItems:"center",gap:10,padding:"12px 16px",backgroundColor:"white",borderBottom:`1px solid ${line}`}}>
-            <button onClick={()=>setSelectedGroup(null)} style={{background:"none",border:"none",cursor:"pointer",color:ink,padding:4}}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-            </button>
-            <span style={{fontSize:16,fontWeight:800,color:ink}}>{selectedGroup.key}</span>
-            <span style={{fontSize:12,color:soil,marginLeft:4}}>{selectedGroup.products.length} {lang==="kn"?"ಆಯ್ಕೆಗಳು":"varieties"}</span>
-          </div>
-
-          <div style={{flex:1,overflowY:"auto",padding:"12px 0 100px"}}>
-            {/* 3-column grid of varieties */}
-            <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6,padding:"0 8px",width:"100%",boxSizing:"border-box"}}>
-              {selectedGroup.products.map(p=>{
-                const qty = cart[p.id]||0;
-                const price = p.price;
-                return (
-                  <div key={p.id} onClick={()=>setSelectedProduct(p)}
-                    style={{backgroundColor:"white",borderRadius:16,overflow:"hidden",cursor:"pointer",boxShadow:"0 1px 6px rgba(0,0,0,0.07)"}}>
-                    {/* Image */}
-                    <div style={{position:"relative",paddingTop:"100%",backgroundColor:"#fafafa"}}>
-                      <div style={{position:"absolute",inset:0,padding:8}}><ProductImage p={p}/></div>
-                      {qty>0 && <div style={{position:"absolute",top:6,right:6,width:20,height:20,borderRadius:"50%",backgroundColor:basil,color:"white",fontSize:10,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center"}}>{qty}</div>}
-                    </div>
-                    {/* Info */}
-                    <div style={{padding:"8px 8px 10px"}}>
-                      <div style={{fontSize:10,color:soil}}>₹{price}/{p.variants?.[0]?.label||p.unit}</div>
-                      <div style={{fontSize:11,fontWeight:700,color:ink,marginTop:2,lineHeight:1.3}}>{lang==="kn"?(KN_NAMES[p.name]||p.name):p.name}</div>
-                    </div>
-                  </div>
-                );
-              })}
+  /* ── Narrow card: one product, name sits under the card ── */
+  const narrow = (p, width) => {
+    const u = unitOf(p, selectedVariant), oos = p.in_stock === false, name = pname(p);
+    return (
+      <div key={p.id} style={{ position: "relative", display: "flex", flexDirection: "column", minWidth: 0,
+        ...(width ? { width, flexShrink: 0, scrollSnapAlign: "start" } : null) }}>
+        <button className="g-reset g-tap" onClick={() => setSheetProduct(p)}
+          aria-label={`${name}, ${rs(u.price)} / ${u.label}${oos ? (kn ? ", ದಾಸ್ತಾನಿಲ್ಲ" : ", out of stock") : ""}`}
+          style={{ flex: 1, display: "flex", flexDirection: "column", width: "100%", textAlign: "left" }}>
+          <div style={{ flex: 1, width: "100%", position: "relative", background: "#fff", borderRadius: 14, border: `1px solid ${line}`,
+            boxShadow: cardShadow, overflow: "hidden", filter: oos ? "grayscale(1)" : "none", opacity: oos ? 0.6 : 1 }}>
+            <div style={{ padding: "8px 10px 0", fontSize: 11, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              <span style={{ fontWeight: 800, color: ink }}>{rs(u.price)}</span><span style={{ color: soil }}>/{u.label}</span>
             </div>
+            <div style={{ position: "relative", paddingTop: "88%" }}>
+              <div style={{ position: "absolute", inset: "4px 10px 14px" }}><ProductImage p={p}/></div>
+            </div>
+            {oos && <div style={{ position: "absolute", left: 0, right: 0, bottom: 10, display: "flex", justifyContent: "center" }}>
+              <span style={{ fontSize: 10, fontWeight: 800, color: chili, padding: "3px 7px", background: "#FDECEC", borderRadius: 6 }}>
+                {kn ? "ದಾಸ್ತಾನಿಲ್ಲ" : "Out of stock"}</span>
+            </div>}
           </div>
+          <div style={{ height: NAME_H, width: "100%", paddingTop: 7, textAlign: "center", fontSize: 13, fontWeight: 600, color: ink,
+            lineHeight: 1.25, ...clamp2 }}>{name}</div>
+        </button>
+        {quickAdd(p)}
+      </div>
+    );
+  };
+
+  /* ── Wide card: a product with several varieties; tap to open them ── */
+  const wideCard = (it, rowHasNarrow, catId) => {
+    const { key, products } = it;
+    const groupKey = `${catId}::${key}`, isExpanded = expandedGroup === groupKey;
+    const units = products.map(p => unitOf(p, selectedVariant));
+    const minP = Math.min(...units.map(u => u.price)), maxP = Math.max(...units.map(u => u.price));
+    const sameUnit = units.every(u => u.label === units[0].label);
+    const inCartN = products.reduce((s, p) => s + qtyOf(p), 0);
+    const face = products.find(p => p.img) || products[0];
+    const toggle = () => {
+      setExpandedGroup(isExpanded ? null : groupKey);
+      if (!isExpanded) setTimeout(() => {
+        const el = document.getElementById(`vp-${groupKey}`);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }, 60);
+    };
+    return (
+      <div key={key} style={{ gridColumn: "span 2", display: "flex", flexDirection: "column", minWidth: 0 }}>
+        <button className="g-reset g-tap" onClick={toggle} aria-expanded={isExpanded}
+          aria-label={kn ? `${gname(key, products)}, ${products.length} ಆಯ್ಕೆಗಳು` : `${gname(key, products)}, ${products.length} varieties`}
+          style={{ flex: 1, display: "flex", flexDirection: "column", textAlign: "left", background: "#fff", borderRadius: 14,
+            padding: "10px 12px 12px", border: `1px solid ${isExpanded ? basil : line}`,
+            // stacked sheets hint that there's more than one variety inside
+            boxShadow: `${isExpanded ? `0 0 0 1px ${basil}, ` : ""}3px 3px 0 0 #FFFFFF, 3px 3px 0 1px #DCE1D6, 6px 6px 0 0 #F8F9F5, 6px 6px 0 1px #CFD5C8` }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, width: "100%" }}>
+            <span style={{ fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              <span style={{ fontWeight: 800, color: ink }}>{rs(minP)}{maxP > minP ? ` – ${rs(maxP)}` : ""}</span>
+              {sameUnit && <span style={{ color: soil }}>/{units[0].label}</span>}
+            </span>
+            {inCartN > 0 && <span style={{ fontSize: 11, fontWeight: 800, color: "#fff", background: basil, borderRadius: 10, padding: "2px 8px", whiteSpace: "nowrap" }}>
+              {kn ? `ಬುಟ್ಟಿಯಲ್ಲಿ ${inCartN}` : `${inCartN} in cart`}</span>}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", flex: 1, gap: 8, marginTop: 4, width: "100%" }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 17, fontWeight: 700, color: ink, lineHeight: 1.2, ...clamp2 }}>{gname(key, products)}</div>
+              <div style={{ fontSize: 30, fontWeight: 800, color: basil, lineHeight: 1, marginTop: 8 }}>{products.length}</div>
+              <div style={{ fontSize: 12, color: soil, marginTop: 3, fontWeight: 500, display: "flex", alignItems: "center", gap: 2 }}>
+                {kn ? "ಆಯ್ಕೆಗಳು" : "varieties"}
+                <ChevronDown size={14} style={{ transform: isExpanded ? "rotate(180deg)" : "none", transition: "transform .2s" }}/>
+              </div>
+            </div>
+            <div style={{ width: 92, height: 92, flexShrink: 0 }}><ProductImage p={face}/></div>
+          </div>
+        </button>
+        <div style={{ height: rowHasNarrow ? NAME_H : 8 }}/>
+      </div>
+    );
+  };
+
+  /* ── Filler tile: fills the slot a wide card can't use ── */
+  const filler = (text, k, rowHasNarrow) => (
+    <div key={k} aria-hidden="true" style={{ display: "flex", flexDirection: "column" }}>
+      <div style={{ flex: 1, minHeight: 104, borderRadius: 14, border: "1.5px dashed #CDD4C6", display: "flex", alignItems: "center",
+        justifyContent: "center", padding: 10, textAlign: "center", color: "#97A091", fontFamily: hand, fontWeight: 700, fontSize: 17, lineHeight: 1.2 }}>
+        <span style={{ display: "inline-block", transform: "rotate(-4deg)" }}>{text}</span>
+      </div>
+      <div style={{ height: rowHasNarrow ? NAME_H : 8 }}/>
+    </div>
+  );
+
+  /* ── Variety strip: opens under the row, notch points at the tapped card ── */
+  const varietyPanel = (openItem, catId) => (
+    <div id={`vp-${catId}::${openItem.key}`} style={{ position: "relative", background: "#F6F0DF", border: "1px solid #E8DCBB", borderRadius: 16,
+      padding: "12px 10px 4px", margin: "10px 0 14px" }}>
+      <div aria-hidden="true" style={{ position: "absolute", top: -8, left: `calc(${((openItem.start + openItem.span / 2) / 3) * 100}% - 8px)`,
+        width: 14, height: 14, background: "#F6F0DF", borderLeft: "1px solid #E8DCBB", borderTop: "1px solid #E8DCBB", transform: "rotate(45deg)" }}/>
+      <div style={{ fontSize: 13, margin: "0 2px 10px" }}>
+        <span style={{ fontWeight: 700, color: ink }}>{gname(openItem.key, openItem.products)}</span>
+        <span style={{ color: "#6E5A1E" }}> {kn ? `${openItem.products.length} ಆಯ್ಕೆಗಳು` : `${openItem.products.length} varieties`}</span>
+      </div>
+      <div style={{ display: "flex", gap: 10, overflowX: "auto", scrollbarWidth: "none", paddingBottom: 8, scrollSnapType: "x proximity" }}>
+        {openItem.products.map(p => narrow(p, 108))}
+      </div>
+    </div>
+  );
+
+  /* ── Category sections: sequential 3-column packing ── */
+  let fillerN = 0;
+  const sections = activeCats.map(cat => {
+    const entries = Object.entries(grouped[cat.id]);
+    // multi-variety = span 2, single = span 1; if a wide card can't fit, fill the leftover slot and start a new row
+    const rowsData = [];
+    let cur = [], used = 0;
+    const pushRow = () => { if (cur.length) rowsData.push(cur); cur = []; used = 0; };
+    entries.forEach(([key, products]) => {
+      const span = products.length > 1 ? 2 : 1;
+      if (used + span > 3) { cur.push({ filler: FILLERS[fillerN++ % FILLERS.length], start: used, span: 3 - used }); pushRow(); }
+      cur.push({ key, products, span, start: used });
+      used += span;
+      if (used === 3) pushRow();
+    });
+    pushRow();
+
+    return (
+      <section key={cat.id} id={`sec-${cat.id}`} className="g-sec" aria-label={cat[lang]}>
+        {/* Sticky turmeric tag — tap to open the category drawer */}
+        <div style={{ position: "sticky", top: "var(--g-sticky, 0px)", zIndex: 6, padding: "12px 0 10px", pointerEvents: "none" }}>
+          <button className="g-reset g-tap" onClick={onOpenDrawer}
+            aria-label={kn ? `${cat[lang]}: ವರ್ಗಗಳನ್ನು ತೆರೆಯಿರಿ` : `${cat[lang]}: open categories`}
+            style={{ pointerEvents: "auto", display: "inline-flex", alignItems: "center", gap: 8, background: haldi, color: ink,
+              borderRadius: "0 22px 22px 0", padding: "6px 18px 6px 14px", fontFamily: hand, fontWeight: 700, fontSize: 17, lineHeight: 1.25,
+              boxShadow: "0 2px 10px rgba(30,43,34,0.16)" }}>
+            <Menu size={16} strokeWidth={2.4}/>{cat[lang]}
+          </button>
+        </div>
+        <div style={{ padding: "0 12px 8px" }}>
+          {rowsData.map((row, rIdx) => {
+            const openItem = row.find(it => it.products && it.products.length > 1 && expandedGroup === `${cat.id}::${it.key}`);
+            const rowHasNarrow = row.some(it => it.products && it.products.length === 1);
+            return (
+              <div key={`row-${rIdx}`}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10, marginBottom: openItem ? 0 : 8 }}>
+                  {row.map((it, cIdx) => it.filler
+                    ? filler(it.filler, `f-${rIdx}-${cIdx}`, rowHasNarrow)
+                    : it.products.length > 1 ? wideCard(it, rowHasNarrow, cat.id) : narrow(it.products[0]))}
+                </div>
+                {openItem && varietyPanel(openItem, cat.id)}
+              </div>
+            );
+          })}
+        </div>
+      </section>
+    );
+  });
+
+  /* ── Flat list: search results or an open shelf ── */
+  const flat = listMode && (
+    <div ref={topRef} style={{ padding: "14px 12px 6px" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
+        <h2 style={{ fontSize: 16, fontWeight: 700, color: ink, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{listMode.title}</h2>
+        <button className="g-reset" onClick={onClearList}
+          style={{ fontSize: 14, fontWeight: 700, color: basil, padding: "6px 4px", flexShrink: 0 }}>{kn ? "ತೆರವುಗೊಳಿಸಿ" : "Clear"}</button>
+      </div>
+      {listMode.items.length > 0 ? (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 }}>{listMode.items.map(p => narrow(p))}</div>
+      ) : (
+        <div style={{ padding: "20px 8px 8px", textAlign: "center" }}>
+          <div style={{ fontFamily: hand, fontWeight: 700, fontSize: 22, color: ink, lineHeight: 1.25 }}>
+            {kn ? "ಬೇರೆ ಹೆಸರಿನಲ್ಲಿ ಹುಡುಕಿ" : "Try another name"}
+          </div>
+          <div style={{ fontSize: 14, color: soil, marginTop: 8, lineHeight: 1.45, maxWidth: 300, marginLeft: "auto", marginRight: "auto" }}>
+            {kn ? "ಕಾಗುಣಿತ ಪರಿಶೀಲಿಸಿ, ಅಥವಾ ಮೈಕ್ ಒತ್ತಿ ಕನ್ನಡ ಅಥವಾ ಇಂಗ್ಲಿಷ್‌ನಲ್ಲಿ ಹೇಳಿ."
+                : "Check the spelling, or tap the mic and say it in Kannada or English."}
+          </div>
+          {suggestions && suggestions.length > 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", marginTop: 16 }}>
+              {suggestions.map(s => (
+                <button key={s.q} className="g-reset g-tap" onClick={() => onSuggest(s.q)}
+                  style={{ padding: "8px 14px", borderRadius: 20, background: "#fff", border: `1px solid ${line}`, fontSize: 14, fontWeight: 600, color: ink }}>{s.label}</button>
+              ))}
+            </div>
+          )}
         </div>
       )}
+    </div>
+  );
 
-      {/* Main layout: full width scrollable */}
-      <div style={{flex:1,overflowY:"auto",overflowX:"hidden",backgroundColor:"#f8f8f6",paddingBottom:120,scrollbarWidth:"none",width:"100%",boxSizing:"border-box"}}>
-
-        {/* Each category as a section */}
-        {activeCats.map(cat => {
-          const catGroups = grouped[cat.id];
-          if (!catGroups || Object.keys(catGroups).length===0) return null;
-          return (
-            <div key={cat.id} style={{marginBottom:8}}>
-              {/* Category label — like "≡ Dairy" in Handpickd */}
-              <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 14px 8px",backgroundColor:"#f8f8f6"}}>
-                <div style={{display:"flex",alignItems:"center",gap:6,backgroundColor:basil,borderRadius:20,padding:"4px 12px"}}>
-                  <span style={{fontSize:12}}>≡</span>
-                  <span style={{fontSize:12,fontWeight:700,color:"white"}}>{cat[lang]}</span>
-                </div>
-              </div>
-              {/* Mixed-width grid: multi-variety = 2/3 wide, single = 1/3 wide — like handpickd */}
-              <div style={{padding:"0 12px 6px"}}>
-                {(() => {
-                  const entries = Object.entries(catGroups);
-                  // Filler tiles used when a wide card can't fit in the leftover slot of a row
-                  const FILLERS = ["Fresh Daily","Gadag 360","Farm Fresh"];
-                  const NAME_H = 40; // name strip under narrow cards (room for 2 lines)
-                  const ink2 = "#8a8a85";
-                  const cardShadow = "0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.05)";
-                  const clamp2 = {display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"};
-                  // keyboard / screen-reader support for tappable cards
-                  const press = fn => e => { if(e.key==="Enter"||e.key===" "){ e.preventDefault(); fn(); } };
-                  // price: bold amount, light unit
-                  const priceTag = (amt, unit, size=12) => (
-                    <span style={{fontSize:size,whiteSpace:"nowrap"}}>
-                      <span style={{fontWeight:800,color:ink}}>{amt}</span>
-                      <span style={{fontWeight:500,color:ink2}}>/{unit}</span>
-                    </span>
-                  );
-                  const unitOf = p => p.variants?.[0]?.label||p.unit;
-
-                  // Sequential packing into a 3-column grid:
-                  //   multi-variety product = span 2, single-variety product = span 1.
-                  //   If the next item is wide but only 1 slot is left, fill that slot and start a new row.
-                  const rowsData = [];
-                  let cur = [], used = 0, fillerN = 0;
-                  const pushRow = () => { if(cur.length) rowsData.push(cur); cur = []; used = 0; };
-                  entries.forEach(([key, products]) => {
-                    const span = products.length > 1 ? 2 : 1;
-                    if(used + span > 3){
-                      cur.push({filler:FILLERS[fillerN++ % FILLERS.length], start:used, span:3-used});
-                      pushRow();
-                    }
-                    cur.push({key, products, span, start:used});
-                    used += span;
-                    if(used === 3) pushRow();
-                  });
-                  pushRow();
-
-                  return rowsData.map((row, rIdx) => {
-                    const openItem = row.find(it => it.products && it.products.length>1 && expandedGroup===`${cat.id}::${it.key}`);
-                    // reserve the name strip under wide/filler cards only when a narrow card shares the row
-                    const hasNarrow = row.some(it => it.products && it.products.length===1);
-                    const SPACER = hasNarrow ? NAME_H : 8;
-                    return (
-                      <div key={`row-${rIdx}`}>
-                        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:openItem?0:8}}>
-                          {row.map((it, cIdx) => {
-                            /* ── Filler tile ── */
-                            if(it.filler){
-                              return (
-                                <div key={`f-${rIdx}-${cIdx}`} style={{display:"flex",flexDirection:"column"}}>
-                                  <div style={{flex:1,minHeight:104,borderRadius:14,border:"1.5px dashed #e0e0d9",backgroundColor:"#f4f4f0",
-                                    display:"flex",alignItems:"center",justifyContent:"center",padding:10,textAlign:"center",
-                                    color:"#d3d3cb",fontWeight:800,fontSize:14,lineHeight:1.25,letterSpacing:0.6,textTransform:"uppercase"}}>
-                                    {it.filler}
-                                  </div>
-                                  <div style={{height:SPACER}}/>
-                                </div>
-                              );
-                            }
-                            const {key, products} = it;
-                            const first = products[0];
-                            const displayName = lang==="kn"?groupKeyKn(key,KN_NAMES):key;
-                            const groupKey = `${cat.id}::${key}`;
-                            const isExpanded = expandedGroup===groupKey;
-
-                            /* ── Wide card: multi-variety ── */
-                            if(products.length > 1){
-                              const minPrice = Math.min(...products.map(p=>p.price));
-                              const maxPrice = Math.max(...products.map(p=>p.price));
-                              const toggle = () => {
-                                setExpandedGroup(isExpanded?null:groupKey);
-                                if(!isExpanded) setTimeout(()=>{ const el=document.getElementById(`vp-${groupKey}`); if(el) el.scrollIntoView({behavior:"smooth",block:"nearest"}); },60);
-                              };
-                              return (
-                                <div key={key} style={{gridColumn:"span 2",display:"flex",flexDirection:"column"}}>
-                                  <div className="g-tap" role="button" tabIndex={0} aria-expanded={isExpanded}
-                                    aria-label={`${displayName}, ${products.length} varieties`}
-                                    onClick={toggle} onKeyDown={press(toggle)}
-                                    style={{flex:1,backgroundColor:"white",borderRadius:14,cursor:"pointer",padding:"10px 12px 12px",
-                                      display:"flex",flexDirection:"column",
-                                      // stacked-sheets look hints "more than one variety inside"
-                                      boxShadow:isExpanded?`0 0 0 1.5px ${basil}, 3px 3px 0 0 #efefea, 6px 6px 0 0 #e2e2dc`:"3px 3px 0 0 #efefea, 6px 6px 0 0 #e2e2dc",
-                                      border:"1px solid #eeeeea"}}>
-                                    <div style={{fontSize:12}}>
-                                      <span style={{fontWeight:800,color:ink}}>₹{minPrice} – ₹{maxPrice}</span>
-                                      <span style={{fontWeight:500,color:ink2}}>/{unitOf(first)}</span>
-                                    </div>
-                                    <div style={{display:"flex",alignItems:"center",flex:1,gap:8,marginTop:4}}>
-                                      <div style={{flex:1,minWidth:0}}>
-                                        <div style={{fontSize:17,fontWeight:700,color:ink,lineHeight:1.2,marginBottom:8,...clamp2}}>{displayName}</div>
-                                        <div style={{fontSize:30,fontWeight:800,color:basil,lineHeight:1}}>{products.length}</div>
-                                        <div style={{fontSize:12,color:ink2,marginTop:3,fontWeight:500}}>{lang==="kn"?"ಆಯ್ಕೆಗಳು":"varieties"} <span style={{fontSize:10}}>{isExpanded?"▲":"▼"}</span></div>
-                                      </div>
-                                      <div style={{width:92,height:92,flexShrink:0}}><ProductImage p={first}/></div>
-                                    </div>
-                                  </div>
-                                  <div style={{height:SPACER}}/>
-                                </div>
-                              );
-                            }
-
-                            /* ── Narrow card: single variety, name sits below the card ── */
-                            const qty = cart[first.id]||0;
-                            const oos = first.in_stock===false;
-                            const open = () => setSelectedProduct(first);
-                            return (
-                              <div key={key} className="g-tap" role="button" tabIndex={0}
-                                aria-label={`${displayName}, ₹${first.price} per ${unitOf(first)}${oos?", out of stock":""}`}
-                                onClick={open} onKeyDown={press(open)}
-                                style={{display:"flex",flexDirection:"column",cursor:"pointer",filter:oos?"grayscale(1)":"none",opacity:oos?0.6:1}}>
-                                <div style={{flex:1,backgroundColor:"white",borderRadius:14,boxShadow:cardShadow,
-                                  border:"1px solid #eeeeea",overflow:"hidden",position:"relative"}}>
-                                  <div style={{padding:"8px 10px 0"}}>{priceTag(`₹${first.price}`, unitOf(first), 11)}</div>
-                                  <div style={{position:"relative",paddingTop:"90%"}}>
-                                    <div style={{position:"absolute",inset:"4px 10px 10px"}}><ProductImage p={first}/></div>
-                                  </div>
-                                  {qty>0&&<div style={{position:"absolute",top:7,right:7,minWidth:20,height:20,padding:"0 5px",borderRadius:10,backgroundColor:basil,color:"white",
-                                    fontSize:11,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 1px 3px rgba(0,0,0,0.2)"}}>{qty}</div>}
-                                  {oos&&<div style={{position:"absolute",inset:0,backgroundColor:"rgba(255,255,255,0.7)",display:"flex",alignItems:"center",justifyContent:"center"}}>
-                                    <span style={{fontSize:9,fontWeight:800,color:chili,padding:"3px 6px",backgroundColor:"#fee2e2",borderRadius:4,letterSpacing:0.4}}>OUT OF STOCK</span></div>}
-                                </div>
-                                <div style={{height:NAME_H,paddingTop:7,textAlign:"center",fontSize:13,fontWeight:600,color:ink,lineHeight:1.25,...clamp2}}>{displayName}</div>
-                              </div>
-                            );
-                          })}
-                        </div>
-
-                        {/* ── Inline variety picker: full width under the row, notch points at the tapped card ── */}
-                        {openItem && (
-                          <div id={`vp-${cat.id}::${openItem.key}`} style={{position:"relative",backgroundColor:"#f4efe2",border:"1px solid #e6dcc3",borderRadius:14,
-                            padding:"14px 10px 10px",margin:"12px 0 16px"}}>
-                            <div style={{position:"absolute",top:-8,left:`calc(${((openItem.start+openItem.span/2)/3)*100}% - 8px)`,
-                              width:14,height:14,backgroundColor:"#f4efe2",borderLeft:"1px solid #e6dcc3",borderTop:"1px solid #e6dcc3",
-                              transform:"rotate(45deg)"}}/>
-                            <div style={{fontSize:12,fontWeight:700,color:"#7a6a3a",margin:"0 2px 10px"}}>
-                              {lang==="kn"?groupKeyKn(openItem.key,KN_NAMES):openItem.key} · {openItem.products.length} {lang==="kn"?"ಆಯ್ಕೆಗಳು":"varieties"}
-                            </div>
-                            <div style={{display:"flex",gap:10,overflowX:"auto",scrollbarWidth:"none",paddingBottom:4,scrollSnapType:"x proximity"}}>
-                              {openItem.products.map(p=>{
-                                const pq = cart[p.id]||0;
-                                const pOos = p.in_stock===false;
-                                const openP = () => setSelectedProduct(p);
-                                return (
-                                  <div key={p.id} className="g-tap" role="button" tabIndex={0}
-                                    aria-label={`${p.name}, ₹${p.price} per ${unitOf(p)}${pOos?", out of stock":""}`}
-                                    onClick={e=>{e.stopPropagation();openP();}} onKeyDown={press(openP)}
-                                    style={{flexShrink:0,width:106,cursor:"pointer",scrollSnapAlign:"start",filter:pOos?"grayscale(1)":"none",opacity:pOos?0.6:1}}>
-                                    <div style={{backgroundColor:"white",borderRadius:14,border:"1px solid #eeeeea",boxShadow:cardShadow,overflow:"hidden",position:"relative"}}>
-                                      <div style={{padding:"8px 10px 0"}}>{priceTag(`₹${p.price}`, unitOf(p), 11)}</div>
-                                      <div style={{position:"relative",paddingTop:"88%"}}>
-                                        <div style={{position:"absolute",inset:"4px 10px 10px"}}><ProductImage p={p}/></div>
-                                      </div>
-                                      {pq>0&&<div style={{position:"absolute",top:7,right:7,minWidth:20,height:20,padding:"0 5px",borderRadius:10,backgroundColor:basil,color:"white",
-                                        fontSize:11,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 1px 3px rgba(0,0,0,0.2)"}}>{pq}</div>}
-                                      {pOos&&<div style={{position:"absolute",inset:0,backgroundColor:"rgba(255,255,255,0.7)",display:"flex",alignItems:"center",justifyContent:"center"}}>
-                                        <span style={{fontSize:9,fontWeight:800,color:chili,padding:"3px 6px",backgroundColor:"#fee2e2",borderRadius:4,letterSpacing:0.4}}>OUT OF STOCK</span></div>}
-                                    </div>
-                                    <div style={{paddingTop:7,textAlign:"center",fontSize:13,fontWeight:600,color:ink,lineHeight:1.25,...clamp2}}>
-                                      {lang==="kn"?(KN_NAMES[p.name]||p.name):p.name}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  });
-                })()}
-              </div>
-            </div>
-          );
-        })}
+  return (
+    <>
+      <div style={{ background: sage, paddingBottom: 160, width: "100%", minHeight: "70vh" }}>
+        {listMode ? flat : sections}
       </div>
+      {sheetProduct && (
+        <ProductSheet key={sheetProduct.id} p={sheetProduct} inCart={qtyOf(sheetProduct)} picked={selectedVariant}
+          lang={lang} KN_NAMES={KN_NAMES} onCommit={(q, l) => commit(sheetProduct, q, l)} onClose={() => setSheetProduct(null)}/>
+      )}
     </>
   );
 }
@@ -774,7 +886,7 @@ export default function Gadag360() {
   const [screen, setScreen] = useState("home");
   const [activeCat, setActiveCat] = useState("all");
   const [query, setQuery] = useState("");
-  const [cart, setCart] = useState({});
+  const [cart, setCart] = useState(() => readJSON("gd360_cart", {}));
   const [address, setAddress] = useState("");
   const [gpsCoords, setGpsCoords] = useState(null); // {lat, lon, accuracy} from GPS
   const [payment, setPayment] = useState("upi");
@@ -783,7 +895,7 @@ export default function Gadag360() {
   const riderPollRef = useRef(null);
   const timerRef = useRef(null);
   const [activeOrders, setActiveOrders] = useState([]);   // current session orders
-  const [lang, setLang] = useState("en");
+  const [lang, setLang] = useState(() => { try { return localStorage.getItem("gd360_lang") === "kn" ? "kn" : "en"; } catch (e) { return "en"; } });
 
   // ── ALL 16 FEATURES STATE ──
   const [coins, setCoins] = useState(120);                 // F2 loyalty coins
@@ -819,7 +931,7 @@ export default function Gadag360() {
   const [editProfile, setEditProfile] = useState({ name:"", phone:"", email:"" });
   const [suggestText, setSuggestText] = useState("");
   const [suggestSent, setSuggestSent] = useState(false);
-  const [selectedVariant, setSelectedVariant] = useState({});
+  const [selectedVariant, setSelectedVariant] = useState(() => readJSON("gd360_sizes", {}));
   const [currentUserId, setCurrentUserId] = useState(null);
   const [tip, setTip] = useState(0);
   const [dbProducts, setDbProducts] = useState([]);
@@ -827,38 +939,73 @@ export default function Gadag360() {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showCatDrawer, setShowCatDrawer] = useState(false);
 
-  // ── LIVE PRODUCTS (merged with Supabase prices) ──
-  // Match by name first (admin panel assigns timestamp IDs like "p1791..." not "p10")
-  // then fall back to id match for safety
+  // ── HOME UI STATE ──
+  const [activeShelf, setActiveShelf] = useState(null);  // open shelf, e.g. "ordered"
+  const [chipNote, setChipNote] = useState(null);        // short note under a shelf that has nothing yet
+  const stickyRef = useRef(null), chipsWrapRef = useRef(null), chipNoteTimer = useRef(null);
+  // Keep the cart, chosen sizes and language after a refresh
+  useEffect(() => { Storage.set("gd360_cart", JSON.stringify(cart)); }, [cart]);
+  useEffect(() => { Storage.set("gd360_sizes", JSON.stringify(selectedVariant)); }, [selectedVariant]);
+  useEffect(() => { Storage.set("gd360_lang", lang); }, [lang]);
+  // Share the pinned header's height so category tags stick right under it
+  useEffect(() => {
+    const el = stickyRef.current;
+    if (!el) return;
+    const set = () => document.documentElement.style.setProperty("--g-sticky", `${Math.round(el.getBoundingClientRect().height)}px`);
+    set();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(set);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [screen, activeTab]);
+  // Category drawer: hold the page still and close on Escape
+  useEffect(() => {
+    if (!showCatDrawer) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = e => { if (e.key === "Escape") setShowCatDrawer(false); };
+    window.addEventListener("keydown", onKey);
+    return () => { document.body.style.overflow = prev; window.removeEventListener("keydown", onKey); };
+  }, [showCatDrawer]);
+
+  // ── LIVE PRODUCTS (catalog in code, merged with Supabase price & stock) ──
+  // Match by name first (admin panel assigns timestamp IDs like "p1791..." not "p10"), then by id.
+  // Once Supabase has loaded, products deleted in the admin panel are hidden and products added there appear.
   const findDbProduct = (p) =>
-    dbProducts.find(d => d.name && p.name && d.name.toLowerCase() === p.name.toLowerCase()) ||
+    dbProducts.find(d => d.name && p.name && nm(d.name) === nm(p.name)) ||
     dbProducts.find(d => d.id === p.id);
-  const getLivePrice = (p) => {
-    const dbP = findDbProduct(p);
-    return dbP ? dbP.price : p.price;
-  };
-  const isInStock = (p) => {
-    const dbP = findDbProduct(p);
-    return dbP ? dbP.in_stock !== false : true;
-  };
-  const getStockQty = (p) => {
-    const dbP = findDbProduct(p);
-    return dbP ? (dbP.stock_qty ?? 100) : 100;
-  };
-  const LIVE_PRODUCTS = PRODUCTS.map(p => {
-    const livePrice = getLivePrice(p);
-    // If admin changed the base price, scale variant prices proportionally
-    const scaledVariants = p.variants && p.price && livePrice !== p.price
-      ? p.variants.map(v => ({ ...v, price: Math.round((v.price / p.price) * livePrice) }))
-      : p.variants;
-    return {
-      ...p,
-      price: livePrice,
-      variants: scaledVariants,
-      in_stock: isInStock(p),
-      stock_qty: getStockQty(p)
-    };
-  });
+  const LIVE_PRODUCTS = useMemo(() => {
+    const dbLoaded = dbProducts.length > 0;
+    const fromCode = [];
+    PRODUCTS.forEach(p => {
+      const dbP = findDbProduct(p);
+      if (dbLoaded && !dbP) return; // deleted in the admin panel
+      const livePrice = dbP && dbP.price != null ? dbP.price : p.price;
+      // If admin changed the base price, scale variant prices proportionally
+      const scaledVariants = p.variants && p.price && livePrice !== p.price
+        ? p.variants.map(v => ({ ...v, price: Math.round((v.price / p.price) * livePrice) }))
+        : p.variants;
+      fromCode.push({
+        ...p,
+        name: dbP && dbP.name ? String(dbP.name).replace(/\s+/g, " ").trim() : p.name, // admin edits & spelling fixes win
+        name_kn: (dbP && dbP.name_kn) || KN_NAMES[p.name] || undefined,
+        price: livePrice,
+        variants: scaledVariants,
+        in_stock: dbP ? dbP.in_stock !== false : true,
+        stock_qty: dbP ? (dbP.stock_qty ?? 100) : 100,
+        created_at: dbP ? dbP.created_at : undefined,
+      });
+    });
+    const addedInAdmin = dbProducts
+      .filter(d => d.name && !PRODUCTS.some(p => p.id === d.id || nm(p.name) === nm(d.name)))
+      .map(d => ({
+        id: d.id, cat: d.cat, name: String(d.name).trim(), name_kn: d.name_kn || undefined,
+        price: d.price || 0, unit: d.unit || "1 unit", img: d.img_url || "",
+        variants: Array.isArray(d.variants) && d.variants.length ? d.variants : undefined,
+        in_stock: d.in_stock !== false, stock_qty: d.stock_qty ?? 100, created_at: d.created_at,
+      }));
+    return [...fromCode, ...addedInAdmin];
+  }, [dbProducts]);
 
   // ── STATIC DATA ──
   const BUNDLES = [
@@ -958,17 +1105,23 @@ export default function Gadag360() {
   };
   const t = T[lang];
 
-  const filtered = useMemo(() => LIVE_PRODUCTS.filter(p => {
-    const matchesCat = activeCat === "all" || p.cat === activeCat;
-    const matchesQ = query.trim() === "" || p.name.toLowerCase().includes(query.toLowerCase());
-    return matchesCat && matchesQ;
-  }), [activeCat, query, dbProducts]);
+  const filtered = useMemo(() => LIVE_PRODUCTS.filter(p =>
+    (activeCat === "all" || p.cat === activeCat) && matchesQuery(p, query)
+  ), [activeCat, query, LIVE_PRODUCTS]);
 
-  const cartItems = Object.entries(cart).filter(([,qty]) => qty > 0)
-    .map(([id, qty]) => ({ ...LIVE_PRODUCTS.find(p => p.id === id), qty }));
+  // Each line carries the price and size the customer chose, so cart, total and saved order agree
+  const cartItems = Object.entries(cart).filter(([, qty]) => qty > 0)
+    .map(([id, qty]) => {
+      const p = LIVE_PRODUCTS.find(x => x.id === id);
+      if (!p) return null;
+      const u = unitOf(p, selectedVariant);
+      return { ...p, qty, price: u.price, unitLabel: u.label };
+    })
+    .filter(Boolean);
   const itemCount = cartItems.reduce((s,i) => s + i.qty, 0);
   const subtotal = cartItems.reduce((s,i) => s + i.qty * i.price, 0);
-  const deliveryFee = subtotal > 0 ? 15 : 0;
+  // ── BILL: one calculation for the cart bar, the bill screen and the saved order ──
+  const deliveryFee = subtotal > 0 && subtotal < 250 ? 15 : 0; // free delivery from ₹250, as the bill promises
   const total = subtotal + deliveryFee;
 
   const addToCart = (id) => {
@@ -979,9 +1132,66 @@ export default function Gadag360() {
   const removeFromCart = (id) => setCart(c => ({...c, [id]: Math.max(0,(c[id]||0)-1)}));
   // ── DISCOUNT: ₹20 off if order ≥ ₹299 (F6) ──
   const minOrderDiscount = subtotal >= 299 ? 20 : 0;
-  const finalTotal = total - minOrderDiscount;
-  // Coins earned this order (F2)
-  const coinsEarned = Math.floor(finalTotal / 10);
+  const finalTotal = total - minOrderDiscount + tip; // what the customer pays and the rider collects (tip included)
+  // Coins earned this order (F2), on the goods only, not the tip
+  const coinsEarned = Math.floor((total - minOrderDiscount) / 10);
+
+  // ── HOME: shelves, search results, category drawer ──
+  const shelves = useMemo(() => {
+    const seen = new Set(), ordered = [];
+    orderHistory.forEach(o => (o.items || []).forEach(i => {
+      const p = LIVE_PRODUCTS.find(x => x.id === i.id) || LIVE_PRODUCTS.find(x => i.name && nm(x.name) === nm(i.name));
+      if (p && !seen.has(p.id)) { seen.add(p.id); ordered.push(p); }
+    }));
+    // "Just arrived": added in the admin panel in the last 14 days (the first bulk import doesn't count)
+    const stamps = LIVE_PRODUCTS.map(p => ts(p.created_at)).filter(n => !isNaN(n));
+    const firstImport = stamps.length ? Math.min(...stamps) : Infinity;
+    const isNew = p => { const t = ts(p.created_at); return !isNaN(t) && t > firstImport + 864e5 && Date.now() - t < 14 * 864e5; };
+    return {
+      ordered,
+      new: LIVE_PRODUCTS.filter(isNew).sort((a, b) => ts(b.created_at) - ts(a.created_at)),
+      freshcut: LIVE_PRODUCTS.filter(p => SHELF_PICKS.freshcut.includes(p.id)),
+      seasonal: LIVE_PRODUCTS.filter(p => SHELF_PICKS.seasonal.includes(p.id)),
+    };
+  }, [LIVE_PRODUCTS, orderHistory]);
+
+  const qTrim = query.trim();
+  const shelfDef = SHELF_DEFS.find(s => s.id === activeShelf);
+  let listMode = null;
+  if (qTrim) {
+    const items = shelfDef ? shelves[shelfDef.id].filter(p => matchesQuery(p, qTrim)) : filtered;
+    listMode = {
+      key: `q:${qTrim}:${activeShelf || ""}`, items,
+      title: items.length
+        ? (lang === "kn" ? `“${qTrim}”: ${items.length} ಫಲಿತಾಂಶ` : `${items.length} result${items.length === 1 ? "" : "s"} for “${qTrim}”`)
+        : (lang === "kn" ? `“${qTrim}” ಸಿಗಲಿಲ್ಲ` : `No match for “${qTrim}”`),
+    };
+  } else if (shelfDef) {
+    const items = shelves[shelfDef.id];
+    listMode = { key: `s:${shelfDef.id}`, items, title: `${shelfDef[lang]} (${items.length})` };
+  }
+  const searchSuggestions = ["Tomato", "Onion", "Potato", "Banana", "Apple", "Coconut", "Paneer", "Ghee"]
+    .filter(w => LIVE_PRODUCTS.some(p => nm(p.name).includes(w.toLowerCase())))
+    .slice(0, 6)
+    .map(w => { const label = lang === "kn" ? knGroupLabel(LIVE_PRODUCTS.filter(p => nm(p.name).includes(w.toLowerCase())), w) : w; return { q: label, label }; });
+  const catCounts = LIVE_PRODUCTS.reduce((m, p) => { m[p.cat] = (m[p.cat] || 0) + 1; return m; }, {});
+
+  const onShelf = (s, e) => {
+    if (!shelves[s.id].length) {
+      const wrap = chipsWrapRef.current ? chipsWrapRef.current.getBoundingClientRect() : { left: 0, width: 360 };
+      const r = e.currentTarget.getBoundingClientRect();
+      setChipNote({ id: s.id, text: s.empty[lang], x: Math.max(10, Math.min(r.left - wrap.left, wrap.width - 200)) });
+      clearTimeout(chipNoteTimer.current);
+      chipNoteTimer.current = setTimeout(() => setChipNote(null), 2600);
+      return;
+    }
+    setChipNote(null);
+    setActiveShelf(a => (a === s.id ? null : s.id));
+  };
+  const jumpToCat = (id) => {
+    setShowCatDrawer(false); setQuery(""); setActiveShelf(null); setActiveCat("all");
+    setTimeout(() => { const el = document.getElementById("sec-" + id); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80);
+  };
 
   const placeOrder = async () => {
     const orderId = "GD" + Math.floor(1000 + Math.random()*9000);
@@ -1031,10 +1241,9 @@ export default function Gadag360() {
       });
       // 2. Save order items
       const items = cartItems.map(i => {
-        const varLabel = selectedVariant[i.id] || null;
-        const varPrice = varLabel && i.variants
-          ? (i.variants.find(v => v.label === varLabel)?.price || i.price)
-          : i.price;
+        // cartItems already carry the size and price the customer chose (see unitOf)
+        const varLabel = i.unitLabel || selectedVariant[i.id] || null;
+        const varPrice = i.price;
         return {
           order_id: orderId,
           product_id: i.id,
@@ -1276,7 +1485,7 @@ const verifyOtp = async () => {
     // Load products from Supabase (overrides hardcoded prices)
     const loadProductsFromDB = async (attempt = 1) => {
       try {
-        const { data, error } = await supabase.from("products").select("id, name, price, in_stock, stock_qty");
+        const { data, error } = await supabase.from("products").select("id, name, name_kn, cat, price, unit, in_stock, stock_qty, variants, img_url, created_at");
         if (error) throw error;
         if (data && data.length > 0) {
           setDbProducts(data);
@@ -1374,7 +1583,7 @@ const verifyOtp = async () => {
   const BottomNav = () => null;
 
   return (
-    <div style={{width:"100%", maxWidth:"100%", minHeight:"100vh", display:"flex", flexDirection:"column", backgroundColor:bg, fontFamily:body, color:ink, overflowX:"hidden", position:"relative", boxSizing:"border-box", paddingTop:"env(safe-area-inset-top, 0px)"}}>
+    <div className="app-shell" style={{width:"100%", maxWidth:"100%", minHeight:"100vh", display:"flex", flexDirection:"column", backgroundColor:bg, fontFamily:body, color:ink, position:"relative", boxSizing:"border-box", paddingTop:"env(safe-area-inset-top, 0px)"}}>
 
       {/* ── ACCOUNT TAB ── */}
       {activeTab==="profile" && !profileSection && <>
@@ -1686,7 +1895,7 @@ const verifyOtp = async () => {
               : <div className="grid grid-cols-2 gap-3">{LIVE_PRODUCTS.filter(p=>wishlist[p.id]).map(p=>(
                   <div key={p.id} className="rounded-2xl overflow-hidden" style={{backgroundColor:panel,border:`1px solid ${line}`}}>
                     <div style={{position:"relative",paddingTop:"75%",overflow:"hidden"}}><div style={{position:"absolute",inset:0}}><ProductImage p={p}/></div></div>
-                    <div className="p-2"><div className="text-xs font-semibold">{lang==="kn"?(KN_NAMES[p.name]||p.name):p.name}</div><div className="text-xs font-bold mt-1">₹{p.price}</div><button onClick={()=>addToCart(p.id)} className="w-full mt-2 py-1 rounded-lg text-xs font-bold" style={{backgroundColor:mango,color:basilDark}}>+ {lang==="kn"?"ಸೇರಿಸಿ":"Add"}</button></div>
+                    <div className="p-2"><div className="text-xs font-semibold">{lang==="kn"?(p.name_kn||KN_NAMES[p.name]||p.name):p.name}</div><div className="text-xs font-bold mt-1">₹{p.price}</div><button onClick={()=>addToCart(p.id)} className="w-full mt-2 py-1 rounded-lg text-xs font-bold" style={{backgroundColor:mango,color:basilDark}}>+ {lang==="kn"?"ಸೇರಿಸಿ":"Add"}</button></div>
                   </div>
                 ))}</div>
           )}
@@ -1799,124 +2008,137 @@ const verifyOtp = async () => {
       </>}
 
       {screen === "home" && activeTab === "home" && <>
-        <Header/>
-
-        {/* ── DELIVERY + SEARCH BAR ── */}
-        <div style={{backgroundColor:"white",borderBottom:`1px solid ${line}`}}>
-          {/* Slim delivery strip */}
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"5px 14px",backgroundColor:"#f0faf4"}}>
-            <div style={{display:"flex",alignItems:"center",gap:5}}>
-              <span style={{fontSize:11}}>⚡</span>
-              <span style={{fontSize:11,fontWeight:700,color:basil}}>{lang==="kn"?"2 ಗಂಟೆಯಲ್ಲಿ ಡೆಲಿವರಿ":"Delivery in 2 hrs"}</span>
-              <span style={{fontSize:10,color:soil}}>· {userArea}</span>
-            </div>
-            <div style={{display:"flex",alignItems:"center",gap:6}}>
-              {coins>0&&<span style={{fontSize:10,fontWeight:600,color:basil}}>🪙{coins}</span>}
-              {!flashDismissed&&<span style={{fontSize:10,fontWeight:700,color:"#E65100"}}>⚡₹{FLASH.discount} off</span>}
-            </div>
-          </div>
-          {/* Search */}
-          <div style={{padding:"8px 12px"}}>
-            <div style={{display:"flex",alignItems:"center",gap:8,backgroundColor:"#f7f7f7",borderRadius:10,padding:"9px 12px"}}>
-              <Search size={14} style={{color:soil,flexShrink:0}}/>
-              <input value={query} onChange={e=>setQuery(e.target.value)} placeholder={t.searchPlaceholder}
-                style={{flex:1,border:"none",background:"none",outline:"none",fontSize:13,color:ink}}/>
-              {query&&<button onClick={()=>setQuery("")} style={{background:"none",border:"none",cursor:"pointer"}}><X size={12} style={{color:soil}}/></button>}
-            </div>
-            {voiceError&&<div style={{fontSize:10,color:chili,marginTop:2}}>⚠️ {voiceError}</div>}
-          </div>
-          {/* Filter pills — "Ordered earlier", "Just arrived" etc */}
-          <div style={{display:"flex",gap:6,overflowX:"auto",padding:"0 12px 10px",scrollbarWidth:"none"}}>
-            {[
-              {label:lang==="kn"?"ಮೊದಲು ಆರ್ಡರ್":"Ordered earlier", color:"#4a7c3f"},
-              {label:lang==="kn"?"ಹೊಸದಾಗಿ ಬಂದಿದೆ":"Just arrived",   color:"#7a5c2e"},
-              {label:lang==="kn"?"ತಾಜಾ ಕಟಾವು":"Fresh-Cut @ 5AM",    color:"#3a7a50"},
-              {label:lang==="kn"?"ಸೀಸನ್ ಫೇವ್":"Seasonal favs",      color:"#4a3728"},
-              {label:lang==="kn"?"ಬಲ್ಕ್":"Bulk 12% off",             color:bulkMode?"#1565C0":"#555"},
-            ].map((f,i)=>(
-              <button key={i} onClick={i===4?()=>setBulkMode(b=>!b):undefined}
-                style={{flexShrink:0,padding:"10px 16px",borderRadius:10,fontSize:12,fontWeight:700,color:"white",backgroundColor:f.color,border:"none",cursor:"pointer",whiteSpace:"nowrap",lineHeight:1.3,minHeight:44}}>
-                {f.label}
+        {/* ── PINNED TOP: header + search stay on screen while you scroll ── */}
+        <div ref={stickyRef} style={{ position:"sticky", top:0, zIndex:30, background:"#fff", boxShadow:"0 1px 0 rgba(30,43,34,0.07)" }}>
+          <Header/>
+          <div style={{ padding:"8px 12px 10px" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:6, background:"#F2F4EF", border:`1px solid ${line}`, borderRadius:14, height:46, padding:"0 5px 0 12px" }}>
+              <Search size={17} style={{ color:soil, flexShrink:0 }}/>
+              <input type="search" value={query} onChange={e => setQuery(e.target.value)} enterKeyHint="search"
+                placeholder={lang==="kn" ? "ಟೊಮ್ಯಾಟೊ, ತುಪ್ಪ, ಹೂವು ಹುಡುಕಿ" : "Search tomato, ghee, flowers"}
+                aria-label={lang==="kn" ? "ಉತ್ಪನ್ನ ಹುಡುಕಿ" : "Search products"}
+                style={{ flex:1, minWidth:0, height:"100%", border:"none", background:"none", outline:"none", fontSize:16, color:ink, fontFamily:"inherit" }}/>
+              {query && (
+                <button className="g-reset" onClick={() => setQuery("")} aria-label={lang==="kn" ? "ಹುಡುಕಾಟ ಅಳಿಸಿ" : "Clear search"}
+                  style={{ width:34, height:34, display:"flex", alignItems:"center", justifyContent:"center", color:soil, flexShrink:0 }}><X size={17}/></button>
+              )}
+              <button className={voiceActive ? "g-reset g-pulse" : "g-reset"} onClick={startVoice} aria-label={lang==="kn" ? "ಧ್ವನಿಯಿಂದ ಹುಡುಕಿ" : "Search by voice"}
+                style={{ width:36, height:36, borderRadius:11, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
+                  background: voiceActive ? chili : "#fff", color: voiceActive ? "#fff" : basil, border:`1px solid ${voiceActive ? chili : line}` }}>
+                <Mic size={18}/>
               </button>
-            ))}
+            </div>
+            {voiceActive && <div role="status" style={{ fontSize:12, color:chili, fontWeight:600, marginTop:6 }}>{lang==="kn" ? "ಕೇಳುತ್ತಿದೆ… ಉತ್ಪನ್ನದ ಹೆಸರು ಹೇಳಿ" : "Listening… say a product name"}</div>}
+            {voiceError && !voiceActive && <div role="alert" style={{ fontSize:12, color:chili, marginTop:6 }}>{voiceError}</div>}
           </div>
         </div>
 
-
-        {/* Min order nudge */}
-        {subtotal>0&&subtotal<299&&(
-          <div style={{margin:"6px 10px 0",padding:"6px 12px",borderRadius:8,backgroundColor:"#EDE7F6",fontSize:11,fontWeight:600,color:"#5E35B1",textAlign:"center"}}>
-            🎁 {lang==="kn"?`₹${299-subtotal} ಹೆಚ್ಚು → ₹20 ರಿಯಾಯಿತಿ`:`Add ₹${299-subtotal} more → get ₹20 off`}
+        {/* ── DELIVERY STRIP ── */}
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, padding:"8px 14px", background:"#F0F7F2" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:6, fontSize:12, minWidth:0 }}>
+            <Zap size={13} style={{ color:basil, flexShrink:0 }} fill={basil}/>
+            <span style={{ fontWeight:700, color:basil, whiteSpace:"nowrap" }}>{lang==="kn" ? "2 ಗಂಟೆಯಲ್ಲಿ ಡೆಲಿವರಿ" : "Delivery in 2 hrs"}</span>
+            <button className="g-reset" onClick={() => setShowAreaPicker(true)} aria-label={lang==="kn" ? `ಪ್ರದೇಶ ಬದಲಿಸಿ: ${userArea}` : `Change area: ${userArea}`}
+              style={{ display:"inline-flex", alignItems:"center", gap:2, fontWeight:600, color:ink, whiteSpace:"nowrap", padding:"2px 0" }}>
+              <MapPin size={12} style={{ color:soil }}/>{userArea}<ChevronDown size={13} style={{ color:soil }}/>
+            </button>
           </div>
-        )}
+          {coins > 0 && <span style={{ fontSize:12, fontWeight:700, color:"#7A5A12", whiteSpace:"nowrap" }}>🪙 {coins}</span>}
+        </div>
 
-        {/* ── HANDPICKD LAYOUT: LEFT SIDEBAR + GROUPED PRODUCTS ── */}
-        {/* Side category drawer toggle button */}
-        <div style={{position:"relative"}}>
-          {/* Arrow toggle button — fixed to viewport vertically, but on app left edge */}
-          <button onClick={()=>setShowCatDrawer(d=>!d)}
-            style={{position:"fixed",left:"max(0px, calc(50vw - 240px))",top:"50%",transform:"translateY(-50%)",zIndex:37,width:28,height:64,backgroundColor:"#3a3a3a",color:"white",border:"none",cursor:"pointer",borderRadius:"0 12px 12px 0",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"2px 2px 10px rgba(0,0,0,0.3)",fontSize:20,fontWeight:700}}>
-            {showCatDrawer?"‹":"›"}
-          </button>
-
-          {/* Category drawer overlay */}
-          {showCatDrawer && (
-            <>
-              <div onClick={()=>setShowCatDrawer(false)} style={{position:"fixed",inset:0,backgroundColor:"rgba(0,0,0,0.3)",zIndex:50}}/>
-              <div style={{position:"fixed",left:0,top:0,bottom:0,width:180,backgroundColor:"white",zIndex:51,boxShadow:"4px 0 20px rgba(0,0,0,0.15)",display:"flex",flexDirection:"column"}}>
-                <div style={{padding:"16px 14px 10px",borderBottom:`1px solid ${line}`}}>
-                  <div style={{fontSize:14,fontWeight:800,color:ink}}>{lang==="kn"?"ಕ್ಯಾಟಗರಿ":"Categories"}</div>
-                </div>
-                <div style={{flex:1,overflowY:"auto",padding:"8px 0"}}>
-                  {CATS.filter(c=>c.id!=="all").map(c=>(
-                    <button key={c.id} onClick={()=>{setActiveCat(c.id);setShowCatDrawer(false);}}
-                      style={{width:"100%",display:"flex",alignItems:"center",gap:12,padding:"12px 16px",border:"none",cursor:"pointer",textAlign:"left",
-                        backgroundColor:activeCat===c.id?"#f0faf4":"white",borderLeft:activeCat===c.id?`3px solid ${basil}`:"3px solid transparent"}}>
-                      <span style={{fontSize:22}}>{CAT_EMOJI[c.id]||"🛒"}</span>
-                      <span style={{fontSize:13,fontWeight:activeCat===c.id?700:500,color:activeCat===c.id?basil:ink}}>{c[lang]}</span>
-                    </button>
-                  ))}
-                </div>
-                <div style={{padding:"12px 14px",borderTop:`1px solid ${line}`}}>
-                  <button onClick={()=>{setActiveCat("all");setShowCatDrawer(false);}}
-                    style={{width:"100%",padding:"10px",borderRadius:10,backgroundColor:activeCat==="all"?basil:"#f7f7f7",color:activeCat==="all"?"white":ink,border:"none",cursor:"pointer",fontWeight:700,fontSize:13}}>
-                    {lang==="kn"?"ಎಲ್ಲಾ ಉತ್ಪನ್ನಗಳು":"All Products"}
-                  </button>
-                </div>
-              </div>
-            </>
+        {/* ── SHELVES: tap to see just those products ── */}
+        <div ref={chipsWrapRef} style={{ position:"relative", background:"#fff", paddingBottom: chipNote ? 42 : 12 }}>
+          <div style={{ display:"flex", gap:8, overflowX:"auto", padding:"12px 12px 4px", scrollbarWidth:"none" }}>
+            {SHELF_DEFS.map(s => {
+              const on = activeShelf === s.id;
+              return (
+                <button key={s.id} className="g-reset g-tap" onClick={e => onShelf(s, e)} aria-pressed={on}
+                  style={{ flexShrink:0, position:"relative", width:98, height:64, borderRadius:12, background:s.color, color:"#fff",
+                    padding:"9px 10px", textAlign:"left", fontSize:13, fontWeight:700, lineHeight:1.2,
+                    opacity: activeShelf && !on ? 0.45 : 1, boxShadow: on ? `0 0 0 2px #fff, 0 0 0 4px ${s.color}` : "none" }}>
+                  {s[lang]}
+                  {on && <span aria-hidden="true" style={{ position:"absolute", right:6, bottom:6, width:20, height:20, borderRadius:10, background:"rgba(255,255,255,0.28)",
+                    display:"flex", alignItems:"center", justifyContent:"center" }}><X size={12} strokeWidth={3}/></span>}
+                </button>
+              );
+            })}
+          </div>
+          {chipNote && (
+            <div role="status" style={{ position:"absolute", left:chipNote.x, bottom:8, background:"#fff", border:`1px solid ${line}`, borderRadius:10,
+              padding:"4px 12px", fontFamily:hand, fontWeight:700, fontSize:15, color:ink, boxShadow:"0 4px 14px rgba(30,43,34,0.12)", whiteSpace:"nowrap" }}>
+              {chipNote.text}
+            </div>
           )}
         </div>
 
+        {/* ── CATEGORY DRAWER: the side tab opens it; categories jump to their section ── */}
+        <button onClick={() => setShowCatDrawer(d => !d)} aria-label={lang==="kn" ? "ವರ್ಗಗಳು" : "Categories"} aria-expanded={showCatDrawer}
+          style={{ position:"fixed", left:COL_LEFT, top:"50%", transform:"translateY(-50%)", zIndex:37, width:28, height:64, backgroundColor:"#3a3a3a", color:"white",
+            border:"none", cursor:"pointer", borderRadius:"0 12px 12px 0", display:"flex", alignItems:"center", justifyContent:"center",
+            boxShadow:"2px 2px 10px rgba(0,0,0,0.3)", fontSize:20, fontWeight:700 }}>
+          {showCatDrawer ? "‹" : "›"}
+        </button>
+        {showCatDrawer && <>
+          <div className="g-fade" onClick={() => setShowCatDrawer(false)} style={{ position:"fixed", inset:0, background:"rgba(22,32,24,0.35)", zIndex:50 }}/>
+          <nav className="g-drawer" aria-label={lang==="kn" ? "ವರ್ಗಗಳು" : "Categories"}
+            style={{ position:"fixed", top:0, bottom:0, left:COL_LEFT, width:"min(82vw, 300px)", background:"#fff", zIndex:51, borderRadius:"0 28px 28px 0",
+              boxShadow:"8px 0 30px rgba(22,32,24,0.18)", display:"flex", flexDirection:"column", paddingTop:"env(safe-area-inset-top, 0px)" }}>
+            <div style={{ padding:"28px 20px 18px" }}>
+              <div style={{ fontFamily:hand, fontWeight:700, fontSize:32, lineHeight:1.15, color:ink }}>{lang==="kn" ? "ನಮಸ್ಕಾರ!" : "Namaskara!"}</div>
+              <div style={{ fontSize:16, color:soil, marginTop:8, lineHeight:1.35 }}>{lang==="kn" ? "ಇಂದು ನಿಮಗೆ ಏನು ಬೇಕು?" : "What would you like today?"}</div>
+            </div>
+            <div style={{ flex:1, overflowY:"auto", display:"flex", flexDirection:"column", alignItems:"flex-start", gap:10, padding:"2px 0 24px" }}>
+              {CATS.filter(c => c.id !== "all" && catCounts[c.id]).map(c => (
+                <button key={c.id} className="g-reset g-tap" onClick={() => jumpToCat(c.id)}
+                  style={{ display:"inline-flex", alignItems:"center", gap:10, background:haldi, color:ink, borderRadius:"0 24px 24px 0",
+                    padding:"8px 18px 8px 20px", fontFamily:hand, fontWeight:700, fontSize:19, lineHeight:1.25 }}>
+                  <span aria-hidden="true" style={{ fontFamily:body, fontSize:18 }}>{CAT_EMOJI[c.id] || "🛒"}</span>
+                  {c[lang]}
+                  <span style={{ fontFamily:body, fontSize:12, fontWeight:700, color:"#7A5A12" }}>{catCounts[c.id]}</span>
+                </button>
+              ))}
+            </div>
+            <button onClick={() => setShowCatDrawer(false)} aria-label={lang==="kn" ? "ವರ್ಗಗಳನ್ನು ಮುಚ್ಚಿ" : "Close categories"}
+              style={{ position:"absolute", right:-28, top:"50%", transform:"translateY(-50%)", width:28, height:64, background:"#3a3a3a", color:"#fff",
+                border:"none", borderRadius:"0 12px 12px 0", fontSize:20, fontWeight:700, cursor:"pointer", boxShadow:"2px 2px 10px rgba(0,0,0,0.3)" }}>‹</button>
+          </nav>
+        </>}
+
         <HandpickdLayout
-          filtered={filtered} activeCat={activeCat} setActiveCat={setActiveCat}
+          filtered={filtered} listMode={listMode} onClearList={() => { setQuery(""); setActiveShelf(null); }}
+          suggestions={searchSuggestions} onSuggest={setQuery}
           cart={cart} setCart={setCart} addToCart={addToCart} removeFromCart={removeFromCart}
           selectedVariant={selectedVariant} setSelectedVariant={setSelectedVariant}
-          wishlist={wishlist} toggleWishlist={toggleWishlist}
-          bulkMode={bulkMode} lang={lang} query={query}
-          CATS={CATS} CAT_EMOJI={CAT_EMOJI} KN_NAMES={KN_NAMES}
+          lang={lang} onOpenDrawer={() => setShowCatDrawer(true)}
+          CATS={CATS} KN_NAMES={KN_NAMES}
           basil={basil} soil={soil} ink={ink} line={line} chili={chili}
         />
 
-        {/* ── CART BAR ── */}
-        {/* Floating mic button — bottom right like Handpickd */}
-        <div style={{position:"fixed", bottom:`calc(env(safe-area-inset-bottom, 0px) + ${itemCount>0?80:20}px)`, right:16, zIndex:36}}>
-          <button onClick={startVoice} style={{width:48,height:48,borderRadius:"50%",backgroundColor:voiceActive?chili:"#555",color:"white",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 3px 12px rgba(0,0,0,0.25)",fontSize:20}}>
-            {voiceActive?"🎤":"🎙️"}
-          </button>
-          {voiceActive&&<div style={{position:"absolute",bottom:54,right:0,backgroundColor:"white",borderRadius:8,padding:"4px 8px",fontSize:10,color:chili,fontWeight:600,whiteSpace:"nowrap",boxShadow:"0 2px 8px rgba(0,0,0,0.15)"}}>🎤 {lang==="kn"?"ಮಾತನಾಡಿ...":"Listening..."}</div>}
-        </div>
-
-        {/* Cart bar */}
+        {/* ── CART BAR: total, plus how far to the ₹20 discount ── */}
         {itemCount > 0 && (
-          <div style={{position:"fixed", bottom:0, left:0, right:0, padding:"8px 12px", paddingBottom:"calc(env(safe-area-inset-bottom, 16px) + 8px)", zIndex:35, backgroundColor:"transparent"}}>
-            <button onClick={()=>setScreen("cart")} style={{width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between", padding:"14px 18px", borderRadius:16, backgroundColor:basil, color:"white", border:"none", cursor:"pointer", boxShadow:"0 4px 20px rgba(26,107,60,0.4)"}}>
-              <div style={{display:"flex", alignItems:"center", gap:8}}>
-                <div style={{backgroundColor:"rgba(255,255,255,0.2)", borderRadius:8, padding:"2px 8px", fontSize:12, fontWeight:700}}>{itemCount}</div>
-                <span style={{fontSize:13, fontWeight:600}}>{lang==="kn"?"ಬುಟ್ಟಿ ನೋಡಿ":"View Cart"}</span>
+          <div style={{ position:"fixed", bottom:0, left:COL_LEFT, right:COL_LEFT, zIndex:35, padding:"0 10px calc(env(safe-area-inset-bottom, 0px) + 10px)", pointerEvents:"none" }}>
+            <div style={{ pointerEvents:"auto", background:"#fff", borderRadius:18, overflow:"hidden", border:`1px solid ${line}`, boxShadow:"0 8px 28px rgba(30,43,34,0.2)" }}>
+              <div style={{ padding:"8px 14px 8px", fontSize:12, fontWeight:600, color: subtotal >= 299 ? basil : ink }}>
+                {subtotal >= 299
+                  ? (lang==="kn" ? "ಈ ಆರ್ಡರ್‌ನಲ್ಲಿ ₹20 ಉಳಿತಾಯ" : "You're saving ₹20 on this order")
+                  : (lang==="kn" ? `${rs(299 - subtotal)} ಹೆಚ್ಚು ಸೇರಿಸಿ, ₹20 ಉಳಿಸಿ` : `Add ${rs(299 - subtotal)} more to save ₹20`)}
+                <div style={{ height:4, borderRadius:2, background:"#E8ECE4", marginTop:6, overflow:"hidden" }}>
+                  <div style={{ width:`${Math.min(100, (subtotal / 299) * 100)}%`, height:"100%", background:basil, borderRadius:2, transition:"width .3s" }}/>
+                </div>
               </div>
-              <span style={{fontSize:14, fontWeight:800}}>₹{finalTotal} →</span>
-            </button>
+              <button className="g-reset" onClick={() => setScreen("cart")}
+                style={{ width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between", padding:"12px 16px", background:basil, color:"#fff" }}>
+                <span style={{ display:"flex", alignItems:"center", gap:10 }}>
+                  <span style={{ background:"rgba(255,255,255,0.18)", borderRadius:10, padding:"4px 10px", fontSize:13, fontWeight:800 }}>
+                    {lang==="kn" ? `${itemCount} ವಸ್ತುಗಳು` : `${itemCount} ${itemCount === 1 ? "item" : "items"}`}
+                  </span>
+                  <span style={{ fontSize:17, fontWeight:800 }}>{rs(finalTotal)}</span>
+                </span>
+                <span style={{ display:"flex", alignItems:"center", gap:2, fontSize:15, fontWeight:700 }}>
+                  {lang==="kn" ? "ಬುಟ್ಟಿ ನೋಡಿ" : "View cart"}<ChevronRight size={18}/>
+                </span>
+              </button>
+            </div>
           </div>
         )}
 
@@ -2024,7 +2246,7 @@ const verifyOtp = async () => {
         {/* ── F12 AREA PICKER MODAL ── */}
         {showAreaPicker && (
           <div className="fixed inset-0 z-50 flex flex-col justify-end" style={{backgroundColor:"rgba(0,0,0,0.4)"}}>
-            <div className="rounded-t-3xl pb-8 px-4 pt-4" style={{backgroundColor: bg}}>
+            <div className="rounded-t-3xl pb-8 px-4 pt-4" style={{backgroundColor: bg, width:"100%", maxWidth:480, margin:"0 auto"}}>
               <div className="flex items-center justify-between mb-3">
                 <div className="font-bold text-base" style={{fontFamily: display}}>📍 {lang==="kn" ? "ನಿಮ್ಮ ಪ್ರದೇಶ" : "Your Area"}</div>
                 <button onClick={() => setShowAreaPicker(false)}><X size={18} style={{color: soil}}/></button>
@@ -2060,8 +2282,8 @@ const verifyOtp = async () => {
                     <div key={i.id} style={{display:"flex",alignItems:"center",padding:"12px 14px",borderBottom:idx<cartItems.length-1?`1px solid ${line}`:"none",gap:12}}>
                       <div style={{width:60,height:60,borderRadius:10,overflow:"hidden",flexShrink:0,backgroundColor:"#fafafa"}}><ProductImage p={i}/></div>
                       <div style={{flex:1}}>
-                        <div style={{fontSize:13,fontWeight:600,color:ink}}>{lang==="kn"?(KN_NAMES[i.name]||i.name):i.name}</div>
-                        <div style={{fontSize:11,color:soil,marginTop:2}}>₹{i.price} · {selectedVariant[i.id]||i.unit}</div>
+                        <div style={{fontSize:13,fontWeight:600,color:ink}}>{lang==="kn"?(i.name_kn||KN_NAMES[i.name]||i.name):i.name}</div>
+                        <div style={{fontSize:11,color:soil,marginTop:2}}>{rs(i.price)} / {i.unitLabel||i.unit}</div>
                       </div>
                       <div style={{display:"flex",alignItems:"center",gap:8,backgroundColor:basil,borderRadius:20,padding:"5px 10px"}}>
                         <button onClick={()=>removeFromCart(i.id)} style={{color:"white",background:"none",border:"none",cursor:"pointer",fontSize:16,lineHeight:1}}>−</button>
@@ -2208,7 +2430,7 @@ const verifyOtp = async () => {
                   ))}
                   <div style={{borderTop:`1px solid ${line}`,paddingTop:10,display:"flex",justifyContent:"space-between"}}>
                     <span style={{fontSize:14,fontWeight:800,color:ink}}>{lang==="kn"?"ಒಟ್ಟು ಪಾವತಿ":"Total to pay"}</span>
-                    <span style={{fontSize:14,fontWeight:800,color:ink}}>₹{subtotal + (subtotal>=250?0:deliveryFee) + tip - minOrderDiscount}</span>
+                    <span style={{fontSize:14,fontWeight:800,color:ink}}>{rs(finalTotal)}</span>
                   </div>
                 </div>
 

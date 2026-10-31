@@ -8,22 +8,27 @@
   padding: 0;
 }
 
-html {
-  width: 100%;
-  overflow-x: hidden;
+/* Stop sideways scrolling without creating a scroll container, so position: sticky
+   (pinned header, category tags) keeps working. Older browsers fall back to `hidden`. */
+html, body, #root, .app-shell { overflow-x: hidden; }
+@supports (overflow: clip) {
+  html, body, #root, .app-shell { overflow-x: clip; }
 }
+
+html { width: 100%; }
 
 body {
   width: 100%;
-  overflow-x: hidden;
   -webkit-text-size-adjust: 100%;
   background-color: #f8f8f6;
+  font-family: 'Figtree', 'Noto Sans Kannada', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 #root {
   width: 100%;
   max-width: 100vw;
-  overflow-x: hidden;
   min-height: 100vh;
   display: flex;
   justify-content: center;
@@ -39,9 +44,7 @@ body {
 }
 
 /* Prevent ALL horizontal scroll */
-* {
-  max-width: 100%;
-}
+* { max-width: 100%; }
 
 img {
   max-width: 100%;
@@ -53,24 +56,89 @@ img {
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
-*::-webkit-scrollbar {
-  display: none;
-}
+*::-webkit-scrollbar { display: none; }
 
 /* Safe area for notch phones */
 .safe-top { padding-top: env(safe-area-inset-top, 0px); }
 .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
-/* Press feedback for tappable product cards */
+
+/* Buttons that look like content (cards, tags, chips) */
+.g-reset {
+  -webkit-appearance: none;
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  text-align: inherit;
+  cursor: pointer;
+}
+.g-reset:disabled { cursor: default; }
+
+/* Press feedback for tappable cards */
 .g-tap {
   transition: transform 0.12s ease;
   -webkit-tap-highlight-color: transparent;
-  outline: none;
 }
-.g-tap:active {
-  transform: scale(0.97);
-}
+.g-tap:active { transform: scale(0.97); }
+.g-reset:focus-visible,
 .g-tap:focus-visible {
   outline: 2px solid #1a6b3c;
   outline-offset: 2px;
   border-radius: 14px;
+}
+
+/* Search field: hide the browser's own clear button (the app draws one) */
+input[type="search"]::-webkit-search-cancel-button,
+input[type="search"]::-webkit-search-decoration { -webkit-appearance: none; }
+
+/* Quantity slider in the product sheet */
+.g-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(to right, #1a6b3c var(--fill, 0%), #e3e7df var(--fill, 0%));
+  outline: none;
+  cursor: pointer;
+}
+.g-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid #1a6b3c;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+.g-range::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid #1a6b3c;
+}
+.g-range:focus-visible { outline: 2px solid #1a6b3c; outline-offset: 6px; }
+
+/* Jumping to a category lands just under the pinned header */
+.g-sec { scroll-margin-top: var(--g-sticky, 0px); }
+
+/* Motion only answers a tap: the sheet rises, the drawer slides in, the backdrop fades */
+@keyframes g-rise { from { transform: translateY(28px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes g-slide { from { transform: translateX(-28px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes g-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes g-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(217, 58, 48, 0.45); }
+  50% { box-shadow: 0 0 0 7px rgba(217, 58, 48, 0); }
+}
+.g-sheet { animation: g-rise 0.22s ease-out; }
+.g-drawer { animation: g-slide 0.2s ease-out; }
+.g-fade { animation: g-fade 0.16s ease-out; }
+.g-pulse { animation: g-pulse 1.2s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .g-sheet, .g-drawer, .g-fade, .g-pulse { animation: none; }
+  .g-tap { transition: none; }
 }
