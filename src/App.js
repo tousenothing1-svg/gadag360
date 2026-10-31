@@ -2213,7 +2213,7 @@ const verifyOtp = async () => {
         </div>
         {/* WhatsApp toast */}
         {notifShown&&(
-          <div style={{position:"fixed",bottom:16,left:14,right:14,backgroundColor:"#25D366",color:"white",borderRadius:14,padding:"12px 16px",display:"flex",alignItems:"center",gap:10,zIndex:50,boxShadow:"0 4px 20px rgba(0,0,0,0.2)"}}>
+          <div style={{position:"fixed",bottom:16,left:14,right:14,backgroundColor:"#25D366",color:"white",borderRadius:14,padding:"12px 16px",display:"flex",alignItems:"center",gap:10,zIndex:40,boxShadow:"0 4px 20px rgba(0,0,0,0.2)"}}>
             <span style={{fontSize:20}}>💬</span>
             <div style={{flex:1}}>
               <div style={{fontSize:12,fontWeight:700}}>{lang==="kn"?"WhatsApp ಸಂದೇಶ ಕಳುಹಿಸಲಾಗಿದೆ":"WhatsApp Confirmation Sent!"}</div>
@@ -2223,7 +2223,7 @@ const verifyOtp = async () => {
         )}
         {/* Rating modal on checkout screen */}
         {showRating&&(
-          <div className="fixed inset-0 z-50 flex items-center justify-center" style={{backgroundColor:"rgba(0,0,0,0.5)"}}>
+          <div className="fixed inset-0 flex items-center justify-center" style={{backgroundColor:"rgba(0,0,0,0.6)",zIndex:9999}}>
             <div className="mx-4 rounded-3xl p-6 w-full max-w-sm" style={{backgroundColor:panel}}>
               <div className="text-center mb-4">
                 <div className="text-4xl mb-2">🎉</div>
@@ -2301,8 +2301,8 @@ const verifyOtp = async () => {
 
         {/* F10 WhatsApp notification toast */}
         {notifShown && (
-          <div className="fixed bottom-6 left-4 right-4 max-w-md mx-auto z-50 flex items-center gap-3 px-4 py-3 rounded-2xl shadow-xl"
-            style={{backgroundColor:"#25D366", color:"white"}}>
+          <div className="fixed bottom-6 left-4 right-4 max-w-md mx-auto flex items-center gap-3 px-4 py-3 rounded-2xl shadow-xl"
+            style={{backgroundColor:"#25D366", color:"white", zIndex:40}}>
             <span className="text-xl">💬</span>
             <div className="flex-1 text-sm">
               <div className="font-bold">{lang==="kn" ? "WhatsApp ಸಂದೇಶ ಕಳುಹಿಸಲಾಗಿದೆ" : "WhatsApp Confirmation Sent!"}</div>
@@ -2314,7 +2314,7 @@ const verifyOtp = async () => {
 
         {/* F16 Rating modal — appears after delivery */}
         {showRating && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center" style={{backgroundColor:"rgba(0,0,0,0.5)"}}>
+          <div className="fixed inset-0 flex items-center justify-center" style={{backgroundColor:"rgba(0,0,0,0.6)",zIndex:9999}}>
             <div className="mx-4 rounded-3xl p-6 w-full max-w-sm" style={{backgroundColor: panel}}>
               <div className="text-center mb-4">
                 <div className="text-4xl mb-2">🎉</div>

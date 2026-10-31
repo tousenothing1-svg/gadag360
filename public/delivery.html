@@ -404,12 +404,9 @@ function stopRiderTracking() {
     clearInterval(riderWatchId);
     riderWatchId = null;
   }
-  // Clear rider location from order
-  if (riderTrackingOrderId) {
-    sb.from("orders").update({ rider_lat: null, rider_lon: null, rider_updated_at: null })
-      .eq("id", riderTrackingOrderId);
-    riderTrackingOrderId = null;
-  }
+  // Keep last GPS location in DB so customer map still shows rider on delivery
+  // (App.js clears riderPos when customer navigates away / new order placed)
+  riderTrackingOrderId = null;
 }
 
 async function updateStatus(orderId, newStatus) {
