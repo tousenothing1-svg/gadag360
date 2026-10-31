@@ -1777,7 +1777,7 @@ const verifyOtp = async () => {
         <div style={{position:"relative"}}>
           {/* Arrow toggle button on left edge */}
           <button onClick={()=>setShowCatDrawer(d=>!d)}
-            style={{position:"fixed",left:0,top:"50%",transform:"translateY(-50%)",zIndex:37,width:22,height:48,backgroundColor:basil,color:"white",border:"none",cursor:"pointer",borderRadius:"0 10px 10px 0",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"2px 2px 8px rgba(0,0,0,0.2)",fontSize:14}}>
+            style={{position:"fixed",left:0,top:"50%",transform:"translateY(-50%)",zIndex:37,width:36,height:72,backgroundColor:basil,color:"white",border:"none",cursor:"pointer",borderRadius:"0 16px 16px 0",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"2px 2px 10px rgba(0,0,0,0.25)",fontSize:22,fontWeight:700}}>
             {showCatDrawer?"‹":"›"}
           </button>
 
