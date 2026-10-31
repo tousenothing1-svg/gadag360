@@ -588,94 +588,124 @@ const ProductSliderModal = ({p, onClose, setCart, initialQty}) => {
                   <span style={{fontSize:12,fontWeight:700,color:"white"}}>{cat[lang]}</span>
                 </div>
               </div>
-              {/* 3-column product grid with inline dropdown like img4 */}
-              <div style={{padding:"0 8px 4px"}}>
-                {(() => {
-                  const entries = Object.entries(catGroups);
-                  const rows = [];
-                  for(let i=0; i<entries.length; i+=3){
-                    const rowItems = entries.slice(i, i+3);
-                    const rowKey = `row-${i}`;
-                    // Check if any item in this row is expanded
-                    const expandedItem = rowItems.find(([key])=>expandedGroup===`${cat.id}::${key}`);
-                    rows.push(
-                      <div key={rowKey}>
-                        {/* Row of 3 cards */}
-                        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:expandedItem?0:8}}>
-                          {rowItems.map(([key, products])=>{
-                            const first = products[0];
-                            const hasMany = products.length>1;
-                            const qty = !hasMany?(cart[first.id]||0):0;
-                            const price = first.price;
-                            const minPrice = hasMany?Math.min(...products.map(p=>p.price)):price;
-                            const maxPrice = hasMany?Math.max(...products.map(p=>p.price)):price;
-                            const groupKey = `${cat.id}::${key}`;
-                            const isExpanded = expandedGroup===groupKey;
-                            return (
-                              <div key={key}
-                                onClick={()=>{ if(hasMany){setExpandedGroup(isExpanded?null:groupKey);} else setSelectedProduct(first); }}
-                                style={{backgroundColor:"white",borderRadius:16,overflow:"hidden",cursor:"pointer",
-                                  boxShadow:isExpanded?"0 3px 16px rgba(26,107,60,0.18)":"0 1px 6px rgba(0,0,0,0.07)",
-                                  border:isExpanded?`1.5px solid ${basil}`:"1.5px solid #f0f0f0",
-                                  display:"flex",flexDirection:"column"}}>
-                                {/* Price at TOP — handpickd style */}
-                                <div style={{padding:"8px 8px 0 8px"}}>
-                                  <div style={{fontSize:10,fontWeight:600,color:soil}}>
-                                    {hasMany?`₹${minPrice}–₹${maxPrice}`:`₹${price}/${first.variants?.[0]?.label||first.unit}`}
-                                  </div>
-                                </div>
-                                {/* Large image in middle */}
-                                <div style={{position:"relative",paddingTop:"88%",backgroundColor:"white",margin:"4px 6px 0"}}>
-                                  <div style={{position:"absolute",inset:"4px"}}><ProductImage p={first}/></div>
-                                  {hasMany&&<div style={{position:"absolute",top:4,right:4,backgroundColor:basil,borderRadius:8,padding:"2px 6px",fontSize:8,color:"white",fontWeight:700}}>+{products.length-1}</div>}
-                                  {qty>0&&!hasMany&&<div style={{position:"absolute",top:4,right:4,width:18,height:18,borderRadius:"50%",backgroundColor:basil,color:"white",fontSize:9,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center"}}>{qty}</div>}
-                                </div>
-                                {/* Name at bottom */}
-                                <div style={{padding:"6px 8px 10px"}}>
-                                  <div style={{fontSize:12,fontWeight:700,color:ink,lineHeight:1.3}}>{lang==="kn"?groupKeyKn(key,KN_NAMES):key}</div>
-                                  {hasMany&&<div style={{fontSize:9,color:basil,marginTop:2,fontWeight:600}}>{products.length} {lang==="kn"?"ಆಯ್ಕೆಗಳು":"varieties"} {isExpanded?"▲":"▼"}</div>}
-                                </div>
-                              </div>
-                            );
-                          })}
-                          {/* Fill empty slots */}
-                          {rowItems.length<3 && Array(3-rowItems.length).fill(0).map((_,i)=><div key={`empty-${i}`}/>)}
+              {/* 2-column product grid — handpickd style */}
+              <div style={{padding:"0 10px 4px",display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                {Object.entries(catGroups).map(([key, products])=>{
+                  const first = products[0];
+                  const hasMany = products.length>1;
+                  const qty = !hasMany?(cart[first.id]||0):0;
+                  const price = first.price;
+                  const minPrice = hasMany?Math.min(...products.map(p=>p.price)):price;
+                  const groupKey = `${cat.id}::${key}`;
+                  const isExpanded = expandedGroup===groupKey;
+                  const displayName = lang==="kn"?groupKeyKn(key,KN_NAMES):key;
+
+                  if(hasMany){
+                    // Multi-variety card: name on left, big variety count + image on right
+                    return (
+                      <div key={key}
+                        onClick={()=>setExpandedGroup(isExpanded?null:groupKey)}
+                        style={{backgroundColor:"white",borderRadius:18,overflow:"hidden",cursor:"pointer",
+                          boxShadow:isExpanded?"0 4px 18px rgba(26,107,60,0.18)":"0 2px 8px rgba(0,0,0,0.08)",
+                          border:isExpanded?`2px solid ${basil}`:"2px solid transparent",
+                          display:"flex",flexDirection:"column",minHeight:140}}>
+                        {/* Price row */}
+                        <div style={{padding:"10px 10px 0",fontSize:10,fontWeight:600,color:"#888"}}>
+                          from ₹{minPrice}
                         </div>
-                        {/* Inline dropdown — horizontal scroll of varieties */}
-                        {expandedItem && (()=>{
-                          const [key, products] = expandedItem;
-                          return (
-                            <div style={{backgroundColor:"#f0faf4",borderRadius:12,padding:"12px 10px",marginBottom:8,border:`1px solid ${basil}20`}}>
-                              <div style={{fontSize:11,fontWeight:700,color:basil,marginBottom:8}}>{lang==="kn"?groupKeyKn(key,KN_NAMES):key} — {products.length} {lang==="kn"?"ಆಯ್ಕೆಗಳು":"varieties"}</div>
-                              <div style={{display:"flex",gap:10,overflowX:"auto",scrollbarWidth:"none",paddingBottom:4}}>
-                                {products.map(p=>{
-                                  const qty = cart[p.id]||0;
-                                  const price = p.price;
-                                  return (
-                                    <div key={p.id} onClick={e=>{e.stopPropagation();setSelectedProduct(p);}}
-                                      style={{flexShrink:0,width:"calc(30vw - 12px)",maxWidth:100,backgroundColor:"white",borderRadius:14,overflow:"hidden",cursor:"pointer",boxShadow:"0 1px 6px rgba(0,0,0,0.08)",border:"1.5px solid #f0f0f0",display:"flex",flexDirection:"column"}}>
-                                      <div style={{padding:"5px 5px 0",fontSize:8,fontWeight:600,color:soil}}>₹{price}/{p.variants?.[0]?.label||p.unit}</div>
-                                      <div style={{position:"relative",paddingTop:"88%",backgroundColor:"white",margin:"3px 4px 0"}}>
-                                        <div style={{position:"absolute",inset:"3px"}}><ProductImage p={p}/></div>
-                                        {qty>0&&<div style={{position:"absolute",top:3,right:3,width:16,height:16,borderRadius:"50%",backgroundColor:basil,color:"white",fontSize:8,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center"}}>{qty}</div>}
-                                        {!p.in_stock&&<div style={{position:"absolute",inset:0,backgroundColor:"rgba(255,255,255,0.85)",display:"flex",alignItems:"center",justifyContent:"center",borderRadius:8}}><span style={{fontSize:7,fontWeight:800,color:chili,textAlign:"center",padding:"2px 5px",backgroundColor:"#fee2e2",borderRadius:4}}>OUT OF STOCK</span></div>}
-                                      </div>
-                                      <div style={{padding:"4px 5px 7px"}}>
-                                        <div style={{fontSize:9,fontWeight:700,color:ink,lineHeight:1.3}}>{lang==="kn"?(KN_NAMES[p.name]||p.name):p.name}</div>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          );
-                        })()}
+                        {/* Image area */}
+                        <div style={{position:"relative",flex:1,margin:"6px 8px 0",minHeight:80}}>
+                          <div style={{position:"absolute",inset:0,borderRadius:12,overflow:"hidden"}}>
+                            <ProductImage p={first}/>
+                          </div>
+                          {/* Variety count badge — bottom-left of image */}
+                          <div style={{position:"absolute",bottom:4,left:4,backgroundColor:"rgba(0,0,0,0.6)",
+                            borderRadius:8,padding:"3px 7px",display:"flex",flexDirection:"column",alignItems:"center"}}>
+                            <span style={{fontSize:14,fontWeight:900,color:"white",lineHeight:1}}>{products.length}</span>
+                            <span style={{fontSize:7,color:"rgba(255,255,255,0.85)",lineHeight:1.2}}>{lang==="kn"?"ಆಯ್ಕೆಗಳು":"varieties"}</span>
+                          </div>
+                        </div>
+                        {/* Name at bottom */}
+                        <div style={{padding:"6px 10px 10px"}}>
+                          <div style={{fontSize:12,fontWeight:700,color:ink,lineHeight:1.3}}>{displayName}</div>
+                          <div style={{fontSize:9,color:basil,marginTop:2,fontWeight:600}}>{isExpanded?"▲ close":"▼ pick variety"}</div>
+                        </div>
+                      </div>
+                    );
+                  } else {
+                    // Single-variety card: price top-left, image center, name bottom
+                    return (
+                      <div key={key}
+                        onClick={()=>setSelectedProduct(first)}
+                        style={{backgroundColor:"white",borderRadius:18,overflow:"hidden",cursor:"pointer",
+                          boxShadow:"0 2px 8px rgba(0,0,0,0.08)",border:"2px solid transparent",
+                          display:"flex",flexDirection:"column",minHeight:140,opacity:first.in_stock===false?0.55:1}}>
+                        {/* Price row */}
+                        <div style={{padding:"10px 10px 0",fontSize:10,fontWeight:600,color:"#888"}}>
+                          ₹{price}/{first.variants?.[0]?.label||first.unit}
+                        </div>
+                        {/* Image area */}
+                        <div style={{position:"relative",flex:1,margin:"6px 8px 0",minHeight:80}}>
+                          <div style={{position:"absolute",inset:0,borderRadius:12,overflow:"hidden"}}>
+                            <ProductImage p={first}/>
+                          </div>
+                          {qty>0&&<div style={{position:"absolute",top:4,right:4,width:20,height:20,borderRadius:"50%",
+                            backgroundColor:basil,color:"white",fontSize:10,fontWeight:800,
+                            display:"flex",alignItems:"center",justifyContent:"center"}}>{qty}</div>}
+                          {first.in_stock===false&&<div style={{position:"absolute",inset:0,backgroundColor:"rgba(255,255,255,0.82)",
+                            display:"flex",alignItems:"center",justifyContent:"center",borderRadius:12}}>
+                            <span style={{fontSize:8,fontWeight:800,color:chili,padding:"2px 6px",backgroundColor:"#fee2e2",borderRadius:4}}>OUT OF STOCK</span>
+                          </div>}
+                        </div>
+                        {/* Name at bottom */}
+                        <div style={{padding:"6px 10px 10px"}}>
+                          <div style={{fontSize:12,fontWeight:700,color:ink,lineHeight:1.3}}>{displayName}</div>
+                        </div>
                       </div>
                     );
                   }
-                  return rows;
-                })()}
+                })}
               </div>
+              {/* Expanded variety picker — shown below grid as a full-width panel */}
+              {expandedGroup && expandedGroup.startsWith(`${cat.id}::`) && (()=>{
+                const key = expandedGroup.replace(`${cat.id}::`,"");
+                const products = catGroups[key];
+                if(!products) return null;
+                return (
+                  <div style={{margin:"0 10px 12px",backgroundColor:"#f0faf4",borderRadius:16,
+                    padding:"12px 10px",border:`1.5px solid ${basil}20`}}>
+                    <div style={{fontSize:11,fontWeight:700,color:basil,marginBottom:10}}>
+                      {lang==="kn"?groupKeyKn(key,KN_NAMES):key} — {products.length} {lang==="kn"?"ಆಯ್ಕೆಗಳು":"varieties"}
+                    </div>
+                    <div style={{display:"flex",gap:10,overflowX:"auto",scrollbarWidth:"none",paddingBottom:4}}>
+                      {products.map(p=>{
+                        const qty = cart[p.id]||0;
+                        return (
+                          <div key={p.id} onClick={e=>{e.stopPropagation();setSelectedProduct(p);}}
+                            style={{flexShrink:0,width:90,backgroundColor:"white",borderRadius:14,overflow:"hidden",
+                              cursor:"pointer",boxShadow:"0 1px 6px rgba(0,0,0,0.08)",border:"1.5px solid #f0f0f0",
+                              display:"flex",flexDirection:"column"}}>
+                            <div style={{padding:"5px 6px 0",fontSize:9,fontWeight:600,color:"#888"}}>₹{p.price}/{p.variants?.[0]?.label||p.unit}</div>
+                            <div style={{position:"relative",paddingTop:"86%",margin:"4px 5px 0"}}>
+                              <div style={{position:"absolute",inset:0,borderRadius:8,overflow:"hidden"}}><ProductImage p={p}/></div>
+                              {qty>0&&<div style={{position:"absolute",top:3,right:3,width:16,height:16,borderRadius:"50%",
+                                backgroundColor:basil,color:"white",fontSize:8,fontWeight:800,
+                                display:"flex",alignItems:"center",justifyContent:"center"}}>{qty}</div>}
+                              {!p.in_stock&&<div style={{position:"absolute",inset:0,backgroundColor:"rgba(255,255,255,0.85)",
+                                display:"flex",alignItems:"center",justifyContent:"center",borderRadius:8}}>
+                                <span style={{fontSize:7,fontWeight:800,color:chili,padding:"2px 4px",backgroundColor:"#fee2e2",borderRadius:4}}>OUT</span>
+                              </div>}
+                            </div>
+                            <div style={{padding:"4px 6px 8px"}}>
+                              <div style={{fontSize:9,fontWeight:700,color:ink,lineHeight:1.3}}>{lang==="kn"?(KN_NAMES[p.name]||p.name):p.name}</div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           );
         })}
