@@ -933,20 +933,8 @@ export default function Gadag360() {
       }
     } catch(e) {}
 
-    const steps = [
-      [1200, 1],
-      [2800, 2],
-      [5000, 2],
-      [7500, 3],
-      [10000,3],
-      [13000,4],
-    ];
-    steps.forEach(([ms, idx]) => {
-      timerRef.current = setTimeout(() => {
-        setOrderStatusIdx(idx);
-        if (idx === 4) setShowRating(true);
-      }, ms);
-    });
+    // Status advances only when delivery boy updates it in delivery.html
+    // (polled every 10s via the order status polling effect below)
   };
 
   // F4 Smart reorder
@@ -1218,36 +1206,51 @@ const verifyOtp = async () => {
     setupBackButton();
   }, []); // Run once on mount
 
-  // ── LIVE RIDER TRACKING POLL ──
-  // When customer is on checkout or confirmation screen AND order is picked up,
-  // poll Supabase every 10s for the delivery boy's GPS location.
+  // ── ORDER STATUS + RIDER GPS POLL ──
+  // Polls Supabase every 10s when customer is on tracking/confirmation screen.
+  // Updates real order status (placed→confirmed→pickedup→delivered) and live rider GPS.
+  const STATUS_TO_IDX = { placed:0, confirmed:1, pickedup:2, picked_up:2, delivered:3 };
   const activeOrderId = activeOrders[0]?.id || null;
   const activeOrderStatus = activeOrders[0]?.status || null;
   useEffect(() => {
     const isTrackingScreen = screen === "checkout" || screen === "confirmation";
-    const isPickedUp = activeOrderStatus === "pickedup" || activeOrderStatus === "picked_up";
-
-    if (isTrackingScreen && activeOrderId && isPickedUp) {
-      const pollRider = async () => {
-        try {
-          const { data } = await supabase
-            .from("orders")
-            .select("rider_lat, rider_lon")
-            .eq("id", activeOrderId)
-            .single();
-          if (data?.rider_lat && data?.rider_lon) {
-            setRiderPos({ lat: data.rider_lat, lon: data.rider_lon });
-          }
-        } catch(e) {}
-      };
-      pollRider();
-      riderPollRef.current = setInterval(pollRider, 10000);
-    } else {
+    if (!isTrackingScreen || !activeOrderId) {
       if (riderPollRef.current) { clearInterval(riderPollRef.current); riderPollRef.current = null; }
-      if (!isPickedUp) setRiderPos(null);
+      return;
     }
+
+    const pollOrder = async () => {
+      try {
+        const { data } = await supabase
+          .from("orders")
+          .select("status, rider_lat, rider_lon")
+          .eq("id", activeOrderId)
+          .single();
+        if (!data) return;
+        // Update order status index
+        const newIdx = STATUS_TO_IDX[data.status] ?? 0;
+        setOrderStatusIdx(newIdx);
+        // Update active order status in state
+        setActiveOrders(prev => prev.map(o => o.id === activeOrderId ? {...o, status: data.status} : o));
+        // Update rider GPS if available
+        if (data.rider_lat && data.rider_lon) {
+          setRiderPos({ lat: data.rider_lat, lon: data.rider_lon });
+        } else {
+          setRiderPos(null);
+        }
+        // Show rating when delivered
+        if (data.status === "delivered") {
+          setShowRating(true);
+          clearInterval(riderPollRef.current);
+          riderPollRef.current = null;
+        }
+      } catch(e) {}
+    };
+
+    pollOrder(); // immediate first poll
+    riderPollRef.current = setInterval(pollOrder, 10000);
     return () => { if (riderPollRef.current) { clearInterval(riderPollRef.current); riderPollRef.current = null; } };
-  }, [screen, activeOrderId, activeOrderStatus]);
+  }, [screen, activeOrderId]);
 
   // ── BOTTOM NAV ──
   // BottomNav removed — profile accessed via header avatar
