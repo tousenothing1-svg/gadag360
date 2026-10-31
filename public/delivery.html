@@ -382,20 +382,26 @@ let riderTrackingOrderId = null;
 function startRiderTracking(orderId) {
   if (!navigator.geolocation) return;
   riderTrackingOrderId = orderId;
-  // Push GPS to Supabase every 10s
-  riderWatchId = navigator.geolocation.watchPosition(async (pos) => {
-    const { latitude: lat, longitude: lon } = pos.coords;
-    await sb.from("orders").update({
-      rider_lat: lat,
-      rider_lon: lon,
-      rider_updated_at: new Date().toISOString()
-    }).eq("id", orderId);
-  }, null, { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 });
+
+  // Push GPS to Supabase immediately and then every 10s
+  const pushLocation = () => {
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      const { latitude: lat, longitude: lon } = pos.coords;
+      await sb.from("orders").update({
+        rider_lat: lat,
+        rider_lon: lon,
+        rider_updated_at: new Date().toISOString()
+      }).eq("id", orderId);
+    }, null, { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 });
+  };
+
+  pushLocation(); // push immediately on pickup
+  riderWatchId = setInterval(pushLocation, 10000); // then every 10s
 }
 
 function stopRiderTracking() {
   if (riderWatchId !== null) {
-    navigator.geolocation.clearWatch(riderWatchId);
+    clearInterval(riderWatchId);
     riderWatchId = null;
   }
   // Clear rider location from order
