@@ -60,14 +60,14 @@ const Storage = {
 const SUPABASE_URL = "https://lykhjuizzvurklywxflz.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx5a2hqdWl6enZ1cmtseXd4Zmx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEzODg3OTMsImV4cCI6MjEwNjk2NDc5M30.2gO3aK030mJ0pYTeMd95B7uZF-dHnFzDOSaPwt9hZ6Q";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-import { MapPin, Search, ShoppingCart, Plus, Minus, ArrowLeft, Check, Store, X, Globe, Bike, Star, Gift, Clock, Package, Copy, Tag, Zap, Users, ThumbsUp, History, Bell, ChevronRight, Award, Repeat, RotateCcw, User, Heart, CreditCard, HelpCircle, RefreshCcw, Home, LogOut, Phone, Mail, Edit3, Lightbulb, Info, Mic, ChevronDown, Menu, ShoppingBasket, Sparkles, Sunrise, Leaf } from "lucide-react";
+import { MapPin, Search, ShoppingCart, Plus, Minus, ArrowLeft, Check, Store, X, Globe, Bike, Star, Gift, Clock, Package, Copy, Tag, Zap, Users, ThumbsUp, History, Bell, ChevronRight, Award, Repeat, RotateCcw, User, Heart, CreditCard, HelpCircle, RefreshCcw, Home, LogOut, Phone, Mail, Edit3, Lightbulb, Info, Mic, ChevronDown, Menu, ShoppingBasket, Sparkles, Sunrise, Leaf, Truck } from "lucide-react";
 
 // ── DESIGN TOKENS ──
 // Basil green: actions and selection. Haldi (turmeric): category pills and highlights. Sage: the shelf behind the cards.
 const basil = "#1A6B3C", basilDark = "#124D2A", mango = "#FF6B35";
 const chili = "#D93A30", soil = "#6B716A", ink = "#1E2B22", line = "#E4E8E0";
 const bg = "#FFFFFF", panel = "#FFFFFF";
-const haldi = "#F2B53A", sage = "#EEF1EA";
+const haldi = "#F2B53A", sage = "#F2F5F1";
 const display = "'Figtree', 'Noto Sans Kannada', system-ui, -apple-system, sans-serif";
 const body = "'Figtree', 'Noto Sans Kannada', system-ui, -apple-system, sans-serif";
 const accent = "'Baloo Tamma 2', 'Figtree', 'Noto Sans Kannada', system-ui, sans-serif"; // rounded display face made for Kannada
@@ -661,9 +661,9 @@ function HandpickdLayout({ filtered, listMode, onClearList, suggestions, onSugge
 
   const GAP = 12;
   const FILLERS = [
-    { icon: "🚚", en: "Delivered in 2 hrs", kn: "2 ಗಂಟೆಯಲ್ಲಿ ಡೆಲಿವರಿ" },
-    { icon: "🌿", en: "Fresh every day", kn: "ಪ್ರತಿದಿನ ತಾಜಾ" },
-    { icon: "📍", en: "Made for Gadag", kn: "ಗದಗಿಗಾಗಿ" },
+    { icon: Truck,  en: "Delivered in 2 hrs", kn: "2 ಗಂಟೆಯಲ್ಲಿ ಡೆಲಿವರಿ", tint: "#1A6B3C", glow: "rgba(26,107,60,0.16)" },
+    { icon: Leaf,   en: "Fresh every day",    kn: "ಪ್ರತಿದಿನ ತಾಜಾ",        tint: "#2F7D6D", glow: "rgba(47,125,109,0.16)" },
+    { icon: MapPin, en: "Made for Gadag",     kn: "ಗದಗಿಗಾಗಿ",             tint: "#A0700E", glow: "rgba(242,181,58,0.24)" },
   ];
   const cardShadow = "0 1px 2px rgba(30,43,34,0.05), 0 4px 12px rgba(30,43,34,0.05)";
   const clamp2 = { display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" };
@@ -773,13 +773,19 @@ function HandpickdLayout({ filtered, listMode, onClearList, suggestions, onSugge
   };
 
   /* ── Filler tile: fills the slot a wide card can't use ── */
-  const filler = (f, k) => (
-    <div key={k} aria-hidden="true" style={{ minHeight: 120, borderRadius: 14, background: "#FBF3DC", display: "flex", flexDirection: "column",
-      alignItems: "center", justifyContent: "center", gap: 6, padding: 10, textAlign: "center", color: "#7A5A12",
-      fontFamily: accent, fontWeight: 700, fontSize: 15, lineHeight: 1.2 }}>
-      <span style={{ fontSize: 22 }}>{f.icon}</span>{f[lang]}
-    </div>
-  );
+  const filler = (f, k) => {
+    const Icon = f.icon;
+    return (
+      <div key={k} aria-hidden="true" className="g-glass" style={{ "--glow": f.glow, minHeight: 120, borderRadius: 16, display: "flex",
+        flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 9, padding: 12, textAlign: "center" }}>
+        <span style={{ width: 40, height: 40, borderRadius: 20, background: "rgba(255,255,255,0.95)", boxShadow: "0 2px 8px rgba(30,43,34,0.08)",
+          display: "flex", alignItems: "center", justifyContent: "center", color: f.tint }}>
+          <Icon size={20} strokeWidth={2}/>
+        </span>
+        <span style={{ fontFamily: accent, fontWeight: 600, fontSize: 14.5, lineHeight: 1.2, color: "#23392B" }}>{f[lang]}</span>
+      </div>
+    );
+  };
 
   /* ── Variety panel: opens under the row; swipe sideways, the next card peeks in ── */
   const varietyPanel = (openItem, catId) => {
@@ -822,13 +828,13 @@ function HandpickdLayout({ filtered, listMode, onClearList, suggestions, onSugge
       <section key={cat.id} id={`sec-${cat.id}`} className="g-sec" aria-label={cat[lang]}>
         {/* Sticky category pill; tap to open the category drawer */}
         <div style={{ position: "sticky", top: "var(--g-sticky, 0px)", zIndex: 6, padding: `12px ${GAP}px 10px`, pointerEvents: "none" }}>
-          <button className="g-reset g-tap" onClick={onOpenDrawer}
+          <button className="g-reset g-tap g-frost" onClick={onOpenDrawer}
             aria-label={kn ? `${cat[lang]}: ವರ್ಗಗಳನ್ನು ತೆರೆಯಿರಿ` : `${cat[lang]}: open categories`}
-            style={{ pointerEvents: "auto", display: "inline-flex", alignItems: "center", gap: 7, background: haldi, color: ink, borderRadius: 20,
-              padding: "5px 12px 5px 12px", fontFamily: accent, fontWeight: 700, fontSize: 17, lineHeight: 1.25, boxShadow: "0 2px 8px rgba(30,43,34,0.14)" }}>
+            style={{ pointerEvents: "auto", display: "inline-flex", alignItems: "center", gap: 7, color: ink, borderRadius: 20,
+              padding: "5px 12px 5px 12px", fontFamily: accent, fontWeight: 700, fontSize: 17, lineHeight: 1.25 }}>
             <span aria-hidden="true" style={{ fontFamily: body, fontSize: 15 }}>{CAT_EMOJI[cat.id] || "🛒"}</span>
             {cat[lang]}
-            <ChevronDown size={16} strokeWidth={2.4}/>
+            <ChevronDown size={16} strokeWidth={2.4} style={{ color: basil }}/>
           </button>
         </div>
         <div style={{ padding: `0 ${GAP}px 4px` }}>
@@ -2053,7 +2059,7 @@ const verifyOtp = async () => {
         </div>
 
         {/* ── DELIVERY STRIP ── */}
-        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, padding:"8px 14px", background:"#F0F7F2" }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, padding:"8px 14px", background:"linear-gradient(90deg, rgba(26,107,60,0.10), rgba(26,107,60,0.02))" }}>
           <div style={{ display:"flex", alignItems:"center", gap:6, fontSize:12, minWidth:0 }}>
             <Zap size={13} style={{ color:basil, flexShrink:0 }} fill={basil}/>
             <span style={{ fontWeight:700, color:basil, whiteSpace:"nowrap" }}>{lang==="kn" ? "2 ಗಂಟೆಯಲ್ಲಿ ಡೆಲಿವರಿ" : "Delivery in 2 hrs"}</span>
@@ -2110,11 +2116,11 @@ const verifyOtp = async () => {
             <div style={{ flex:1, overflowY:"auto", display:"flex", flexDirection:"column", alignItems:"stretch", gap:8, padding:"2px 16px 24px" }}>
               {CATS.filter(c => c.id !== "all" && catCounts[c.id]).map(c => (
                 <button key={c.id} className="g-reset g-tap" onClick={() => jumpToCat(c.id)}
-                  style={{ display:"flex", alignItems:"center", gap:12, background:"#FBF3DC", color:ink, borderRadius:14, padding:"10px 14px",
+                  style={{ display:"flex", alignItems:"center", gap:12, background:"#F3F6F2", color:ink, borderRadius:14, padding:"10px 14px",
                     fontFamily:accent, fontWeight:700, fontSize:18, lineHeight:1.25 }}>
                   <span aria-hidden="true" style={{ fontFamily:body, fontSize:20 }}>{CAT_EMOJI[c.id] || "🛒"}</span>
                   <span style={{ flex:1 }}>{c[lang]}</span>
-                  <span style={{ fontFamily:body, fontSize:12, fontWeight:700, color:"#7A5A12", background:"#fff", borderRadius:10, padding:"2px 8px" }}>{catCounts[c.id]}</span>
+                  <span style={{ fontFamily:body, fontSize:12, fontWeight:700, color:basil, background:"#fff", borderRadius:10, padding:"2px 8px" }}>{catCounts[c.id]}</span>
                 </button>
               ))}
             </div>
