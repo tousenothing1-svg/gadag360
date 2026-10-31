@@ -588,8 +588,8 @@ const ProductSliderModal = ({p, onClose, setCart, initialQty}) => {
                   <span style={{fontSize:12,fontWeight:700,color:"white"}}>{cat[lang]}</span>
                 </div>
               </div>
-              {/* 2-column product grid — handpickd style */}
-              <div style={{padding:"0 10px 4px",display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              {/* 2-column product grid — handpickd style, NO curves */}
+              <div style={{padding:"0 8px 4px",display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
                 {Object.entries(catGroups).map(([key, products])=>{
                   const first = products[0];
                   const hasMany = products.length>1;
@@ -601,65 +601,63 @@ const ProductSliderModal = ({p, onClose, setCart, initialQty}) => {
                   const displayName = lang==="kn"?groupKeyKn(key,KN_NAMES):key;
 
                   if(hasMany){
-                    // Multi-variety card: name on left, big variety count + image on right
                     return (
                       <div key={key}
                         onClick={()=>setExpandedGroup(isExpanded?null:groupKey)}
-                        style={{backgroundColor:"white",borderRadius:18,overflow:"hidden",cursor:"pointer",
-                          boxShadow:isExpanded?"0 4px 18px rgba(26,107,60,0.18)":"0 2px 8px rgba(0,0,0,0.08)",
-                          border:isExpanded?`2px solid ${basil}`:"2px solid transparent",
-                          display:"flex",flexDirection:"column",minHeight:140}}>
+                        style={{backgroundColor:"white",borderRadius:6,overflow:"hidden",cursor:"pointer",
+                          boxShadow:isExpanded?"0 2px 10px rgba(26,107,60,0.15)":"0 1px 4px rgba(0,0,0,0.07)",
+                          border:isExpanded?`1.5px solid ${basil}`:"1.5px solid #e8e8e8",
+                          display:"flex",flexDirection:"column",minHeight:150}}>
                         {/* Price row */}
-                        <div style={{padding:"10px 10px 0",fontSize:10,fontWeight:600,color:"#888"}}>
+                        <div style={{padding:"8px 8px 0",fontSize:10,fontWeight:500,color:"#999"}}>
                           from ₹{minPrice}
                         </div>
-                        {/* Image area */}
-                        <div style={{position:"relative",flex:1,margin:"6px 8px 0",minHeight:80}}>
-                          <div style={{position:"absolute",inset:0,borderRadius:12,overflow:"hidden"}}>
+                        {/* Image — square, no radius */}
+                        <div style={{position:"relative",paddingTop:"80%",margin:"4px 0 0",backgroundColor:"#fafafa"}}>
+                          <div style={{position:"absolute",inset:0}}>
                             <ProductImage p={first}/>
                           </div>
-                          {/* Variety count badge — bottom-left of image */}
-                          <div style={{position:"absolute",bottom:4,left:4,backgroundColor:"rgba(0,0,0,0.6)",
-                            borderRadius:8,padding:"3px 7px",display:"flex",flexDirection:"column",alignItems:"center"}}>
-                            <span style={{fontSize:14,fontWeight:900,color:"white",lineHeight:1}}>{products.length}</span>
-                            <span style={{fontSize:7,color:"rgba(255,255,255,0.85)",lineHeight:1.2}}>{lang==="kn"?"ಆಯ್ಕೆಗಳು":"varieties"}</span>
+                          {/* Variety count — top-right corner */}
+                          <div style={{position:"absolute",top:6,right:6,backgroundColor:basil,
+                            borderRadius:4,padding:"2px 6px",display:"flex",flexDirection:"column",alignItems:"center"}}>
+                            <span style={{fontSize:13,fontWeight:900,color:"white",lineHeight:1.1}}>{products.length}</span>
+                            <span style={{fontSize:6,color:"rgba(255,255,255,0.9)",lineHeight:1.2,letterSpacing:0.3}}>{lang==="kn"?"ಆಯ್ಕೆಗಳು":"varieties"}</span>
                           </div>
                         </div>
                         {/* Name at bottom */}
-                        <div style={{padding:"6px 10px 10px"}}>
-                          <div style={{fontSize:12,fontWeight:700,color:ink,lineHeight:1.3}}>{displayName}</div>
-                          <div style={{fontSize:9,color:basil,marginTop:2,fontWeight:600}}>{isExpanded?"▲ close":"▼ pick variety"}</div>
+                        <div style={{padding:"6px 8px 8px",borderTop:"1px solid #f2f2f2"}}>
+                          <div style={{fontSize:11,fontWeight:700,color:ink,lineHeight:1.3}}>{displayName}</div>
+                          <div style={{fontSize:9,color:basil,marginTop:1,fontWeight:500}}>{isExpanded?"▲ close":"tap to choose"}</div>
                         </div>
                       </div>
                     );
                   } else {
-                    // Single-variety card: price top-left, image center, name bottom
                     return (
                       <div key={key}
                         onClick={()=>setSelectedProduct(first)}
-                        style={{backgroundColor:"white",borderRadius:18,overflow:"hidden",cursor:"pointer",
-                          boxShadow:"0 2px 8px rgba(0,0,0,0.08)",border:"2px solid transparent",
-                          display:"flex",flexDirection:"column",minHeight:140,opacity:first.in_stock===false?0.55:1}}>
+                        style={{backgroundColor:"white",borderRadius:6,overflow:"hidden",cursor:"pointer",
+                          boxShadow:"0 1px 4px rgba(0,0,0,0.07)",border:"1.5px solid #e8e8e8",
+                          display:"flex",flexDirection:"column",minHeight:150,opacity:first.in_stock===false?0.5:1}}>
                         {/* Price row */}
-                        <div style={{padding:"10px 10px 0",fontSize:10,fontWeight:600,color:"#888"}}>
+                        <div style={{padding:"8px 8px 0",fontSize:10,fontWeight:500,color:"#999"}}>
                           ₹{price}/{first.variants?.[0]?.label||first.unit}
                         </div>
-                        {/* Image area */}
-                        <div style={{position:"relative",flex:1,margin:"6px 8px 0",minHeight:80}}>
-                          <div style={{position:"absolute",inset:0,borderRadius:12,overflow:"hidden"}}>
+                        {/* Image — square, no radius */}
+                        <div style={{position:"relative",paddingTop:"80%",margin:"4px 0 0",backgroundColor:"#fafafa"}}>
+                          <div style={{position:"absolute",inset:0}}>
                             <ProductImage p={first}/>
                           </div>
-                          {qty>0&&<div style={{position:"absolute",top:4,right:4,width:20,height:20,borderRadius:"50%",
-                            backgroundColor:basil,color:"white",fontSize:10,fontWeight:800,
+                          {qty>0&&<div style={{position:"absolute",top:5,right:5,width:18,height:18,borderRadius:"50%",
+                            backgroundColor:basil,color:"white",fontSize:9,fontWeight:800,
                             display:"flex",alignItems:"center",justifyContent:"center"}}>{qty}</div>}
-                          {first.in_stock===false&&<div style={{position:"absolute",inset:0,backgroundColor:"rgba(255,255,255,0.82)",
-                            display:"flex",alignItems:"center",justifyContent:"center",borderRadius:12}}>
-                            <span style={{fontSize:8,fontWeight:800,color:chili,padding:"2px 6px",backgroundColor:"#fee2e2",borderRadius:4}}>OUT OF STOCK</span>
+                          {first.in_stock===false&&<div style={{position:"absolute",inset:0,backgroundColor:"rgba(255,255,255,0.80)",
+                            display:"flex",alignItems:"center",justifyContent:"center"}}>
+                            <span style={{fontSize:8,fontWeight:800,color:chili,padding:"2px 5px",backgroundColor:"#fee2e2",borderRadius:3}}>OUT OF STOCK</span>
                           </div>}
                         </div>
                         {/* Name at bottom */}
-                        <div style={{padding:"6px 10px 10px"}}>
-                          <div style={{fontSize:12,fontWeight:700,color:ink,lineHeight:1.3}}>{displayName}</div>
+                        <div style={{padding:"6px 8px 8px",borderTop:"1px solid #f2f2f2"}}>
+                          <div style={{fontSize:11,fontWeight:700,color:ink,lineHeight:1.3}}>{displayName}</div>
                         </div>
                       </div>
                     );
@@ -672,7 +670,7 @@ const ProductSliderModal = ({p, onClose, setCart, initialQty}) => {
                 const products = catGroups[key];
                 if(!products) return null;
                 return (
-                  <div style={{margin:"0 10px 12px",backgroundColor:"#f0faf4",borderRadius:16,
+                  <div style={{margin:"0 8px 10px",backgroundColor:"#f0faf4",borderRadius:6,
                     padding:"12px 10px",border:`1.5px solid ${basil}20`}}>
                     <div style={{fontSize:11,fontWeight:700,color:basil,marginBottom:10}}>
                       {lang==="kn"?groupKeyKn(key,KN_NAMES):key} — {products.length} {lang==="kn"?"ಆಯ್ಕೆಗಳು":"varieties"}
@@ -682,21 +680,21 @@ const ProductSliderModal = ({p, onClose, setCart, initialQty}) => {
                         const qty = cart[p.id]||0;
                         return (
                           <div key={p.id} onClick={e=>{e.stopPropagation();setSelectedProduct(p);}}
-                            style={{flexShrink:0,width:90,backgroundColor:"white",borderRadius:14,overflow:"hidden",
-                              cursor:"pointer",boxShadow:"0 1px 6px rgba(0,0,0,0.08)",border:"1.5px solid #f0f0f0",
+                            style={{flexShrink:0,width:88,backgroundColor:"white",borderRadius:5,overflow:"hidden",
+                              cursor:"pointer",boxShadow:"0 1px 4px rgba(0,0,0,0.08)",border:"1.5px solid #e8e8e8",
                               display:"flex",flexDirection:"column"}}>
-                            <div style={{padding:"5px 6px 0",fontSize:9,fontWeight:600,color:"#888"}}>₹{p.price}/{p.variants?.[0]?.label||p.unit}</div>
-                            <div style={{position:"relative",paddingTop:"86%",margin:"4px 5px 0"}}>
-                              <div style={{position:"absolute",inset:0,borderRadius:8,overflow:"hidden"}}><ProductImage p={p}/></div>
+                            <div style={{padding:"5px 6px 0",fontSize:9,fontWeight:500,color:"#999"}}>₹{p.price}/{p.variants?.[0]?.label||p.unit}</div>
+                            <div style={{position:"relative",paddingTop:"85%",backgroundColor:"#fafafa"}}>
+                              <div style={{position:"absolute",inset:0}}><ProductImage p={p}/></div>
                               {qty>0&&<div style={{position:"absolute",top:3,right:3,width:16,height:16,borderRadius:"50%",
                                 backgroundColor:basil,color:"white",fontSize:8,fontWeight:800,
                                 display:"flex",alignItems:"center",justifyContent:"center"}}>{qty}</div>}
                               {!p.in_stock&&<div style={{position:"absolute",inset:0,backgroundColor:"rgba(255,255,255,0.85)",
-                                display:"flex",alignItems:"center",justifyContent:"center",borderRadius:8}}>
-                                <span style={{fontSize:7,fontWeight:800,color:chili,padding:"2px 4px",backgroundColor:"#fee2e2",borderRadius:4}}>OUT</span>
+                                display:"flex",alignItems:"center",justifyContent:"center"}}>
+                                <span style={{fontSize:7,fontWeight:800,color:chili,padding:"2px 4px",backgroundColor:"#fee2e2",borderRadius:2}}>OUT</span>
                               </div>}
                             </div>
-                            <div style={{padding:"4px 6px 8px"}}>
+                            <div style={{padding:"4px 6px 7px",borderTop:"1px solid #f2f2f2"}}>
                               <div style={{fontSize:9,fontWeight:700,color:ink,lineHeight:1.3}}>{lang==="kn"?(KN_NAMES[p.name]||p.name):p.name}</div>
                             </div>
                           </div>
