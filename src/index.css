@@ -16,8 +16,16 @@ html {
 body {
   width: 100%;
   overflow-x: hidden;
-  background-color: #f8f8f6;
   -webkit-text-size-adjust: 100%;
+  /* Desktop: show a nice dark background behind the phone shell */
+  background-color: #1a1a2e;
+}
+
+/* On real mobile screens, plain white background */
+@media (max-width: 480px) {
+  body {
+    background-color: #f8f8f6;
+  }
 }
 
 #root {
@@ -27,7 +35,32 @@ body {
   min-height: 100vh;
   display: flex;
   justify-content: center;
-  background-color: #f8f8f6;
+  align-items: flex-start;
+}
+
+/* Desktop: constrain to phone width with phone-like shell */
+@media (min-width: 481px) {
+  #root {
+    background-color: #1a1a2e;
+    background-image:
+      radial-gradient(ellipse at 20% 50%, rgba(34,197,94,0.08) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 20%, rgba(16,185,129,0.06) 0%, transparent 50%);
+    padding: 24px 0 48px;
+  }
+
+  #root > div:first-child {
+    width: 390px !important;
+    max-width: 390px !important;
+    min-height: calc(100vh - 72px) !important;
+    border-radius: 40px !important;
+    overflow: hidden !important;
+    box-shadow:
+      0 0 0 10px #2a2a3e,
+      0 0 0 12px #3a3a50,
+      0 32px 80px rgba(0,0,0,0.6),
+      0 8px 24px rgba(0,0,0,0.4) !important;
+    position: relative;
+  }
 }
 
 /* Prevent ALL horizontal scroll */

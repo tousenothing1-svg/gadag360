@@ -1279,7 +1279,7 @@ const verifyOtp = async () => {
   const BottomNav = () => null;
 
   return (
-    <div style={{width:"100vw", maxWidth:"100vw", minHeight:"100vh", display:"flex", flexDirection:"column", backgroundColor:bg, fontFamily:body, color:ink, overflowX:"hidden", position:"relative", boxSizing:"border-box", paddingTop:"env(safe-area-inset-top, 0px)"}}>
+    <div style={{width:"100%", maxWidth:"100%", minHeight:"100vh", display:"flex", flexDirection:"column", backgroundColor:bg, fontFamily:body, color:ink, overflowX:"hidden", position:"relative", boxSizing:"border-box", paddingTop:"env(safe-area-inset-top, 0px)"}}>
 
       {/* ── ACCOUNT TAB ── */}
       {activeTab==="profile" && !profileSection && <>
