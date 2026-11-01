@@ -162,3 +162,34 @@ input[type="search"]::-webkit-search-decoration { -webkit-appearance: none; }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .g-frost { background: rgba(255, 255, 255, 0.95); }
 }
+
+/* ── Maps ── */
+/* Leaflet places markers inside zero-width panes, so the global max-width rule above would squash them to nothing */
+.leaflet-container * { max-width: none; }
+.g-map .leaflet-container { background: #EAEFE8; font-family: inherit; }
+.g-map .leaflet-tile-pane { filter: saturate(0.6) brightness(1.04) contrast(0.95); }
+.g-map .leaflet-control-attribution { font-size: 10px; line-height: 1.5; background: rgba(255, 255, 255, 0.75); color: #6B716A; border-radius: 0 6px 0 0; padding: 0 6px; }
+.g-map .leaflet-control-attribution a { color: #6B716A; }
+.g-divicon { background: none; border: 0; }
+.g-mk { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.g-mk-sq { width: 40px; height: 40px; border-radius: 12px; background: #1A6B3C; border: 3px solid #fff; box-shadow: 0 4px 12px rgba(18, 77, 42, 0.35); display: flex; align-items: center; justify-content: center; }
+.g-mk-home svg { filter: drop-shadow(0 4px 6px rgba(120, 30, 10, 0.3)); }
+.g-mk-label { font: 700 11px/1.3 'Figtree', 'Noto Sans Kannada', system-ui, sans-serif; color: #124D2A; background: #fff; padding: 2px 8px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.14); white-space: nowrap; }
+.g-mk-rider { position: relative; width: 46px; height: 46px; border-radius: 50%; background: #fff; border: 3px solid #1A6B3C; box-shadow: 0 4px 14px rgba(18, 77, 42, 0.35); display: flex; align-items: center; justify-content: center; }
+.g-mk-rider::after { content: ""; position: absolute; inset: -9px; border-radius: 50%; border: 2px solid rgba(26, 107, 60, 0.5); animation: g-ping 1.8s ease-out infinite; }
+@keyframes g-ping { from { transform: scale(0.75); opacity: 1; } to { transform: scale(1.35); opacity: 0; } }
+/* white dots flowing along the route towards the customer */
+.g-route-flow { stroke-dasharray: 0.1 12; animation: g-flow 0.8s linear infinite; }
+@keyframes g-flow { to { stroke-dashoffset: -12.1; } }
+.g-live-dot { width: 8px; height: 8px; border-radius: 50%; background: #D93A30; animation: g-dot 1.4s ease-out infinite; }
+@keyframes g-dot { 0% { box-shadow: 0 0 0 0 rgba(217, 58, 48, 0.55); } 100% { box-shadow: 0 0 0 8px rgba(217, 58, 48, 0); } }
+.g-step-active { animation: g-step 1.8s ease-out infinite; }
+@keyframes g-step { 0% { box-shadow: 0 0 0 0 rgba(26, 107, 60, 0.35); } 100% { box-shadow: 0 0 0 10px rgba(26, 107, 60, 0); } }
+@media (prefers-reduced-motion: reduce) {
+  .g-mk-rider::after, .g-route-flow, .g-live-dot, .g-step-active { animation: none; }
+}
+/* Zoom buttons on the pin-your-door map */
+.g-map .leaflet-container .leaflet-bar { border: 0; border-radius: 12px; overflow: hidden; box-shadow: 0 3px 12px rgba(0, 0, 0, 0.16); }
+.g-map .leaflet-container .leaflet-bar a { width: 34px; height: 34px; font: 600 20px/34px 'Figtree', system-ui, sans-serif; color: #1E2B22; border-bottom-color: #E4E8E0; }
+.g-map .leaflet-container .leaflet-bar a:hover { background: #F2F5F1; }
+.g-map .leaflet-container .leaflet-bar a.leaflet-disabled { color: #B9C0B5; background: #fff; }

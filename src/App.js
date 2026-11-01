@@ -60,7 +60,7 @@ const Storage = {
 const SUPABASE_URL = "https://lykhjuizzvurklywxflz.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx5a2hqdWl6enZ1cmtseXd4Zmx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEzODg3OTMsImV4cCI6MjEwNjk2NDc5M30.2gO3aK030mJ0pYTeMd95B7uZF-dHnFzDOSaPwt9hZ6Q";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-import { MapPin, Search, ShoppingCart, Plus, Minus, ArrowLeft, Check, Store, X, Globe, Bike, Star, Gift, Clock, Package, Copy, Tag, Zap, Users, ThumbsUp, History, Bell, ChevronRight, Award, Repeat, RotateCcw, User, Heart, CreditCard, HelpCircle, RefreshCcw, Home, LogOut, Phone, Mail, Edit3, Lightbulb, Info, Mic, ChevronDown, Menu, ShoppingBasket, Sparkles, Sunrise, Leaf, Truck } from "lucide-react";
+import { MapPin, Search, ShoppingCart, Plus, Minus, ArrowLeft, Check, Store, X, Globe, Bike, Star, Gift, Clock, Package, Copy, Tag, Zap, Users, ThumbsUp, History, Bell, ChevronRight, Award, Repeat, RotateCcw, User, Heart, CreditCard, HelpCircle, RefreshCcw, Home, LogOut, Phone, Mail, Edit3, Lightbulb, Info, Mic, ChevronDown, Menu, ShoppingBasket, Sparkles, Sunrise, Leaf, Truck, LocateFixed } from "lucide-react";
 
 // ── DESIGN TOKENS ──
 // Basil green: actions and selection. Haldi (turmeric): category pills and highlights. Sage: the shelf behind the cards.
@@ -398,99 +398,244 @@ function ProductImage({ p }) {
 
 // Real warehouse location
 const WAREHOUSE_POS = [15.426861, 75.614917];
+// The shop's WhatsApp: new orders and "Get help" messages go here
+const SHOP_WHATSAPP = "919886888924";
 
-function LeafletMap({ orderStatusIdx, basil, customerLat, customerLon, riderPos }) {
-  const mapRef = useRef(null);
-  const leafletRef = useRef(null);
-  const riderMarkerRef = useRef(null);
-  const animFrameRef = useRef(null);
-  const prevPosRef = useRef(null);
-
-  const shopPos = WAREHOUSE_POS;
-  const homePos = (customerLat && customerLon) ? [customerLat, customerLon] : null;
-
-  // Initialise map once
-  useEffect(() => {
+// ── MAPS ──
+// Leaflet (the map library) loads once from the CDN, only when a map is shown.
+let leafletPromise = null;
+function loadLeaflet() {
+  if (window.L) return Promise.resolve(window.L);
+  if (leafletPromise) return leafletPromise;
+  leafletPromise = new Promise((resolve, reject) => {
     if (!document.getElementById("lf-css")) {
       const link = document.createElement("link");
       link.id = "lf-css"; link.rel = "stylesheet";
       link.href = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css";
       document.head.appendChild(link);
     }
-    const init = () => {
-      if (leafletRef.current || !mapRef.current) return;
-      const L = window.L;
-      const centerLat = homePos ? (shopPos[0] + homePos[0]) / 2 : shopPos[0];
-      const centerLon = homePos ? (shopPos[1] + homePos[1]) / 2 : shopPos[1];
-      const map = L.map(mapRef.current, { zoomControl:false, attributionControl:false })
-        .setView([centerLat, centerLon], homePos ? 13 : 15);
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
-      // Warehouse marker
-      const shopIcon = L.divIcon({ html:`<div style="background:#F2A33B;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3)">🏪</div>`, className:"", iconAnchor:[16,16] });
-      L.marker(shopPos, {icon:shopIcon}).bindPopup("Warehouse (Pickup)").addTo(map);
-      // Customer marker + route line
-      if (homePos) {
-        const homeIcon = L.divIcon({ html:`<div style="background:#C0392B;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3)">🏠</div>`, className:"", iconAnchor:[16,16] });
-        L.marker(homePos, {icon:homeIcon}).bindPopup("Delivery Location").addTo(map);
-        L.polyline([shopPos, homePos], { color: basil, weight:4, dashArray:"8,5" }).addTo(map);
-        map.fitBounds(L.latLngBounds([shopPos, homePos]), {padding:[30,30]});
-      }
-      leafletRef.current = map;
-    };
-    if (window.L) { init(); }
-    else {
-      if (!document.getElementById("lf-js")) {
-        const s = document.createElement("script");
-        s.id = "lf-js"; s.src = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js";
-        s.onload = init; document.head.appendChild(s);
-      } else { const iv = setInterval(()=>{ if(window.L){clearInterval(iv);init();} },100); }
+    const s = document.createElement("script");
+    s.src = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js";
+    s.onload = () => resolve(window.L);
+    s.onerror = () => { leafletPromise = null; reject(new Error("Map library failed to load")); };
+    document.head.appendChild(s);
+  });
+  return leafletPromise;
+}
+const OSM_TILES = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+const OSM_CREDIT = '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>';
+
+// Straight-line distance in km
+function kmBetween(a, b) {
+  const R = 6371, rad = d => (d * Math.PI) / 180;
+  const dLat = rad(b[0] - a[0]), dLon = rad(b[1] - a[1]);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a[0])) * Math.cos(rad(b[0])) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+// A gentle arc between two points: reads as a route without pretending to know the roads
+function arcPoints(a, b, bend = 0.18, n = 40) {
+  const cx = (a[0] + b[0]) / 2 - (b[1] - a[1]) * bend, cy = (a[1] + b[1]) / 2 + (b[0] - a[0]) * bend;
+  const pts = [];
+  for (let i = 0; i <= n; i++) {
+    const t = i / n, u = 1 - t;
+    pts.push([u * u * a[0] + 2 * u * t * cx + t * t * b[0], u * u * a[1] + 2 * u * t * cy + t * t * b[1]]);
+  }
+  return pts;
+}
+const fmtAccuracy = m => (m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${Math.round(m)} m`);
+
+// Small line icons for map markers (24×24 grid)
+const MAP_ICON = {
+  store: '<path d="M3 9h18"/><path d="M4.5 9 6 4h12l1.5 5"/><path d="M5 9v11h14V9"/><path d="M10 20v-5h4v5"/>',
+  home: '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>',
+  bike: '<circle cx="18.5" cy="17.5" r="3.5"/><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="15" cy="5" r="1"/><path d="M12 17.5V14l-3-3 4-3 2 3h2"/>',
+};
+const svgIcon = (name, size, color, sw = 2) =>
+  `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${MAP_ICON[name]}</svg>`;
+// Classic map pin with an icon in its head; the tip is at (19, 47)
+const pinSvg = (fill, icon) =>
+  `<svg width="38" height="48" viewBox="0 0 38 48" aria-hidden="true"><path d="M19 46.5S3.5 30 3.5 18.5a15.5 15.5 0 0 1 31 0C34.5 30 19 46.5 19 46.5z" fill="${fill}" stroke="#fff" stroke-width="3"/>` +
+  `<g transform="translate(9.4 8.9) scale(0.8)" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">${MAP_ICON[icon]}</g></svg>`;
+
+// ── TRACKING MAP ──
+// Store, customer and live rider on a soft map. The route is drawn as an arc: store → home before pickup,
+// then rider → home with dots flowing towards the customer.
+function TrackingMap({ customerLat, customerLon, riderPos, lang, height = 320, rounded = false, finished = false }) {
+  const elRef = useRef(null), mapRef = useRef(null), routeRef = useRef([]), riderRef = useRef(null), animRef = useRef(null), prevRef = useRef(null);
+  const [ready, setReady] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const kn = lang === "kn";
+  const home = customerLat && customerLon ? [Number(customerLat), Number(customerLon)] : null;
+
+  const fit = () => {
+    const map = mapRef.current, L = window.L;
+    if (!map || !L) return;
+    const pts = [WAREHOUSE_POS];
+    if (home) pts.push(home);
+    if (riderRef.current) { const p = riderRef.current.getLatLng(); pts.push([p.lat, p.lng]); }
+    if (pts.length === 1) map.setView(WAREHOUSE_POS, 15);
+    else map.fitBounds(L.latLngBounds(pts), { paddingTopLeft: [44, 76], paddingBottomRight: [44, rounded ? 44 : 64], maxZoom: 16 });
+  };
+
+  const drawRoute = from => {
+    const map = mapRef.current, L = window.L;
+    if (!map || !L || !home) return;
+    routeRef.current.forEach(l => map.removeLayer(l));
+    const pts = arcPoints(from || WAREHOUSE_POS, home);
+    const layers = [L.polyline(pts, { color: "#fff", weight: 9, opacity: 0.95, lineCap: "round", interactive: false })];
+    if (from) {
+      layers.push(L.polyline(pts, { color: "#1A6B3C", weight: 6, lineCap: "round", interactive: false }));
+      layers.push(L.polyline(pts, { color: "#fff", weight: 2.5, opacity: 0.9, lineCap: "round", className: "g-route-flow", interactive: false }));
+      layers.push(L.polyline([WAREHOUSE_POS, from], { color: "#1A6B3C", weight: 3, opacity: 0.35, dashArray: "2 8", lineCap: "round", interactive: false }));
+    } else {
+      layers.push(L.polyline(pts, { color: "#1A6B3C", weight: 4, opacity: 0.85, dashArray: "8 9", lineCap: "round", interactive: false }));
     }
-    return () => { if(animFrameRef.current) cancelAnimationFrame(animFrameRef.current); if(leafletRef.current){ leafletRef.current.remove(); leafletRef.current=null; riderMarkerRef.current=null; prevPosRef.current=null; } };
-  }, [customerLat, customerLon]);
+    layers.forEach(l => l.addTo(map));
+    routeRef.current = layers;
+  };
 
-  // Update live rider marker whenever riderPos changes — smooth animation
   useEffect(() => {
-    if (!leafletRef.current || !window.L || !riderPos) return;
-    const L = window.L;
-    const toPos = [riderPos.lat, riderPos.lon];
+    let cancelled = false;
+    loadLeaflet().then(L => {
+      if (cancelled || !elRef.current || mapRef.current) return;
+      const map = L.map(elRef.current, { zoomControl: false, attributionControl: false, scrollWheelZoom: false });
+      L.tileLayer(OSM_TILES, { maxZoom: 19 }).addTo(map);
+      L.control.attribution({ position: "bottomleft", prefix: false }).addAttribution(OSM_CREDIT).addTo(map);
+      L.marker(WAREHOUSE_POS, { keyboard: false, icon: L.divIcon({ className: "g-divicon", iconSize: [40, 40], iconAnchor: [20, 20],
+        html: `<div class="g-mk"><div class="g-mk-sq">${svgIcon("store", 20, "#fff")}</div><div class="g-mk-label">GADAG 360</div></div>` }) }).addTo(map);
+      if (home) L.marker(home, { keyboard: false, icon: L.divIcon({ className: "g-divicon", iconSize: [38, 48], iconAnchor: [19, 47],
+        html: `<div class="g-mk g-mk-home">${pinSvg("#D9482B", "home")}<div class="g-mk-label">${kn ? "ನೀವು" : "You"}</div></div>` }) }).addTo(map);
+      mapRef.current = map;
+      drawRoute(null);
+      fit();
+      setReady(true);
+    }).catch(() => { if (!cancelled) setFailed(true); });
+    return () => {
+      cancelled = true;
+      if (animRef.current) cancelAnimationFrame(animRef.current);
+      if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; }
+      riderRef.current = null; prevRef.current = null; routeRef.current = [];
+      setReady(false);
+    };
+  }, [customerLat, customerLon, lang]);
 
-    if (!riderMarkerRef.current) {
-      // First appearance — create marker immediately
-      const riderIcon = L.divIcon({ html:`<div style="background:#1a7c4a;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.4)">🏍️</div>`, className:"", iconAnchor:[18,18] });
-      riderMarkerRef.current = L.marker(toPos, {icon:riderIcon}).bindPopup("Delivery Rider").addTo(leafletRef.current);
-      prevPosRef.current = toPos;
+  // Live rider: glide from the last position to the new one
+  const rLat = riderPos ? Number(riderPos.lat) : null, rLon = riderPos ? Number(riderPos.lon) : null;
+  useEffect(() => {
+    const map = mapRef.current, L = window.L;
+    if (!ready || !map || !L || rLat == null || rLon == null || finished) return;
+    const to = [rLat, rLon];
+    drawRoute(to);
+    if (!riderRef.current) {
+      riderRef.current = L.marker(to, { keyboard: false, zIndexOffset: 1000, icon: L.divIcon({ className: "g-divicon", iconSize: [46, 46], iconAnchor: [23, 23],
+        html: `<div class="g-mk-rider">${svgIcon("bike", 22, "#1A6B3C", 2.2)}</div>` }) }).addTo(map);
+      prevRef.current = to;
+      fit();
       return;
     }
+    const from = prevRef.current || to;
+    prevRef.current = to;
+    if (animRef.current) cancelAnimationFrame(animRef.current);
+    const t0 = performance.now(), dur = 2500;
+    const step = now => {
+      const t = Math.min((now - t0) / dur, 1), e = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+      if (riderRef.current) riderRef.current.setLatLng([from[0] + (to[0] - from[0]) * e, from[1] + (to[1] - from[1]) * e]);
+      if (t < 1) animRef.current = requestAnimationFrame(step);
+      else if (mapRef.current && !mapRef.current.getBounds().pad(-0.1).contains(to)) fit();
+    };
+    animRef.current = requestAnimationFrame(step);
+  }, [ready, rLat, rLon, finished]);
 
-    // Animate smoothly from current position to new position over 8s
-    const fromPos = prevPosRef.current || toPos;
-    prevPosRef.current = toPos;
-    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-
-    const duration = 8000; // 8 seconds (poll is every 10s, always moving)
-    const startTime = performance.now();
-
-    function animate(now) {
-      const elapsed = now - startTime;
-      const t = Math.min(elapsed / duration, 1);
-      // ease-in-out for natural movement
-      const ease = t < 0.5 ? 2*t*t : -1+(4-2*t)*t;
-      const lat = fromPos[0] + (toPos[0] - fromPos[0]) * ease;
-      const lon = fromPos[1] + (toPos[1] - fromPos[1]) * ease;
-      if (riderMarkerRef.current) riderMarkerRef.current.setLatLng([lat, lon]);
-      if (t < 1) animFrameRef.current = requestAnimationFrame(animate);
-    }
-    animFrameRef.current = requestAnimationFrame(animate);
-  }, [riderPos]);
+  // Delivered or cancelled: no route and no rider, just the shop and the home
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!ready || !map || !finished) return;
+    if (animRef.current) cancelAnimationFrame(animRef.current);
+    routeRef.current.forEach(l => map.removeLayer(l)); routeRef.current = [];
+    if (riderRef.current) { map.removeLayer(riderRef.current); riderRef.current = null; prevRef.current = null; }
+    fit();
+  }, [ready, finished]);
 
   return (
-    <div className="relative mx-4 mt-4 rounded-2xl overflow-hidden" style={{height:220, border:"1px solid #E1DACB"}}>
-      <div ref={mapRef} style={{width:"100%",height:"100%"}} />
-      <div className="absolute bottom-2 right-2 px-2 py-1 rounded-lg text-xs font-bold" style={{backgroundColor:"white",color:basil,boxShadow:"0 2px 6px rgba(0,0,0,0.2)",zIndex:1000}}>
-        {orderStatusIdx < 3 ? `~${Math.max(2,14-orderStatusIdx*4)} min` : "✓ Delivered"}
+    <div className="g-map" style={{ position: "relative", height, isolation: "isolate", borderRadius: rounded ? 18 : 0, overflow: "hidden", background: "#EAEFE8" }}>
+      <div ref={elRef} style={{ position: "absolute", inset: 0 }}/>
+      {failed && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, color: soil }}>
+        {kn ? "ನಕ್ಷೆ ಲೋಡ್ ಆಗಲಿಲ್ಲ" : "The map couldn't load"}</div>}
+      {!home && !failed && (
+        <div className="g-frost" style={{ position: "absolute", left: "50%", bottom: rounded ? 12 : 40, transform: "translateX(-50%)", zIndex: 1100,
+          padding: "6px 12px", borderRadius: 14, fontSize: 12, fontWeight: 600, color: ink, whiteSpace: "nowrap" }}>
+          {kn ? "ಈ ಆರ್ಡರ್‌ಗೆ GPS ಪಿನ್ ಇಲ್ಲ" : "No GPS pin for this order"}
+        </div>
+      )}
+      <button className="g-reset" onClick={fit} aria-label={kn ? "ನಕ್ಷೆಯನ್ನು ಮಧ್ಯಕ್ಕೆ ತನ್ನಿ" : "Show the whole route"}
+        style={{ position: "absolute", right: 12, bottom: rounded ? 12 : 40, zIndex: 1100, width: 42, height: 42, borderRadius: 21, background: "#fff",
+          boxShadow: "0 3px 12px rgba(0,0,0,0.18)", display: "flex", alignItems: "center", justifyContent: "center", color: ink }}>
+        <LocateFixed size={19}/>
+      </button>
+    </div>
+  );
+}
+
+// ── LOCATION PICKER ──
+// The pin stays in the middle; the customer drags the map until it sits on their door.
+// Phone GPS can be kilometres off, so this is what tells the rider exactly where to come.
+function LocationPicker({ lat, lon, accuracy, manual, lang, onMove }) {
+  const elRef = useRef(null), mapRef = useRef(null), circleRef = useRef(null), onMoveRef = useRef(onMove), userMoveRef = useRef(false);
+  const latestRef = useRef({ lat, lon, accuracy });
+  const [dragging, setDragging] = useState(false);
+  onMoveRef.current = onMove;
+  latestRef.current = { lat, lon, accuracy };
+  const kn = lang === "kn";
+  // Zoom so the accuracy circle shows (radius 75–150px); street level when the fix is good
+  const zoomFor = (acc, la) => Math.max(13, Math.min(17, Math.floor(Math.log2((156543 * Math.cos((la * Math.PI) / 180) * 150) / Math.max(acc || 0, 1)))));
+
+  useEffect(() => {
+    let cancelled = false;
+    loadLeaflet().then(L => {
+      if (cancelled || !elRef.current || mapRef.current) return;
+      const { lat: la, lon: lo, accuracy: acc } = latestRef.current; // newest GPS reading, even if it came in while the map loaded
+      // Zooming keeps the centre still, so the pin never slides off the spot the customer chose
+      const map = L.map(elRef.current, { zoomControl: false, attributionControl: false, scrollWheelZoom: false, touchZoom: "center", doubleClickZoom: "center" })
+        .setView([la, lo], zoomFor(acc, la));
+      L.tileLayer(OSM_TILES, { maxZoom: 19 }).addTo(map);
+      L.control.attribution({ position: "bottomleft", prefix: false }).addAttribution(OSM_CREDIT).addTo(map);
+      L.control.zoom({ position: "bottomright", zoomInTitle: kn ? "ಹತ್ತಿರ" : "Zoom in", zoomOutTitle: kn ? "ದೂರ" : "Zoom out" }).addTo(map);
+      // Where the phone thinks it is: the door is somewhere inside this circle
+      circleRef.current = L.circle([la, lo], { radius: acc > 25 ? acc : 0, color: "#1A6B3C", weight: 1.5, opacity: 0.55, dashArray: "4 6",
+        fillColor: "#1A6B3C", fillOpacity: 0.08, interactive: false }).addTo(map);
+      map.on("dragstart", () => { userMoveRef.current = true; setDragging(true); });
+      map.getContainer().addEventListener("keydown", e => { if (e.key && e.key.indexOf("Arrow") === 0) userMoveRef.current = true; });
+      // moveend, not dragend: after a flick the map keeps gliding, and the pin is where it stops
+      map.on("moveend", () => {
+        if (!userMoveRef.current) return;
+        userMoveRef.current = false; setDragging(false);
+        const c = map.getCenter(); onMoveRef.current({ lat: c.lat, lon: c.lng });
+      });
+      mapRef.current = map;
+    }).catch(() => {});
+    return () => { cancelled = true; if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; } };
+  }, []);
+
+  // A fresh GPS reading (not the customer's own pin) re-centres the map
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || manual || userMoveRef.current) return;
+    map.setView([lat, lon], zoomFor(accuracy, lat));
+    if (circleRef.current) { circleRef.current.setLatLng([lat, lon]); circleRef.current.setRadius(accuracy > 25 ? accuracy : 0); }
+  }, [lat, lon, accuracy, manual]);
+
+  return (
+    <div className="g-map" style={{ position: "relative", height: 200, borderRadius: 16, overflow: "hidden", isolation: "isolate", border: `1px solid ${line}`, background: "#EAEFE8" }}>
+      <div ref={elRef} style={{ position: "absolute", inset: 0 }}/>
+      <div aria-hidden="true" style={{ position: "absolute", left: "50%", top: "50%", zIndex: 1099, width: 14, height: 6, marginLeft: -7, marginTop: -3,
+        borderRadius: "50%", background: "rgba(0,0,0,0.28)", pointerEvents: "none" }}/>
+      <div aria-hidden="true" style={{ position: "absolute", left: "50%", top: "50%", zIndex: 1100, pointerEvents: "none", lineHeight: 0,
+        transform: `translate(-50%, -100%) translateY(${dragging ? -10 : 0}px)`, transition: "transform .15s" }}
+        dangerouslySetInnerHTML={{ __html: pinSvg("#1A6B3C", "home") }}/>
+      <div className="g-frost" style={{ position: "absolute", top: 10, left: "50%", transform: "translateX(-50%)", zIndex: 1100, maxWidth: "88%",
+        padding: "5px 12px", borderRadius: 14, fontSize: 12, fontWeight: 600, color: ink, textAlign: "center", pointerEvents: "none" }}>
+        {kn ? "ಪಿನ್ ನಿಮ್ಮ ಬಾಗಿಲ ಮೇಲೆ ಬರುವಂತೆ ನಕ್ಷೆ ಸರಿಸಿ" : "Drag the map so the pin sits on your door"}
       </div>
-      {riderPos && <div style={{position:"absolute",top:8,left:8,backgroundColor:"#1a7c4a",color:"white",borderRadius:8,padding:"3px 8px",fontSize:11,fontWeight:700,zIndex:1000}}>🔴 Live</div>}
-      {!homePos && <div style={{position:"absolute",bottom:36,left:0,right:0,textAlign:"center",fontSize:11,color:soil,zIndex:1000,backgroundColor:"rgba(255,255,255,0.8)",padding:"2px 0"}}>No GPS — showing warehouse only</div>}
     </div>
   );
 }
@@ -909,12 +1054,15 @@ export default function Gadag360() {
   const [cart, setCart] = useState(() => readJSON("gd360_cart", {}));
   const [address, setAddress] = useState("");
   const [gpsCoords, setGpsCoords] = useState(null); // {lat, lon, accuracy} from GPS
-  const [payment, setPayment] = useState("upi");
+  const [payment, setPayment] = useState("cod"); // cod = cash or UPI on delivery; "online" once Razorpay is live
   const [orderStatusIdx, setOrderStatusIdx] = useState(0);
   const [riderPos, setRiderPos] = useState(null); // {lat, lon} from live delivery boy GPS
   const riderPollRef = useRef(null);
   const timerRef = useRef(null);
-  const [activeOrders, setActiveOrders] = useState([]);   // current session orders
+  const [activeOrders, setActiveOrders] = useState(() => {    // orders being tracked; kept for a day so a reload doesn't lose them
+    const v = readJSON("gd360_active", []);
+    return Array.isArray(v) ? v.filter(o => o && o.id && Date.now() - (o.placedAt || 0) < 864e5 && !["delivered", "cancelled"].includes(o.status)) : [];
+  });
   const [lang, setLang] = useState(() => { try { return localStorage.getItem("gd360_lang") === "kn" ? "kn" : "en"; } catch (e) { return "en"; } });
 
   // ── ALL 16 FEATURES STATE ──
@@ -957,7 +1105,18 @@ export default function Gadag360() {
   const [dbProducts, setDbProducts] = useState([]);
   const [vendorOrderStatus, setVendorOrderStatus] = useState({}); // {orderId: "accepted"|"rejected"}
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  // The running "Use GPS" watch, so a second tap (or placing the order) stops the old one
+  const gpsWatchRef = useRef(null);
+  const stopGpsWatch = () => {
+    const w = gpsWatchRef.current;
+    if (!w) return;
+    clearTimeout(w.timer);
+    if (w.id != null && navigator.geolocation) navigator.geolocation.clearWatch(w.id);
+    gpsWatchRef.current = null;
+  };
   const [showCatDrawer, setShowCatDrawer] = useState(false);
+
+  useEffect(() => { window.scrollTo(0, 0); }, [screen, activeTab, profileSection]);
 
   // ── HOME UI STATE ──
   const [activeShelf, setActiveShelf] = useState(null);  // open shelf, e.g. "ordered"
@@ -967,6 +1126,7 @@ export default function Gadag360() {
   useEffect(() => { Storage.set("gd360_cart", JSON.stringify(cart)); }, [cart]);
   useEffect(() => { Storage.set("gd360_sizes", JSON.stringify(selectedVariant)); }, [selectedVariant]);
   useEffect(() => { Storage.set("gd360_lang", lang); }, [lang]);
+  useEffect(() => { Storage.set("gd360_active", JSON.stringify(activeOrders.filter(o => !["delivered", "cancelled"].includes(o.status)).slice(0, 3))); }, [activeOrders]);
   // Share the pinned header's height so category tags stick right under it
   useEffect(() => {
     const el = stickyRef.current;
@@ -1218,9 +1378,51 @@ export default function Gadag360() {
     setTimeout(() => { const el = document.getElementById("sec-" + id); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80);
   };
 
+  // Cancel for real: mark the order cancelled (the delivery app hides it) and put the items back in stock.
+  // Only before the rider picks it up.
+  const cancelOrder = async () => {
+    const o = activeOrders[0];
+    setShowCancelConfirm(false);
+    if (!o) { setScreen("home"); return; }
+    try {
+      const { data: cur } = await supabase.from("orders").select("status").eq("id", o.id).single();
+      if (cur && ["pickedup", "picked_up", "delivered"].includes(cur.status)) {
+        alert(lang === "kn" ? "ಆರ್ಡರ್ ಈಗಾಗಲೇ ಹೊರಟಿದೆ, ರದ್ದು ಮಾಡಲು ಸಾಧ್ಯವಿಲ್ಲ." : "Your order is already on the way, so it can't be cancelled now.");
+        return;
+      }
+      await supabase.from("orders").update({ status: "cancelled" }).eq("id", o.id);
+      for (const it of (o.items || [])) {
+        // same match as placeOrder: by name first (admin-added rows have their own ids), then by id
+        const dbProd = dbProducts.find(d => d.name && it.name && d.name.toLowerCase() === it.name.toLowerCase()) || dbProducts.find(d => d.id === it.id);
+        if (!dbProd) continue;
+        const { data: p } = await supabase.from("products").select("id, stock_qty").eq("id", dbProd.id).single();
+        if (p) { const q = (p.stock_qty ?? 0) + (it.qty || 0); await supabase.from("products").update({ stock_qty: q, in_stock: q > 0 }).eq("id", p.id); }
+      }
+    } catch (e) {}
+    revokeCoins(o);
+    setActiveOrders(v => v.filter(x => x.id !== o.id));
+    setOrderHistory(h => h.map(x => (x.id === o.id ? { ...x, status: "cancelled" } : x)));
+    setScreen("home");
+    alert(lang === "kn" ? "ಆರ್ಡರ್ ರದ್ದು ಮಾಡಲಾಗಿದೆ" : "Order cancelled");
+  };
+
+  // A cancelled order doesn't earn coins: take them back, once per order
+  const coinsRevokedRef = useRef(new Set());
+  const revokeCoins = (o) => {
+    if (!o || !o.coins || coinsRevokedRef.current.has(o.id)) return;
+    coinsRevokedRef.current.add(o.id);
+    setCoins(c => {
+      const n = Math.max(0, c - o.coins);
+      Storage.set("gd360_coins", String(n));
+      if (currentUserId) supabase.from("users").update({ coins: n }).eq("id", currentUserId).then(() => {}, () => {});
+      return n;
+    });
+  };
+
   const placeOrder = async () => {
+    stopGpsWatch();
     const orderId = "GD" + Math.floor(1000 + Math.random()*9000);
-    const newOrder = {id:orderId, items:cartItems, total:finalTotal, address, gps_lat: gpsCoords?.lat || null, gps_lon: gpsCoords?.lon || null, payment, slot:deliverySlot, date: new Date().toLocaleDateString("en-IN"), customer_phone: userProfile.phone, customer_name: userProfile.name};
+    const newOrder = {id:orderId, status:"placed", placedAt:Date.now(), items:cartItems, total:finalTotal, coins:coinsEarned, address, gps_lat: gpsCoords?.lat || null, gps_lon: gpsCoords?.lon || null, payment, slot:deliverySlot, date: new Date().toLocaleDateString("en-IN"), customer_phone: userProfile.phone, customer_name: userProfile.name};
     setActiveOrders(v => [newOrder, ...v]);
       sendOwnerNotification(newOrder);
     setOrderHistory(h => [newOrder, ...h]);
@@ -1380,9 +1582,9 @@ export default function Gadag360() {
         `Total: ₹${order.total}\n` +
         `Address: ${order.address}${mapsLink}\n` +
         `Slot: ${order.slot}\n` +
-        `Payment: ${order.payment}`
+        `Payment: ${order.payment === "online" ? "Online" : "Cash/UPI on delivery"}`
       );
-      window.open(`https://wa.me/919886888924?text=${waMsg}`, "_blank");
+      window.open(`https://wa.me/${SHOP_WHATSAPP}?text=${waMsg}`, "_blank");
     };
 
 // 📱 SIMPLE LOGIN (no OTP — will add Firebase OTP later)
@@ -1415,7 +1617,7 @@ const verifyOtp = async () => {
             .from("orders").select("*, order_items(*)").eq("user_id", existingUser.id).order("created_at", {ascending:false});
           if (orders) setOrderHistory(orders.map(o => ({
             id: o.id, total: o.total, address: o.address,
-            payment: o.payment, slot: o.delivery_slot,
+            payment: o.payment, slot: o.delivery_slot, status: o.status,
             date: new Date(o.created_at).toLocaleDateString("en-IN"),
             items: (o.order_items||[]).map(i => ({id:i.product_id, name:i.product_name, qty:i.quantity, price:i.price}))
           })));
@@ -1495,7 +1697,7 @@ const verifyOtp = async () => {
                 .from("orders").select("*, order_items(*)").eq("user_id", savedUserId).order("created_at", {ascending:false});
               if (orders) setOrderHistory(orders.map(o => ({
                 id: o.id, total: o.total, address: o.address,
-                payment: o.payment, slot: o.delivery_slot,
+                payment: o.payment, slot: o.delivery_slot, status: o.status,
                 date: new Date(o.created_at).toLocaleDateString("en-IN"),
                 items: (o.order_items||[]).map(i => ({id:i.product_id, name:i.product_name, qty:i.quantity, price:i.price}))
               })));
@@ -1561,14 +1763,15 @@ const verifyOtp = async () => {
   }, []); // Run once on mount
 
   // ── ORDER STATUS + RIDER GPS POLL ──
-  // Polls Supabase every 5s when customer is on tracking/confirmation screen.
-  // Updates real order status (placed→confirmed→pickedup→delivered) and live rider GPS.
+  // While an order is live: every 3s on the tracking screen, every 15s elsewhere (keeps the home banner current).
+  // Reads the real status (placed→confirmed→pickedup→delivered, or cancelled) and the rider's GPS.
   const STATUS_TO_IDX = { placed:0, confirmed:1, pickedup:2, picked_up:2, delivered:3 };
   const activeOrderId = activeOrders[0]?.id || null;
+  const activeOrderDone = ["delivered", "cancelled"].includes(activeOrders[0]?.status);
+  const isTrackingScreen = screen === "checkout" || screen === "confirmation";
   const deliveredRef = useRef(false);
   useEffect(() => {
-    const isTrackingScreen = screen === "checkout" || screen === "confirmation";
-    if (!isTrackingScreen || !activeOrderId) {
+    if (!activeOrderId || activeOrderDone) {
       if (riderPollRef.current) { clearInterval(riderPollRef.current); riderPollRef.current = null; }
       return;
     }
@@ -1583,25 +1786,27 @@ const verifyOtp = async () => {
           .eq("id", activeOrderId)
           .single();
         if (!data) return;
-        // Update order status index shown in UI
-        const newIdx = STATUS_TO_IDX[data.status] ?? 0;
-        setOrderStatusIdx(newIdx);
-        // Update rider GPS marker if available
+        setOrderStatusIdx(STATUS_TO_IDX[data.status] ?? 0);
         if (data.rider_lat && data.rider_lon) {
-          setRiderPos({ lat: data.rider_lat, lon: data.rider_lon });
+          setRiderPos(r => (r && r.lat === data.rider_lat && r.lon === data.rider_lon ? r : { lat: data.rider_lat, lon: data.rider_lon }));
         }
-        // Show rating popup when delivered, stop polling
-        if (data.status === "delivered") {
-          deliveredRef.current = true;
-          setShowRating(true);
-        }
+        setActiveOrders(v => (v.some(x => x.id === activeOrderId && x.status !== data.status)
+          ? v.map(x => (x.id === activeOrderId ? { ...x, status: data.status } : x)) : v));
+        if (data.status === "delivered") { deliveredRef.current = true; setShowRating(true); }
+        if (data.status === "cancelled") { deliveredRef.current = true; revokeCoins(activeOrders.find(x => x.id === activeOrderId)); }
       } catch(e) {}
     };
 
     pollOrder(); // immediate first poll
-    riderPollRef.current = setInterval(pollOrder, 3000);
+    riderPollRef.current = setInterval(pollOrder, isTrackingScreen ? 3000 : 15000);
     return () => { if (riderPollRef.current) { clearInterval(riderPollRef.current); riderPollRef.current = null; } };
-  }, [screen, activeOrderId]);
+  }, [activeOrderId, activeOrderDone, isTrackingScreen]);
+
+  // The order shown in the home banner (until it's delivered or cancelled)
+  const liveOrder = activeOrderId && !activeOrderDone ? activeOrders[0] : null;
+  const liveIdx = liveOrder ? (STATUS_TO_IDX[liveOrder.status] ?? orderStatusIdx) : 0;
+  const liveKm = liveOrder && riderPos && liveOrder.gps_lat && liveOrder.gps_lon
+    ? kmBetween([Number(riderPos.lat), Number(riderPos.lon)], [Number(liveOrder.gps_lat), Number(liveOrder.gps_lon)]) : null;
 
   // ── BOTTOM NAV ──
   // BottomNav removed — profile accessed via header avatar
@@ -1798,7 +2003,17 @@ const verifyOtp = async () => {
                         <div style={{fontSize:10,color:soil,marginTop:1}}>{o.date} · {o.slot||"Standard"}</div>
                       </div>
                       <div style={{display:"flex",alignItems:"center",gap:6}}>
-                        <span style={{fontSize:10,fontWeight:700,padding:"3px 8px",borderRadius:10,backgroundColor:"#e8f5e9",color:basil}}>✓ {lang==="kn"?"ತಲುಪಿಸಲಾಗಿದೆ":"Delivered"}</span>
+                        {(() => {
+                          const live = activeOrders.find(a => a.id === o.id);
+                          const st = (live && live.status) || o.status || "delivered";
+                          if (st === "cancelled") return <span style={{fontSize:10,fontWeight:700,padding:"3px 8px",borderRadius:10,backgroundColor:"#FDECEA",color:chili}}>{lang==="kn"?"ರದ್ದಾಗಿದೆ":"Cancelled"}</span>;
+                          if (st === "delivered") return <span style={{fontSize:10,fontWeight:700,padding:"3px 8px",borderRadius:10,backgroundColor:"#e8f5e9",color:basil}}>✓ {lang==="kn"?"ತಲುಪಿಸಲಾಗಿದೆ":"Delivered"}</span>;
+                          if (liveOrder && liveOrder.id === o.id) return (
+                            <button className="g-reset g-tap" onClick={() => { setProfileSection(null); setActiveTab("home"); setScreen("checkout"); }}
+                              style={{fontSize:11.5,fontWeight:700,padding:"5px 10px",borderRadius:10,backgroundColor:basil,color:"#fff",display:"inline-flex",alignItems:"center",gap:5}}>
+                              <Bike size={13}/>{lang==="kn"?"ಟ್ರ್ಯಾಕ್ ಮಾಡಿ":"Track order"}</button>);
+                          return <span style={{fontSize:10,fontWeight:700,padding:"3px 8px",borderRadius:10,backgroundColor:"#FBF1D9",color:"#8A5A00"}}>{lang==="kn"?"ಪ್ರಗತಿಯಲ್ಲಿದೆ":"In progress"}</span>;
+                        })()}
                       </div>
                     </div>
                     {/* Product images row */}
@@ -1818,7 +2033,7 @@ const verifyOtp = async () => {
                     </div>
                     {/* Total + actions */}
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",borderTop:`1px solid ${line}`}}>
-                      <div style={{fontSize:13,fontWeight:800,color:ink}}>₹{o.total} · {o.payment==="upi"?"UPI":"COD"}</div>
+                      <div style={{fontSize:13,fontWeight:800,color:ink}}>₹{o.total} · {o.payment==="online"?"Online":"COD"}</div>
                       <div style={{display:"flex",gap:6}}>
                         <button onClick={()=>{
                           const items = (o.items||[]);
@@ -1853,7 +2068,7 @@ const verifyOtp = async () => {
                             <div class="meta-box"><div class="label">Invoice No.</div><div style="font-weight:700">${o.id}-INV</div></div>
                             <div class="meta-box"><div class="label">Order No.</div><div style="font-weight:700">#${o.id}</div></div>
                             <div class="meta-box"><div class="label">Date</div><div>${o.date}</div></div>
-                            <div class="meta-box"><div class="label">Payment</div><div>${o.payment==="upi"?"UPI":"Cash on Delivery"}</div></div>
+                            <div class="meta-box"><div class="label">Payment</div><div>${o.payment==="online"?"Online payment":"Cash/UPI on Delivery"}</div></div>
                           </div>
                           <div class="meta">
                             <div class="meta-box" style="flex:2"><div class="label">Bill To / Ship To</div>
@@ -2143,9 +2358,40 @@ const verifyOtp = async () => {
           basil={basil} soil={soil} ink={ink} line={line} chili={chili}
         />
 
-        {/* ── CART BAR: total, plus how far to the ₹20 discount ── */}
-        {itemCount > 0 && (
+        {liveOrder && <div aria-hidden="true" style={{ height: 76, background: sage }}/>}
+
+        {/* ── BOTTOM: live order (tap to track) + cart bar with how far to the ₹20 discount ── */}
+        {(itemCount > 0 || liveOrder) && (
           <div style={{ position:"fixed", bottom:0, left:COL_LEFT, right:COL_LEFT, zIndex:35, padding:"0 10px calc(env(safe-area-inset-bottom, 0px) + 10px)", pointerEvents:"none" }}>
+            {liveOrder && (() => {
+              const kn = lang === "kn";
+              const LiveIcon = [Clock, Package, Bike][liveIdx] || Clock;
+              const etaMin = liveIdx === 2 && liveKm != null ? Math.max(2, Math.round(liveKm * 3.9)) : null;
+              const head = [
+                kn ? "ಆರ್ಡರ್ ಬಂದಿದೆ" : "Order received",
+                kn ? "ಆರ್ಡರ್ ಪ್ಯಾಕ್ ಆಗುತ್ತಿದೆ" : "Packing your order",
+                etaMin != null ? (kn ? `~${etaMin} ನಿಮಿಷದಲ್ಲಿ ತಲುಪುತ್ತದೆ` : `Arriving in ~${etaMin} min`) : (kn ? "ದಾರಿಯಲ್ಲಿದೆ" : "On the way"),
+              ][liveIdx] || "";
+              return (
+                <button className="g-reset g-tap" onClick={() => setScreen("checkout")}
+                  aria-label={`${head}. ${kn ? "ಆರ್ಡರ್ ಟ್ರ್ಯಾಕ್ ಮಾಡಿ" : "Track your order"}`}
+                  style={{ pointerEvents:"auto", width:"100%", display:"flex", alignItems:"center", gap:12, padding:"10px 14px 10px 10px", marginBottom: itemCount > 0 ? 8 : 0,
+                    background:"#fff", borderRadius:18, border:`1px solid ${line}`, boxShadow:"0 8px 28px rgba(30,43,34,0.2)" }}>
+                  <span style={{ position:"relative", width:42, height:42, borderRadius:21, background:"#E5F1E8", color:basil, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                    <LiveIcon size={20}/>
+                    {liveIdx === 2 && <span className="g-live-dot" style={{ position:"absolute", top:1, right:1, border:"2px solid #fff", width:11, height:11 }}/>}
+                  </span>
+                  <span style={{ flex:1, minWidth:0, textAlign:"left" }}>
+                    <span style={{ display:"block", fontSize:14.5, fontWeight:800, color:ink, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{head}</span>
+                    <span style={{ display:"block", fontSize:12, color:soil, marginTop:1 }}>{kn ? "ಆರ್ಡರ್" : "Order"} #{liveOrder.id}</span>
+                  </span>
+                  <span style={{ display:"flex", alignItems:"center", gap:1, fontSize:14, fontWeight:800, color:basil, flexShrink:0 }}>
+                    {kn ? "ಟ್ರ್ಯಾಕ್" : "Track"}<ChevronRight size={17}/>
+                  </span>
+                </button>
+              );
+            })()}
+            {itemCount > 0 && (
             <div style={{ pointerEvents:"auto", background:"#fff", borderRadius:18, overflow:"hidden", border:`1px solid ${line}`, boxShadow:"0 8px 28px rgba(30,43,34,0.2)" }}>
               <div style={{ padding:"8px 14px 8px", fontSize:12, fontWeight:600, color: subtotal >= 299 ? basil : ink }}>
                 {subtotal >= 299
@@ -2168,6 +2414,7 @@ const verifyOtp = async () => {
                 </span>
               </button>
             </div>
+            )}
           </div>
         )}
 
@@ -2329,6 +2576,7 @@ const verifyOtp = async () => {
                     <div style={{fontSize:12,fontWeight:700,color:ink}}>📍 {lang==="kn"?"ಡೆಲಿವರಿ ವಿಳಾಸ":"Delivery Address"}</div>
                     <button onClick={()=>{
                       if(!navigator.geolocation){alert("GPS not supported on this device");return;}
+                      stopGpsWatch();
                       setAddress(lang==="kn"?"ಸ್ಥಳ ಪತ್ತೆ ಮಾಡಲಾಗುತ್ತಿದೆ...":"Detecting location...");
                       setGpsCoords(null);
                       // GPS strategy: accept ANY reading immediately, keep refining silently.
@@ -2345,8 +2593,8 @@ const verifyOtp = async () => {
                         // Always update if this reading is better than what we have
                         if(accuracy < bestAccuracy){
                           bestAccuracy = accuracy;
-                          setGpsCoords({lat, lon, accuracy: Math.round(accuracy)});
-                          setAddress(lang==="kn"?"GPS ಸ್ಥಳ ಪಿನ್ ಮಾಡಲಾಗಿದೆ ✓":"GPS location pinned ✓");
+                          setGpsCoords(g => (g && g.manual ? g : {lat, lon, accuracy: Math.round(accuracy)}));
+                          setAddress(a => (!a || a==="Detecting location..." || a==="ಸ್ಥಳ ಪತ್ತೆ ಮಾಡಲಾಗುತ್ತಿದೆ...") ? (lang==="kn"?"GPS ಸ್ಥಳ ಪಿನ್ ಮಾಡಲಾಗಿದೆ ✓":"GPS location pinned ✓") : a);
                         }
                         // Stop early if excellent fix
                         if(accuracy <= 50){
@@ -2354,39 +2602,41 @@ const verifyOtp = async () => {
                           navigator.geolocation.clearWatch(watchId);
                         }
                       },(err)=>{
+                        // A hiccup after we already have a position: keep the pin and what they typed
+                        if(bestAccuracy < Infinity) return;
                         clearTimeout(stopTimer);
                         if(watchId!=null) navigator.geolocation.clearWatch(watchId);
-                        setAddress("");
+                        setAddress(a => (a==="Detecting location..." || a==="ಸ್ಥಳ ಪತ್ತೆ ಮಾಡಲಾಗುತ್ತಿದೆ...") ? "" : a);
                         if(err.code===1) alert(lang==="kn"?"ಲೊಕೇಶನ್ ಅನುಮತಿ ನಿರಾಕರಿಸಲಾಗಿದೆ.\n\niPhone ಬಳಕೆದಾರರು: Settings → Safari → Location → Allow\nಮತ್ತು Precise Location ಆನ್ ಮಾಡಿ\n\nAndroid: Browser settings → Site settings → Location → Allow":"Location permission denied.\n\niPhone users: Settings → Safari → Location → Allow\nAlso turn ON Precise Location\n\nAndroid: tap the 🔒 lock icon in address bar → allow Location");
                         else alert(lang==="kn"?"ಸ್ಥಳ ಪತ್ತೆ ವಿಫಲ. ವಿಳಾಸ ಟೈಪ್ ಮಾಡಿ":"GPS failed. Please type your address");
                       },{enableHighAccuracy:true, maximumAge:0, timeout:15000});
+                      gpsWatchRef.current = { id: watchId, timer: stopTimer };
                     }} style={{display:"flex",alignItems:"center",gap:4,fontSize:11,fontWeight:700,color:basil,backgroundColor:"#f0faf4",border:`1px solid ${basil}`,borderRadius:20,padding:"5px 12px",cursor:"pointer"}}>
                       <MapPin size={12}/> {lang==="kn"?"GPS ಬಳಸಿ":"Use GPS"}
                     </button>
                   </div>
-                  {/* Show GPS pin confirmation */}
+                  {/* GPS pin: a small map with a centre pin the customer can move to their door */}
                   {gpsCoords ? (
-                    <div style={{backgroundColor:"#f0faf4",borderRadius:10,padding:"10px 12px",border:`1px solid ${basil}`,marginBottom:8}}>
-                      <div style={{fontSize:12,fontWeight:700,color:basil,marginBottom:4}}>
-                        📍 {lang==="kn"?"GPS ಸ್ಥಳ ಪಿನ್ ಮಾಡಲಾಗಿದೆ":"GPS Location Pinned"}
-                        {gpsCoords.accuracy > 500 && <span style={{color:"#e67e22",fontWeight:600}}> · ±{gpsCoords.accuracy}m</span>}
-                        {gpsCoords.accuracy <= 500 && <span style={{color:basil,fontWeight:400}}> · ±{gpsCoords.accuracy}m</span>}
+                    <div style={{marginBottom:8}}>
+                      <LocationPicker lat={gpsCoords.lat} lon={gpsCoords.lon} accuracy={gpsCoords.accuracy} manual={!!gpsCoords.manual} lang={lang}
+                        onMove={({lat, lon}) => setGpsCoords(g => ({...(g || {}), lat, lon, manual: true}))}/>
+                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginTop:8}}>
+                        <span style={{fontSize:12,fontWeight:600,color: gpsCoords.manual || gpsCoords.accuracy <= 500 ? basil : "#B5621A"}}>
+                          {gpsCoords.manual
+                            ? (lang==="kn" ? "✓ ನೀವು ಪಿನ್ ಇಟ್ಟಿದ್ದೀರಿ" : "✓ Pin placed by you")
+                            : gpsCoords.accuracy > 500
+                              ? (lang==="kn" ? `GPS ಅಂದಾಜು ±${fmtAccuracy(gpsCoords.accuracy)}: ಪಿನ್ ಸರಿಪಡಿಸಿ` : `Rough GPS (±${fmtAccuracy(gpsCoords.accuracy)}): move the pin to your door`)
+                              : (lang==="kn" ? `GPS ಪಿನ್ (±${fmtAccuracy(gpsCoords.accuracy)})` : `GPS pinned (±${fmtAccuracy(gpsCoords.accuracy)})`)}
+                        </span>
+                        <a href={`https://maps.google.com/?q=${gpsCoords.lat},${gpsCoords.lon}`} target="_blank" rel="noreferrer"
+                          style={{fontSize:12,fontWeight:600,color:basil,whiteSpace:"nowrap"}}>{lang==="kn" ? "ಮ್ಯಾಪ್‌ನಲ್ಲಿ ನೋಡಿ" : "Check in Maps"}</a>
                       </div>
-                      <a href={`https://maps.google.com/?q=${gpsCoords.lat},${gpsCoords.lon}`} target="_blank" rel="noreferrer"
-                        style={{fontSize:11,color:basil,textDecoration:"underline"}}>
-                        🗺️ {lang==="kn"?"ಗೂಗಲ್ ಮ್ಯಾಪ್‌ನಲ್ಲಿ ನೋಡಿ":"View on Google Maps"} ↗
-                      </a>
-                      {gpsCoords.accuracy > 500 && (
-                        <div style={{fontSize:11,color:"#e67e22",marginTop:4,fontWeight:500}}>
-                          ⚠️ {lang==="kn"?"ನಿಖರ ವಿಳಾಸ ಕೆಳಗೆ ಟೈಪ್ ಮಾಡಿ":"Low accuracy — please type your exact address below"}
-                        </div>
-                      )}
                     </div>
                   ) : null}
                   <textarea value={gpsCoords ? address.replace("GPS location pinned ✓","").replace("GPS ಸ್ಥಳ ಪಿನ್ ಮಾಡಲಾಗಿದೆ ✓","") : address}
                     onChange={e=>{ setAddress(e.target.value); if(!e.target.value) setGpsCoords(null); }}
                     placeholder={gpsCoords ? (lang==="kn"?"ಮನೆ ನಂ, ಲ್ಯಾಂಡ್‌ಮಾರ್ಕ್, ಬೀದಿ ಹೆಸರು ನಮೂದಿಸಿ *":"Enter house no., landmark, street name *") : (lang==="kn"?"ನಿಮ್ಮ ವಿಳಾಸ ನಮೂದಿಸಿ...":"Enter your delivery address...")} rows={2}
-                    style={{width:"100%",borderRadius:10,padding:"10px 12px",fontSize:13,border:`1px solid ${gpsCoords?basil:line}`,outline:"none",resize:"none",boxSizing:"border-box"}}/>
+                    style={{width:"100%",borderRadius:10,padding:"10px 12px",fontSize:14,fontFamily:"inherit",border:`1px solid ${gpsCoords?basil:line}`,outline:"none",resize:"none",boxSizing:"border-box"}}/>
                   {savedAddresses.length>0 && (
                     <div style={{display:"flex",gap:6,marginTop:6,overflowX:"auto",scrollbarWidth:"none"}}>
                       {savedAddresses.map((a,i)=>(
@@ -2483,123 +2733,202 @@ const verifyOtp = async () => {
         </div>
       </>}
 
-      {/* ── CHECKOUT = TRACKING (img5+img6 merged) ── */}
-      {screen === "checkout" && <>
-        <Header showBack onBack={() => setScreen("cart")} title={lang==="kn"?"ಆರ್ಡರ್ ಟ್ರ್ಯಾಕಿಂಗ್":"Order Tracking"}/>
-        <div style={{flex:1,overflowY:"auto",backgroundColor:"#f8f8f6",paddingBottom:80}}>
-          {/* Order ID + ETA */}
-          <div style={{backgroundColor:"white",padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:`1px solid ${line}`}}>
-            <div>
-              <div style={{fontSize:11,color:soil}}>{lang==="kn"?"ಆರ್ಡರ್ ID":"Order ID"}</div>
-              <div style={{fontSize:14,fontWeight:800,color:ink}}>#{activeOrders[0]?.id||"—"}</div>
-            </div>
-            <div style={{textAlign:"right"}}>
-              <div style={{fontSize:11,color:soil}}>{lang==="kn"?"ಅಂದಾಜು ಸಮಯ":"Estimated arrival"}</div>
-              <div style={{fontSize:14,fontWeight:800,color:basil}}>{orderStatusIdx<3?`~${Math.max(2,14-orderStatusIdx*4)} min`:"✓ Delivered"}</div>
+      {/* ── ORDER TRACKING: map on top, details in a sheet that slides over it ── */}
+      {screen === "checkout" && (() => {
+        const o = activeOrders[0] || {};
+        const kn = lang === "kn";
+        const idx = STATUS_TO_IDX[o.status] ?? orderStatusIdx;
+        const cancelled = o.status === "cancelled";
+        const homePt = o.gps_lat && o.gps_lon ? [Number(o.gps_lat), Number(o.gps_lon)] : null;
+        const riderKm = riderPos && homePt ? kmBetween([Number(riderPos.lat), Number(riderPos.lon)], homePt) : null;
+        const etaMin = riderKm != null ? Math.max(2, Math.round(riderKm * 3.9)) : null; // ~1.3× road factor at ~20 km/h
+        const STEPS = [
+          { key: "placed", en: "Received", kn: "ಸ್ವೀಕೃತ", Icon: Clock },
+          { key: "packing", en: "Packing", kn: "ಪ್ಯಾಕಿಂಗ್", Icon: Package },
+          { key: "onway", en: "On the way", kn: "ದಾರಿಯಲ್ಲಿ", Icon: Bike },
+          { key: "done", en: "Delivered", kn: "ತಲುಪಿದೆ", Icon: Home },
+        ];
+        const HEAD = [
+          { en: ["We've got your order", "We'll start packing it shortly."], kn: ["ನಿಮ್ಮ ಆರ್ಡರ್ ಬಂದಿದೆ", "ಶೀಘ್ರದಲ್ಲೇ ಪ್ಯಾಕಿಂಗ್ ಆರಂಭವಾಗುತ್ತದೆ."] },
+          { en: ["Packing your order", "Fresh items are being picked at our Gadag store."], kn: ["ನಿಮ್ಮ ಆರ್ಡರ್ ಪ್ಯಾಕ್ ಆಗುತ್ತಿದೆ", "ನಮ್ಮ ಗದಗ ಅಂಗಡಿಯಲ್ಲಿ ತಾಜಾ ವಸ್ತುಗಳನ್ನು ಆರಿಸಲಾಗುತ್ತಿದೆ."] },
+          { en: ["On the way", riderKm != null ? `Your rider is ${riderKm.toFixed(1)} km away.` : "Your rider has left our store."],
+            kn: ["ದಾರಿಯಲ್ಲಿದೆ", riderKm != null ? `ನಿಮ್ಮ ರೈಡರ್ ${riderKm.toFixed(1)} ಕಿ.ಮೀ ದೂರದಲ್ಲಿದ್ದಾರೆ.` : "ರೈಡರ್ ಅಂಗಡಿಯಿಂದ ಹೊರಟಿದ್ದಾರೆ."] },
+          { en: ["Delivered", "Enjoy your fresh groceries!"], kn: ["ತಲುಪಿಸಲಾಗಿದೆ", "ತಾಜಾ ದಿನಸಿಯನ್ನು ಆನಂದಿಸಿ!"] },
+        ][idx] || { en: ["", ""], kn: ["", ""] };
+        const [title, sub] = cancelled
+          ? (kn ? ["ಆರ್ಡರ್ ರದ್ದಾಗಿದೆ", "ಈ ಆರ್ಡರ್ ರದ್ದು ಮಾಡಲಾಗಿದೆ. ಪ್ರಶ್ನೆಗಳಿದ್ದರೆ ‘ಸಹಾಯ ಪಡೆಯಿರಿ’ ಒತ್ತಿ."] : ["Order cancelled", "This order was cancelled. Questions? Tap Get help."])
+          : (HEAD[lang] || HEAD.en);
+        const eta = cancelled ? null : idx === 2
+          ? (etaMin != null ? { label: kn ? "ತಲುಪುವ ಸಮಯ" : "Arriving in", value: kn ? `~${etaMin} ನಿಮಿಷ` : `~${etaMin} min` } : null)
+          : idx < 2 ? { label: kn ? "ಡೆಲಿವರಿ" : "Delivery", value: o.slot || (kn ? "2 ಗಂಟೆಯೊಳಗೆ" : "Within 2 hrs") } : null;
+        const items = o.items || [];
+        const nItems = items.reduce((s, i) => s + (i.qty || 0), 0);
+        const itemName = i => (kn ? (i.name_kn || KN_NAMES[i.name] || i.name) : i.name);
+        const itemsLine = items.slice(0, 2).map(itemName).join(", ") + (items.length > 2 ? (kn ? ` +${items.length - 2} ಇನ್ನಷ್ಟು` : ` +${items.length - 2} more`) : "");
+        const addressText = (o.address || "").replace("GPS location pinned ✓", "").replace("GPS ಸ್ಥಳ ಪಿನ್ ಮಾಡಲಾಗಿದೆ ✓", "").trim();
+        const payLabel = o.payment === "online" ? (kn ? "ಆನ್‌ಲೈನ್ ಪಾವತಿ" : "Online payment") : (kn ? "ಡೆಲಿವರಿ ವೇಳೆ ನಗದು / UPI" : "Cash or UPI on delivery");
+        const canCancel = !cancelled && idx < 2 && !!o.id;
+        const detailRow = (Icon, label, value, extra, last) => (
+          <div style={{ display: "flex", gap: 12, padding: "12px 14px", borderBottom: last ? "none" : `1px solid ${line}` }}>
+            <span style={{ width: 34, height: 34, borderRadius: 17, background: "#F1F5F0", color: basil, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <Icon size={17}/></span>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ fontSize: 12, color: soil }}>{label}</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: ink, marginTop: 1, lineHeight: 1.35, overflowWrap: "anywhere" }}>{value}</div>
+              {extra}
             </div>
           </div>
-          {/* Map */}
-          <LeafletMap orderStatusIdx={orderStatusIdx} basil={basil} customerLat={activeOrders[0]?.gps_lat} customerLon={activeOrders[0]?.gps_lon} riderPos={riderPos}/>
-          {/* Status timeline */}
-          <div style={{backgroundColor:"white",margin:"8px 0",padding:"16px"}}>
-            <div style={{fontSize:14,fontWeight:800,color:ink,marginBottom:14}}>{lang==="kn"?"ಆರ್ಡರ್ ಸ್ಥಿತಿ":"Order Status"}</div>
-            {[{label:lang==="kn"?"ಆರ್ಡರ್ ಸ್ವೀಕರಿಸಲಾಗಿದೆ":"Order received",icon:"📋"},{label:lang==="kn"?"ವಸ್ತುಗಳನ್ನು ತೆಗೆಯಲಾಗುತ್ತಿದೆ":"Picking items",icon:"🧺"},{label:lang==="kn"?"ತಲುಪಿಸಲು ಹೊರಟಿದೆ":"Out for delivery",icon:"🏍️"},{label:lang==="kn"?"ತಲುಪಿಸಲಾಗಿದೆ!":"Delivered!",icon:"✅"}].map(({label,icon},idx)=>{
-              const done=idx<orderStatusIdx, active=idx===orderStatusIdx;
-              return(
-                <div key={idx} style={{display:"flex",gap:12,marginBottom:0}}>
-                  <div style={{display:"flex",flexDirection:"column",alignItems:"center"}}>
-                    <div style={{width:32,height:32,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,backgroundColor:done||active?basil:"#f0f0f0",color:done||active?"white":soil,boxShadow:active?`0 0 0 4px ${basil}25`:"none"}}>
-                      {done?"✓":icon}
-                    </div>
-                    {idx<3&&<div style={{width:2,height:32,backgroundColor:done?basil:"#e0e0e0",marginTop:2}}/>}
-                  </div>
-                  <div style={{paddingBottom:24,paddingTop:4}}>
-                    <div style={{fontSize:13,fontWeight:active?700:done?600:400,color:active?basil:done?ink:soil}}>{label}</div>
-                    {active&&idx<3&&<div style={{fontSize:10,color:mango,marginTop:2}}>● {lang==="kn"?"ಪ್ರಕ್ರಿಯೆಯಲ್ಲಿದೆ...":"In progress..."}</div>}
+        );
+        const sendWhatsApp = () => {
+          const itemList = items.map(i => `• ${i.name} x${i.qty} = ₹${i.price * i.qty}`).join("\n");
+          const msg = encodeURIComponent(
+            `✅ *GADAG 360 - Order Confirmed!*\n\n🆔 Order ID: *#${o.id || "—"}*\n📅 Date: ${o.date || ""}\n⏰ Delivery Slot: ${o.slot || ""}\n\n` +
+            `🛒 *Items Ordered:*\n${itemList}\n\n💰 *Total: ₹${o.total || 0}*\n💳 Payment: ${o.payment === "online" ? "Online" : "Cash/UPI on Delivery"}\n\n` +
+            `📍 Deliver to: ${o.address || ""}\n\nThank you for ordering from GADAG 360! 🙏\nFor help: +91 98868 88924`);
+          window.open(`https://wa.me/?text=${msg}`, "_blank");
+        };
+        return <>
+          <div style={{ position: "relative" }}>
+            <TrackingMap customerLat={o.gps_lat} customerLon={o.gps_lon} riderPos={riderPos} lang={lang} height="clamp(300px, 46vh, 440px)" finished={idx === 3 || cancelled}/>
+            <div style={{ position: "absolute", top: "calc(env(safe-area-inset-top, 0px) + 12px)", left: 12, right: 12, zIndex: 2, display: "flex",
+              alignItems: "center", justifyContent: "space-between", pointerEvents: "none" }}>
+              <button className="g-reset" onClick={() => setScreen("home")} aria-label={kn ? "ಅಂಗಡಿಗೆ ಹಿಂತಿರುಗಿ" : "Back to the shop"}
+                style={{ pointerEvents: "auto", width: 42, height: 42, borderRadius: 21, background: "#fff", boxShadow: "0 3px 12px rgba(0,0,0,0.18)",
+                  display: "flex", alignItems: "center", justifyContent: "center", color: ink }}><ArrowLeft size={20}/></button>
+              {riderPos && idx === 2 && !cancelled && (
+                <span className="g-frost" style={{ pointerEvents: "auto", display: "inline-flex", alignItems: "center", gap: 7, padding: "7px 12px", borderRadius: 16,
+                  fontSize: 12.5, fontWeight: 700, color: basilDark }}><span className="g-live-dot"/>{kn ? "ಲೈವ್ ಸ್ಥಳ" : "Live location"}</span>
+              )}
+            </div>
+          </div>
+
+          <div style={{ position: "relative", zIndex: 2, marginTop: -24, background: "#fff", borderRadius: "24px 24px 0 0",
+            boxShadow: "0 -10px 30px rgba(30,43,34,0.10)", padding: "10px 16px 28px", minHeight: "56vh" }}>
+            <div aria-hidden="true" style={{ width: 40, height: 4, borderRadius: 2, background: "#D9DED3", margin: "0 auto 14px" }}/>
+
+            {/* Status headline + arrival */}
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+              <div style={{ minWidth: 0 }}>
+                <h1 style={{ fontFamily: accent, fontSize: 25, fontWeight: 700, color: ink, lineHeight: 1.15 }}>{title}</h1>
+                <p role="status" style={{ fontSize: 14, color: soil, marginTop: 5, lineHeight: 1.4 }}>{sub}</p>
+              </div>
+              {eta && (
+                <div style={{ flexShrink: 0, textAlign: "center", background: "#EEF6F0", borderRadius: 14, padding: "8px 12px", minWidth: 86 }}>
+                  <div style={{ fontSize: 11, color: basilDark, fontWeight: 600 }}>{eta.label}</div>
+                  <div style={{ fontSize: 16, color: basil, fontWeight: 800, whiteSpace: "nowrap", marginTop: 1 }}>{eta.value}</div>
+                </div>
+              )}
+            </div>
+
+            {/* Progress */}
+            {!cancelled && <ol aria-label={kn ? "ಆರ್ಡರ್ ಹಂತಗಳು" : "Order progress"}
+              style={{ listStyle: "none", display: "grid", gridTemplateColumns: "repeat(4, 1fr)", margin: "20px 0 4px", padding: 0 }}>
+              {STEPS.map((s, i) => {
+                const done = i < idx || idx === 3, active = i === idx && idx < 3;
+                const Icon = s.Icon;
+                return (
+                  <li key={s.key} aria-current={active ? "step" : undefined}
+                    style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", gap: 6, textAlign: "center" }}>
+                    {i > 0 && <span aria-hidden="true" style={{ position: "absolute", top: 17, right: "50%", width: "100%", height: 3, borderRadius: 2,
+                      background: i <= idx ? basil : "#E3E8E0" }}/>}
+                    <span className={active ? "g-step-active" : undefined} style={{ position: "relative", width: 36, height: 36, borderRadius: 18,
+                      display: "flex", alignItems: "center", justifyContent: "center", background: done ? basil : active ? "#fff" : "#F1F4EF",
+                      border: `2px solid ${done || active ? basil : "#E3E8E0"}`, color: done ? "#fff" : active ? basil : "#9AA394" }}>
+                      {done ? <Check size={18} strokeWidth={3}/> : <Icon size={17} strokeWidth={2.2}/>}
+                    </span>
+                    <span style={{ fontSize: 11.5, fontWeight: active ? 700 : 600, color: done || active ? ink : soil, lineHeight: 1.2 }}>{s[lang] || s.en}</span>
+                  </li>
+                );
+              })}
+            </ol>}
+
+            {/* Rider */}
+            {idx === 2 && !cancelled && (
+              <div style={{ display: "flex", alignItems: "center", gap: 12, background: "#F5F8F4", borderRadius: 16, padding: 12, marginTop: 16 }}>
+                <span style={{ width: 44, height: 44, borderRadius: 22, background: "#E5F1E8", color: basil, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Bike size={22}/></span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: ink }}>{kn ? "ನಿಮ್ಮ ಡೆಲಿವರಿ ಪಾಲುದಾರ" : "Your delivery partner"}</div>
+                  <div style={{ fontSize: 12.5, color: soil, marginTop: 2 }}>
+                    {riderPos ? (kn ? "ನಕ್ಷೆಯಲ್ಲಿ ಲೈವ್ ಸ್ಥಳ ನೋಡಿ" : "Follow them live on the map") : (kn ? "ಲೈವ್ ಸ್ಥಳ ಶೀಘ್ರದಲ್ಲೇ ಕಾಣುತ್ತದೆ" : "Live location will appear shortly")}
                   </div>
                 </div>
-              );
-            })}
-          </div>
-          {/* Coins earned */}
-          <div style={{backgroundColor:"#FFF8E1",margin:"8px 0",padding:"14px",display:"flex",alignItems:"center",gap:12}}>
-            <span style={{fontSize:24}}>🪙</span>
-            <div>
-              <div style={{fontSize:13,fontWeight:700,color:"#8B5E00"}}>+{coinsEarned} {lang==="kn"?"ಕಾಯಿನ್ಸ್ ಗಳಿಸಿದ್ದೀರಿ!":"Coins Earned!"}</div>
-              <div style={{fontSize:11,color:soil}}>{lang==="kn"?`ಒಟ್ಟು: ${coins} ಕಾಯಿನ್ಸ್`:`Total: ${coins} coins`}</div>
-            </div>
-          </div>
-          {/* Cancel + Support */}
-          <div style={{display:"flex",gap:8,margin:"8px 14px"}}>
-            <button onClick={()=>setShowCancelConfirm(true)} style={{flex:1,padding:"12px",borderRadius:12,backgroundColor:"white",color:chili,border:`1.5px solid ${chili}`,fontWeight:700,fontSize:13,cursor:"pointer"}}>
-              ✕ {lang==="kn"?"ಆರ್ಡರ್ ರದ್ದುಮಾಡಿ":"Cancel Order"}
-            </button>
-            <button onClick={()=>alert(lang==="kn"?"ಸಹಾಯಕ್ಕಾಗಿ: +91 98765 43210 ಗೆ ಕರೆ ಮಾಡಿ ಅಥವಾ WhatsApp ಮಾಡಿ":"For help call or WhatsApp: +91 98765 43210")} style={{flex:1,padding:"12px",borderRadius:12,backgroundColor:basil,color:"white",border:"none",fontWeight:700,fontSize:13,cursor:"pointer"}}>
-              💬 {lang==="kn"?"ಸಹಾಯ":"Get Help"}
-            </button>
-          </div>
-          {/* WhatsApp Order Confirmation to Customer */}
-          <div style={{margin:"0 14px 8px"}}>
-            <button onClick={()=>{
-              const o = activeOrders[0];
-              const itemList = (o?.items||[]).map(i => `• ${i.name} x${i.qty} = ₹${i.price*i.qty}`).join("\n");
-              const msg = encodeURIComponent(
-                `✅ *GADAG 360 - Order Confirmed!*\n\n` +
-                `🆔 Order ID: *#${o?.id||"—"}*\n` +
-                `📅 Date: ${o?.date||""}\n` +
-                `⏰ Delivery Slot: ${o?.slot||""}\n\n` +
-                `🛒 *Items Ordered:*\n${itemList}\n\n` +
-                `💰 *Total: ₹${o?.total||0}*\n` +
-                `💳 Payment: ${o?.payment==="upi"?"UPI":"Cash on Delivery"}\n\n` +
-                `📍 Deliver to: ${o?.address||""}\n\n` +
-                `Thank you for ordering from GADAG 360! 🙏\nFor help: +91 98868 88924`
-              );
-              window.open(`https://wa.me/?text=${msg}`,'_blank');
-            }} style={{width:"100%",padding:"14px",borderRadius:14,backgroundColor:"#25D366",color:"white",border:"none",fontWeight:800,fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10,boxShadow:"0 4px 12px rgba(37,211,102,0.4)"}}>
-              <span style={{fontSize:20}}>💬</span>
-              <div style={{textAlign:"left"}}>
-                <div>{lang==="kn"?"WhatsApp ದೃಢೀಕರಣ ಪಡೆಯಿರಿ":"Get WhatsApp Confirmation"}</div>
-                <div style={{fontSize:11,opacity:0.9,fontWeight:500}}>{lang==="kn"?"ಆರ್ಡರ್ ವಿವರ ಕಳುಹಿಸಿ":"Tap to send order details to yourself"}</div>
               </div>
+            )}
+
+            {/* Details */}
+            <div style={{ marginTop: 16, border: `1px solid ${line}`, borderRadius: 16, overflow: "hidden" }}>
+              {detailRow(MapPin, kn ? "ಡೆಲಿವರಿ ವಿಳಾಸ" : "Delivering to",
+                addressText || (homePt ? (kn ? "ಪಿನ್ ಮಾಡಿದ ಸ್ಥಳ" : "Your pinned location") : "—"),
+                homePt && <a href={`https://maps.google.com/?q=${homePt[0]},${homePt[1]}`} target="_blank" rel="noreferrer"
+                  style={{ display: "inline-block", marginTop: 4, fontSize: 12.5, fontWeight: 600, color: basil }}>{kn ? "ಗೂಗಲ್ ಮ್ಯಾಪ್‌ನಲ್ಲಿ ತೆರೆಯಿರಿ" : "Open in Google Maps"}</a>)}
+              {detailRow(Package, `${kn ? "ಆರ್ಡರ್" : "Order"} #${o.id || "—"}`,
+                `${nItems} ${kn ? (nItems === 1 ? "ವಸ್ತು" : "ವಸ್ತುಗಳು") : nItems === 1 ? "item" : "items"}, ${rs(o.total || 0)}`,
+                itemsLine && <div style={{ fontSize: 12.5, color: soil, marginTop: 2 }}>{itemsLine}</div>)}
+              {detailRow(CreditCard, kn ? "ಪಾವತಿ" : "Payment", payLabel, null, true)}
+            </div>
+
+            {/* Coins */}
+            {o.coins > 0 && !cancelled && (
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12, padding: "10px 14px", borderRadius: 14, background: "#FBF5E3" }}>
+                <span style={{ fontSize: 20 }}>🪙</span>
+                <span style={{ fontSize: 13, color: "#6B4E0E", fontWeight: 600 }}>
+                  {kn ? `ಈ ಆರ್ಡರ್‌ನಲ್ಲಿ ${o.coins} ಕಾಯಿನ್ಸ್ ಗಳಿಸಿದ್ದೀರಿ. ಒಟ್ಟು: ${coins}` : `You earned ${o.coins} coins on this order. Balance: ${coins}`}
+                </span>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+              <button className="g-reset g-tap" onClick={() => window.open(`https://wa.me/${SHOP_WHATSAPP}?text=${encodeURIComponent(kn
+                  ? `ನಮಸ್ಕಾರ GADAG 360, ನನ್ನ ಆರ್ಡರ್ #${o.id || ""} ಬಗ್ಗೆ ಸಹಾಯ ಬೇಕು.` : `Hi GADAG 360, I need help with my order #${o.id || ""}.`)}`, "_blank")}
+                style={{ flex: 1, padding: "12px", borderRadius: 14, border: `1.5px solid ${basil}`, color: basil, fontWeight: 700, fontSize: 14, textAlign: "center" }}>
+                {kn ? "ಸಹಾಯ ಪಡೆಯಿರಿ" : "Get help"}
+              </button>
+              {canCancel && (
+                <button className="g-reset g-tap" onClick={() => setShowCancelConfirm(true)}
+                  style={{ flex: 1, padding: "12px", borderRadius: 14, border: `1.5px solid ${chili}`, color: chili, fontWeight: 700, fontSize: 14, textAlign: "center" }}>
+                  {kn ? "ಆರ್ಡರ್ ರದ್ದುಮಾಡಿ" : "Cancel order"}
+                </button>
+              )}
+            </div>
+            <button className="g-reset g-tap" onClick={sendWhatsApp}
+              style={{ width: "100%", marginTop: 10, padding: "12px", borderRadius: 14, background: "#E8F8EE", color: "#128C4A", fontWeight: 700, fontSize: 14,
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+              <span aria-hidden="true">💬</span>{kn ? "ಆರ್ಡರ್ ವಿವರ WhatsApp ನಲ್ಲಿ ಕಳುಹಿಸಿ" : "Send order details on WhatsApp"}
+            </button>
+            <button className="g-reset g-tap" onClick={() => setScreen("home")}
+              style={{ width: "100%", marginTop: 10, padding: "14px", borderRadius: 14, background: basil, color: "#fff", fontWeight: 800, fontSize: 15, textAlign: "center" }}>
+              {kn ? "ಶಾಪಿಂಗ್ ಮುಂದುವರೆಸಿ" : "Continue shopping"}
             </button>
           </div>
 
-          {/* Cancel confirm modal */}
-          {showCancelConfirm&&(
-            <div style={{position:"fixed",inset:0,backgroundColor:"rgba(0,0,0,0.5)",zIndex:60,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}}>
-              <div style={{backgroundColor:"white",borderRadius:20,padding:"24px",width:"100%",maxWidth:320,textAlign:"center"}}>
-                <div style={{fontSize:32,marginBottom:12}}>⚠️</div>
-                <div style={{fontSize:16,fontWeight:800,color:ink,marginBottom:8}}>{lang==="kn"?"ಆರ್ಡರ್ ರದ್ದು ಮಾಡಬೇಕೇ?":"Cancel this order?"}</div>
-                <div style={{fontSize:13,color:soil,marginBottom:20}}>{lang==="kn"?"ಒಮ್ಮೆ ರದ್ದು ಮಾಡಿದರೆ ಹಿಂತಿರುಗಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ":"This action cannot be undone"}</div>
-                <div style={{display:"flex",gap:10}}>
-                  <button onClick={()=>setShowCancelConfirm(false)} style={{flex:1,padding:"12px",borderRadius:12,backgroundColor:"#f7f7f7",color:ink,border:"none",fontWeight:700,cursor:"pointer"}}>{lang==="kn"?"ಹಿಂದೆ":"Go Back"}</button>
-                  <button onClick={()=>{setShowCancelConfirm(false);setScreen("home");alert(lang==="kn"?"ಆರ್ಡರ್ ರದ್ದು ಮಾಡಲಾಗಿದೆ":"Order cancelled successfully");}} style={{flex:1,padding:"12px",borderRadius:12,backgroundColor:chili,color:"white",border:"none",fontWeight:700,cursor:"pointer"}}>{lang==="kn"?"ರದ್ದು ಮಾಡಿ":"Yes, Cancel"}</button>
+          {/* Cancel confirmation */}
+          {showCancelConfirm && (
+            <div className="g-fade" style={{ position: "fixed", inset: 0, backgroundColor: "rgba(22,32,24,0.5)", zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+              <div role="dialog" aria-modal="true" style={{ backgroundColor: "#fff", borderRadius: 20, padding: 24, width: "100%", maxWidth: 330, textAlign: "center" }}>
+                <div style={{ fontFamily: accent, fontSize: 20, fontWeight: 700, color: ink, marginBottom: 6 }}>{kn ? "ಆರ್ಡರ್ ರದ್ದು ಮಾಡಬೇಕೇ?" : "Cancel this order?"}</div>
+                <div style={{ fontSize: 13.5, color: soil, marginBottom: 20, lineHeight: 1.45 }}>
+                  {kn ? "ರದ್ದು ಮಾಡಿದ ನಂತರ ಇದನ್ನು ಹಿಂತಿರುಗಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ." : "We'll stop packing it. This can't be undone."}
+                </div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button className="g-reset" onClick={() => setShowCancelConfirm(false)}
+                    style={{ flex: 1, padding: 12, borderRadius: 12, backgroundColor: "#F1F4EF", color: ink, fontWeight: 700, textAlign: "center" }}>{kn ? "ಬೇಡ" : "Keep order"}</button>
+                  <button className="g-reset" onClick={cancelOrder}
+                    style={{ flex: 1, padding: 12, borderRadius: 12, backgroundColor: chili, color: "#fff", fontWeight: 700, textAlign: "center" }}>{kn ? "ರದ್ದು ಮಾಡಿ" : "Cancel order"}</button>
                 </div>
               </div>
             </div>
           )}
-          <button onClick={()=>setScreen("home")} style={{width:"calc(100% - 28px)",margin:"0 14px 16px",padding:"14px",borderRadius:14,backgroundColor:mango,color:"white",border:"none",fontWeight:800,fontSize:14,cursor:"pointer"}}>
-            {lang==="kn"?"ಶಾಪಿಂಗ್ ಮುಂದುವರೆಸಿ":"Continue Shopping"}
-          </button>
-        </div>
-        {/* WhatsApp toast */}
-        {notifShown&&(
-          <div style={{position:"fixed",bottom:16,left:14,right:14,backgroundColor:"#25D366",color:"white",borderRadius:14,padding:"12px 16px",display:"flex",alignItems:"center",gap:10,zIndex:40,boxShadow:"0 4px 20px rgba(0,0,0,0.2)"}}>
-            <span style={{fontSize:20}}>💬</span>
-            <div style={{flex:1}}>
-              <div style={{fontSize:12,fontWeight:700}}>{lang==="kn"?"WhatsApp ಸಂದೇಶ ಕಳುಹಿಸಲಾಗಿದೆ":"WhatsApp Confirmation Sent!"}</div>
-            </div>
-            <button onClick={()=>setNotifShown(false)} style={{background:"none",border:"none",color:"white",cursor:"pointer",fontSize:16}}>✕</button>
-          </div>
-        )}
-      </>}
+        </>;
+      })()}
 
       {screen === "confirmation" && <>
         <Header title={t.orderPlaced}/>
         <div className="flex-1 overflow-y-auto pb-6">
 
           {/* Leaflet OSM Map — real Gadag streets */}
-          <LeafletMap orderStatusIdx={orderStatusIdx} basil={basil} customerLat={activeOrders[0]?.gps_lat} customerLon={activeOrders[0]?.gps_lon} riderPos={riderPos}/>
+          <div style={{margin:"16px 16px 0"}}><TrackingMap customerLat={activeOrders[0]?.gps_lat} customerLon={activeOrders[0]?.gps_lon} riderPos={riderPos} lang={lang} height={240} rounded/></div>
 
           {/* Status timeline */}
           <div className="mx-4 mt-5">
