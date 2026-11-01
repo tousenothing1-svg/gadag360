@@ -3010,7 +3010,7 @@ const verifyOtp = async () => {
             <div style={{textAlign:"center",fontSize:12,marginBottom:16,color:soil}}>
               {lastRating===5?"🤩 Excellent!":lastRating===4?"😊 Good!":lastRating===3?"😐 Okay":lastRating>0?"😞 We'll improve":"Tap a star to rate"}
             </div>
-            <button disabled={!lastRating} onClick={()=>{setShowRating(false);setScreen("home");}}
+            <button disabled={!lastRating} onClick={()=>setShowRating(false)}
               style={{width:"100%",padding:"12px 0",borderRadius:16,fontWeight:700,fontSize:14,border:"none",cursor:lastRating?"pointer":"default",backgroundColor:lastRating?basil:"#ccc",color:"white"}}>
               {lang==="kn"?"ರೇಟಿಂಗ್ ಸಲ್ಲಿಸಿ":"Submit Rating"}{lastRating>0?` · ${lastRating}★`:""}
             </button>
