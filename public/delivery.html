@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>GADAG 360 – Delivery Panel</title>
+  <title>Royal Harvest – Delivery Panel</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -161,7 +161,7 @@
   <div class="login-card">
     <div class="login-logo">
       <div class="icon">🛵</div>
-      <h2>GADAG 360</h2>
+      <h2>Royal Harvest</h2>
       <p>Delivery Partner Login</p>
     </div>
     <div class="field">
@@ -182,7 +182,7 @@
   <div class="header">
     <div>
       <div class="h1" style="font-size:17px;font-weight:700;" id="headerName">🛵 Delivery Panel</div>
-      <div class="sub" id="headerSub">GADAG 360</div>
+      <div class="sub" id="headerSub">Royal Harvest</div>
     </div>
     <button class="logout-btn" onclick="doLogout()">Logout</button>
   </div>
@@ -223,7 +223,7 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const WAREHOUSE = {
   lat: 15.426861,
   lon: 75.614917,
-  name: "GADAG 360 Warehouse"
+  name: "Royal Harvest Warehouse"
 };
 const WAREHOUSE_MAP = `https://maps.google.com/?q=${WAREHOUSE.lat},${WAREHOUSE.lon}`;
 

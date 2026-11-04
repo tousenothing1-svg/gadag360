@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="23" fill="#1A6B3C"/><g transform="translate(50 50.5) scale(1.2) translate(-50 -50)">
+  <path d="M35 31.5 L37 19 L43.5 26 L50 15 L56.5 26 L63 19 L65 31.5 Z" fill="#F2B53A"/>
+  <rect x="35" y="31" width="30" height="4.4" rx="1.3" fill="#F2B53A"/>
+  <circle cx="37" cy="19" r="1.9" fill="#F2B53A"/><circle cx="50" cy="15" r="2.1" fill="#F2B53A"/><circle cx="63" cy="19" r="1.9" fill="#F2B53A"/>
+  <path d="M50 86 L50 46" stroke="#fff" stroke-width="2.8" stroke-linecap="round"/>
+  <g fill="#fff">
+    <ellipse cx="50" cy="44.5" rx="3.3" ry="6"/>
+    <ellipse cx="45.3" cy="53" rx="3.2" ry="5.8" transform="rotate(-38 45.3 53)"/>
+    <ellipse cx="54.7" cy="53" rx="3.2" ry="5.8" transform="rotate(38 54.7 53)"/>
+    <ellipse cx="45.3" cy="62" rx="3.2" ry="5.8" transform="rotate(-38 45.3 62)"/>
+    <ellipse cx="54.7" cy="62" rx="3.2" ry="5.8" transform="rotate(38 54.7 62)"/>
+    <ellipse cx="45.3" cy="71" rx="3.2" ry="5.8" transform="rotate(-38 45.3 71)"/>
+    <ellipse cx="54.7" cy="71" rx="3.2" ry="5.8" transform="rotate(38 54.7 71)"/>
+  </g></g></svg>

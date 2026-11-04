@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>GADAG 360 Admin Panel</title>
+<title>Royal Harvest Admin Panel</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',system-ui,sans-serif;background:#f5f5f5;color:#1a1a1a}
@@ -58,7 +58,7 @@ input[type=password],input[type=text],input[type=number],select,textarea{width:1
 
 <div class="login-screen" id="loginScreen">
   <div class="login-box">
-    <div class="login-logo">🛒 GADAG 360</div>
+    <div class="login-logo">🛒 Royal Harvest</div>
     <div style="color:#888;font-size:13px;margin-bottom:16px">Admin Panel</div>
     <label>Password</label>
     <input type="password" id="pwInput" placeholder="Enter admin password" onkeydown="if(event.key==='Enter')doLogin()"/>
@@ -69,7 +69,7 @@ input[type=password],input[type=text],input[type=number],select,textarea{width:1
 
 <div id="mainApp" style="display:none">
   <div class="header">
-    <h1>🛒 GADAG 360 Admin</h1>
+    <h1>🛒 Royal Harvest Admin</h1>
     <div style="display:flex;gap:10px;align-items:center;font-size:13px">
       <span id="connStatus">⚪ Connecting...</span>
       <button class="btn btn-gray btn-sm" onclick="logout()">Logout</button>
@@ -88,7 +88,7 @@ input[type=password],input[type=text],input[type=number],select,textarea{width:1
       <div class="nav-section">Delivery</div>
       <div class="nav-item" onclick="showPage('delivery',this)">🛵 Delivery Boys</div>
       <div class="nav-section">Links</div>
-      <div class="nav-item" onclick="window.open('https://gadag360.vercel.app','_blank')">🌐 Live App</div>
+      <div class="nav-item" onclick="window.open(location.origin,'_blank')">🌐 Live App</div>
     </div>
     <div class="main">
 

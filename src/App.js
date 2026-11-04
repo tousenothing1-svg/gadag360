@@ -502,7 +502,7 @@ function TrackingMap({ customerLat, customerLon, riderPos, lang, height = 320, r
       L.tileLayer(OSM_TILES, { maxZoom: 19 }).addTo(map);
       L.control.attribution({ position: "bottomleft", prefix: false }).addAttribution(OSM_CREDIT).addTo(map);
       L.marker(WAREHOUSE_POS, { keyboard: false, icon: L.divIcon({ className: "g-divicon", iconSize: [40, 40], iconAnchor: [20, 20],
-        html: `<div class="g-mk"><div class="g-mk-sq">${svgIcon("store", 20, "#fff")}</div><div class="g-mk-label">GADAG 360</div></div>` }) }).addTo(map);
+        html: `<div class="g-mk"><div class="g-mk-sq">${svgIcon("store", 20, "#fff")}</div><div class="g-mk-label">${kn ? "ರಾಯಲ್ ಹಾರ್ವೆಸ್ಟ್" : "Royal Harvest"}</div></div>` }) }).addTo(map);
       if (home) L.marker(home, { keyboard: false, icon: L.divIcon({ className: "g-divicon", iconSize: [38, 48], iconAnchor: [19, 47],
         html: `<div class="g-mk g-mk-home">${pinSvg("#D9482B", "home")}<div class="g-mk-label">${kn ? "ನೀವು" : "You"}</div></div>` }) }).addTo(map);
       mapRef.current = map;
@@ -756,7 +756,7 @@ function ProductSheet({ p, inCart, picked, lang, KN_NAMES, onCommit, onClose }) 
 }
 
 // ── HANDPICKD LAYOUT COMPONENT ──
-// (name kept for history) GADAG 360's shop grid: category sections with sticky turmeric pills,
+// (name kept for history) Royal Harvest's shop grid: category sections with sticky turmeric pills,
 // or a flat list for search results and shelves.
 function HandpickdLayout({ filtered, listMode, onClearList, suggestions, onSuggest, cart, setCart, addToCart, removeFromCart,
   selectedVariant, setSelectedVariant, lang, onOpenDrawer, CATS, KN_NAMES, basil, soil, ink, line, chili }) {
@@ -1046,7 +1046,7 @@ function HandpickdLayout({ filtered, listMode, onClearList, suggestions, onSugge
   );
 }
 
-// ── GADAG 360: Single-warehouse grocery delivery ──
+// ── ROYAL HARVEST (formerly GADAG 360): single-warehouse grocery delivery ──
 export default function Gadag360() {
   const [screen, setScreen] = useState("home");
   const [activeCat, setActiveCat] = useState("all");
@@ -1207,7 +1207,7 @@ export default function Gadag360() {
 
   const T = {
     en: {
-      appName: "GADAG 360",
+      appName: "Royal Harvest",
       tagline: "Gadag, Karnataka",
       subtitle: "Fresh from your neighbourhood",
       searchPlaceholder: "Search products...",
@@ -1245,7 +1245,7 @@ export default function Gadag360() {
       products: "products",
     },
     kn: {
-      appName: "ಗದಗ 360",
+      appName: "ರಾಯಲ್ ಹಾರ್ವೆಸ್ಟ್",
       tagline: "ಗದಗ, ಕರ್ನಾಟಕ",
       subtitle: "ನಿಮ್ಮ ನೆರೆಹೊರೆಯಿಂದ ತಾಜಾ",
       searchPlaceholder: "ಉತ್ಪನ್ನಗಳನ್ನು ಹುಡುಕಿ...",
@@ -1546,7 +1546,11 @@ export default function Gadag360() {
           }
           {title && <span style={{fontSize:16,fontWeight:800,color:ink}}>{title}</span>}
           {!showBack && !title && (
-            <div style={{fontSize:15,fontWeight:800,color:ink,letterSpacing:-0.3}}>{t.appName}</div>
+            <div aria-label={t.appName} style={{fontFamily:accent,fontSize:19,fontWeight:700,lineHeight:1,whiteSpace:"nowrap"}}>
+              {lang==="kn"
+                ? <span style={{color:basil}}>{t.appName}</span>
+                : <><span style={{color:"#946500"}}>Royal</span> <span style={{color:basil}}>Harvest</span></>}
+            </div>
           )}
         </div>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
@@ -1574,7 +1578,7 @@ export default function Gadag360() {
         ? `\n📍 GPS Location: https://maps.google.com/?q=${order.gps_lat},${order.gps_lon}`
         : "";
       const waMsg = encodeURIComponent(
-        `🛒 NEW ORDER - GADAG 360\n` +
+        `🛒 NEW ORDER - Royal Harvest\n` +
         `Order ID: #${order.id}\n` +
         `Customer: ${order.customer_name || "Customer"}\n` +
         `Phone: ${order.customer_phone || ""}\n` +
@@ -1915,8 +1919,8 @@ const verifyOtp = async () => {
           <div style={{flex:1,display:"flex",flexDirection:"column",minHeight:"100vh",backgroundColor:"white"}}>
             {/* Green top section */}
             <div style={{background:`linear-gradient(160deg,${basil},#2d9e5f)`,padding:"48px 24px 36px",textAlign:"center"}}>
-              <div style={{fontSize:52,marginBottom:12}}>🛒</div>
-              <div style={{color:"white",fontSize:22,fontWeight:800,letterSpacing:-0.5}}>{lang==="kn"?"ಗದಗ 360":"GADAG 360"}</div>
+              <img src="/logo192.png" alt="" width={68} height={68} style={{display:"inline-block",borderRadius:18,marginBottom:12,border:"2px solid rgba(255,255,255,0.55)",boxShadow:"0 6px 18px rgba(0,0,0,0.18)"}}/>
+              <div style={{color:"white",fontSize:22,fontWeight:800,letterSpacing:-0.5}}>{lang==="kn"?"ರಾಯಲ್ ಹಾರ್ವೆಸ್ಟ್":"Royal Harvest"}</div>
               <div style={{color:"rgba(255,255,255,0.8)",fontSize:13,marginTop:6}}>{lang==="kn"?"ತಾಜಾ ತರಕಾರಿ · ಹಣ್ಣು · 2 ಗಂಟೆಯಲ್ಲಿ ಡೆಲಿವರಿ":"Fresh Groceries · Delivered in 2 hrs"}</div>
             </div>
             {/* Login form */}
@@ -2038,7 +2042,7 @@ const verifyOtp = async () => {
                         <button onClick={()=>{
                           const items = (o.items||[]);
                           const subtotalAmt = items.reduce((s,i)=>s+(i.price*i.qty),0);
-                          const invoiceHTML = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>GADAG 360 Invoice</title>
+                          const invoiceHTML = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Royal Harvest Invoice</title>
                           <style>body{font-family:Arial,sans-serif;margin:0;padding:20px;color:#111;font-size:13px}
                           .header{border-bottom:2px solid #1A6B3C;padding-bottom:12px;margin-bottom:16px}
                           .logo{color:#1A6B3C;font-size:22px;font-weight:900;letter-spacing:-0.5px}
@@ -2059,9 +2063,9 @@ const verifyOtp = async () => {
                           .bill-total{display:flex;justify-content:space-between;padding:8px 0 0;margin-top:4px;border-top:1px solid #ddd;font-weight:bold;font-size:14px}
                           </style></head><body>
                           <div class="header">
-                            <div class="logo">GADAG 360</div>
+                            <div class="logo">Royal Harvest</div>
                             <div class="subtitle">Fresh Groceries · Gadag-Betageri, Karnataka 582101</div>
-                            <div class="subtitle">FSSAI: (Registration Pending) · Email: hello@gadag360.in · Ph: +91 98765 43210</div>
+                            <div class="subtitle">FSSAI: (Registration Pending) · Ph: +91 98765 43210</div>
                           </div>
                           <div style="text-align:center;font-size:14px;font-weight:bold;margin-bottom:12px;letter-spacing:1px">TAX INVOICE / BILL OF SUPPLY</div>
                           <div class="meta">
@@ -2079,7 +2083,7 @@ const verifyOtp = async () => {
                             <div class="meta-box" style="flex:2"><div class="label">Delivery Slot</div>
                               <div>${o.slot||"Standard Delivery"}</div>
                               <div class="label" style="margin-top:8px">Delivered By</div>
-                              <div>GADAG 360</div>
+                              <div>Royal Harvest</div>
                             </div>
                           </div>
                           <table>
@@ -2098,9 +2102,9 @@ const verifyOtp = async () => {
                             <div>• This is a computer generated invoice and does not require a signature</div>
                           </div>
                           <div class="footer">
-                            <div style="font-size:12px;font-weight:700;color:#1A6B3C;margin-bottom:4px">Thank you for shopping with GADAG 360!</div>
-                            <div>Gadag's first hyperlocal grocery delivery · hello@gadag360.in</div>
-                            <div style="margin-top:4px">For support: +91 98765 43210 · gadag360.vercel.app</div>
+                            <div style="font-size:12px;font-weight:700;color:#1A6B3C;margin-bottom:4px">Thank you for shopping with Royal Harvest!</div>
+                            <div>Fresh groceries delivered to your door in 2 hours</div>
+                            <div style="margin-top:4px">For support: +91 98765 43210 · ${window.location.host}</div>
                           </div>
                           </body></html>`;
                           const win = window.open("","_blank");
@@ -2120,7 +2124,7 @@ const verifyOtp = async () => {
 
           {/* PAYMENT MANAGEMENT */}
           {profileSection==="payments" && <div className="space-y-3">
-            {[{icon:"📱",label:"UPI / GPay / PhonePe",sub:"Linked & active"},{icon:"💳",label:lang==="kn"?"ಕ್ರೆಡಿಟ್/ಡೆಬಿಟ್ ಕಾರ್ಡ್":"Credit / Debit Card",sub:lang==="kn"?"ಕಾರ್ಡ್ ಸೇರಿಸಿ":"Add a card"},{icon:"💵",label:"Cash on Delivery",sub:lang==="kn"?"ಡೆಲಿವರಿ ಸಮಯದಲ್ಲಿ ಪಾವತಿ":"Pay when order arrives"},{icon:"🪙",label:lang==="kn"?"ಗದಗ 360 ಕಾಯಿನ್ಸ್":"GADAG 360 Coins",sub:`${coins} coins = ₹${Math.floor(coins/10)} off next order`}].map((m,i)=>(
+            {[{icon:"📱",label:"UPI / GPay / PhonePe",sub:"Linked & active"},{icon:"💳",label:lang==="kn"?"ಕ್ರೆಡಿಟ್/ಡೆಬಿಟ್ ಕಾರ್ಡ್":"Credit / Debit Card",sub:lang==="kn"?"ಕಾರ್ಡ್ ಸೇರಿಸಿ":"Add a card"},{icon:"💵",label:"Cash on Delivery",sub:lang==="kn"?"ಡೆಲಿವರಿ ಸಮಯದಲ್ಲಿ ಪಾವತಿ":"Pay when order arrives"},{icon:"🪙",label:lang==="kn"?"ರಾಯಲ್ ಹಾರ್ವೆಸ್ಟ್ ಕಾಯಿನ್ಸ್":"Royal Harvest Coins",sub:`${coins} coins = ₹${Math.floor(coins/10)} off next order`}].map((m,i)=>(
               <div key={i} className="flex items-center gap-3 p-4 rounded-2xl" style={{backgroundColor:panel,border:`1px solid ${line}`}}>
                 <span className="text-2xl">{m.icon}</span>
                 <div><div className="font-semibold text-sm">{m.label}</div><div className="text-xs" style={{color:soil}}>{m.sub}</div></div>
@@ -2221,7 +2225,7 @@ const verifyOtp = async () => {
 
           {/* GENERAL INFO */}
           {profileSection==="info" && <div className="space-y-3">
-            {[{title:"About GADAG 360",body:"Gadag's first hyperlocal grocery delivery app. Fresh produce delivered straight from our warehouse to your doorstep in under 2 hours."},{title:"Service Areas",body:"Gadag · Betageri · Laxmeshwar · Shirahatti · Naragund · Ron · Mundaragi"},{title:"Delivery Hours",body:"7:00 AM – 9:00 PM, all days including Sundays"},{title:"Contact",body:"📞 +91 98765 43210\n✉️ hello@gadag360.in\n📍 Gadag-Betageri, Karnataka 582101"}].map((s,i)=>(
+            {[{title:"About Royal Harvest",body:"Royal Harvest delivers fresh fruits, vegetables and daily essentials straight from our own warehouse in Gadag to your doorstep in under 2 hours."},{title:"Service Areas",body:"Gadag · Betageri · Laxmeshwar · Shirahatti · Naragund · Ron · Mundaragi"},{title:"Delivery Hours",body:"7:00 AM – 9:00 PM, all days including Sundays"},{title:"Contact",body:"📞 +91 98765 43210\n📍 Gadag-Betageri, Karnataka 582101"}].map((s,i)=>(
               <div key={i} className="rounded-2xl p-4" style={{backgroundColor:panel,border:`1px solid ${line}`}}>
                 <div className="font-semibold text-sm mb-1">{s.title}</div>
                 <div className="text-xs whitespace-pre-line" style={{color:soil}}>{s.body}</div>
@@ -2505,8 +2509,8 @@ const verifyOtp = async () => {
                 <div className="font-bold text-base">{lang==="kn" ? "ಇಬ್ಬರಿಗೂ ₹30 ರಿಯಾಯಿತಿ!" : "Both get ₹30 off!"}</div>
                 <div className="text-xs mt-1" style={{color: soil}}>{lang==="kn" ? "ನಿಮ್ಮ ಕೋಡ್ ಶೇರ್ ಮಾಡಿ" : "Share your referral code"}</div>
                 <div className="mt-3 mx-4 flex items-center rounded-xl overflow-hidden" style={{border:`2px solid ${mango}`}}>
-                  <div className="flex-1 py-2 text-center font-bold tracking-widest" style={{color: basil, fontSize:18}}>GADAG30</div>
-                  <button onClick={() => { navigator.clipboard?.writeText("GADAG30"); setReferralCopied(true); setTimeout(() => setReferralCopied(false), 2000); }}
+                  <div className="flex-1 py-2 text-center font-bold tracking-widest" style={{color: basil, fontSize:18}}>ROYAL30</div>
+                  <button onClick={() => { navigator.clipboard?.writeText("ROYAL30"); setReferralCopied(true); setTimeout(() => setReferralCopied(false), 2000); }}
                     className="px-3 py-2 text-xs font-bold" style={{backgroundColor: mango, color: basilDark}}>
                     {referralCopied ? "✓ Copied!" : <><Copy size={12}/></>}
                   </button>
@@ -2782,9 +2786,9 @@ const verifyOtp = async () => {
         const sendWhatsApp = () => {
           const itemList = items.map(i => `• ${i.name} x${i.qty} = ₹${i.price * i.qty}`).join("\n");
           const msg = encodeURIComponent(
-            `✅ *GADAG 360 - Order Confirmed!*\n\n🆔 Order ID: *#${o.id || "—"}*\n📅 Date: ${o.date || ""}\n⏰ Delivery Slot: ${o.slot || ""}\n\n` +
+            `✅ *Royal Harvest - Order Confirmed!*\n\n🆔 Order ID: *#${o.id || "—"}*\n📅 Date: ${o.date || ""}\n⏰ Delivery Slot: ${o.slot || ""}\n\n` +
             `🛒 *Items Ordered:*\n${itemList}\n\n💰 *Total: ₹${o.total || 0}*\n💳 Payment: ${o.payment === "online" ? "Online" : "Cash/UPI on Delivery"}\n\n` +
-            `📍 Deliver to: ${o.address || ""}\n\nThank you for ordering from GADAG 360! 🙏\nFor help: +91 98868 88924`);
+            `📍 Deliver to: ${o.address || ""}\n\nThank you for ordering from Royal Harvest! 🙏\nFor help: +91 98868 88924`);
           window.open(`https://wa.me/?text=${msg}`, "_blank");
         };
         return <>
@@ -2881,7 +2885,7 @@ const verifyOtp = async () => {
             {/* Actions */}
             <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
               <button className="g-reset g-tap" onClick={() => window.open(`https://wa.me/${SHOP_WHATSAPP}?text=${encodeURIComponent(kn
-                  ? `ನಮಸ್ಕಾರ GADAG 360, ನನ್ನ ಆರ್ಡರ್ #${o.id || ""} ಬಗ್ಗೆ ಸಹಾಯ ಬೇಕು.` : `Hi GADAG 360, I need help with my order #${o.id || ""}.`)}`, "_blank")}
+                  ? `ನಮಸ್ಕಾರ ರಾಯಲ್ ಹಾರ್ವೆಸ್ಟ್, ನನ್ನ ಆರ್ಡರ್ #${o.id || ""} ಬಗ್ಗೆ ಸಹಾಯ ಬೇಕು.` : `Hi Royal Harvest, I need help with my order #${o.id || ""}.`)}`, "_blank")}
                 style={{ flex: 1, padding: "12px", borderRadius: 14, border: `1.5px solid ${basil}`, color: basil, fontWeight: 700, fontSize: 14, textAlign: "center" }}>
                 {kn ? "ಸಹಾಯ ಪಡೆಯಿರಿ" : "Get help"}
               </button>
