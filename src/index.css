@@ -193,3 +193,24 @@ input[type="search"]::-webkit-search-decoration { -webkit-appearance: none; }
 .g-map .leaflet-container .leaflet-bar a { width: 34px; height: 34px; font: 600 20px/34px 'Figtree', system-ui, sans-serif; color: #1E2B22; border-bottom-color: #E4E8E0; }
 .g-map .leaflet-container .leaflet-bar a:hover { background: #F2F5F1; }
 .g-map .leaflet-container .leaflet-bar a.leaflet-disabled { color: #B9C0B5; background: #fff; }
+
+/* ── First open: welcome, sign-in, questions, brand promise ── */
+@keyframes g-float { 0%, 100% { transform: translateY(0) rotate(var(--r, 0deg)); } 50% { transform: translateY(-6px) rotate(var(--r, 0deg)); } }
+.g-ob-card { transform: rotate(var(--r, 0deg)); animation: g-float 5s ease-in-out infinite; }
+@keyframes g-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.g-in { animation: g-in 0.3s ease-out both; }
+@keyframes g-wipe { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+.g-wipe { animation: g-wipe 5.2s linear forwards; }
+@keyframes g-blink { 50% { opacity: 0; } }
+.g-caret { display: inline-block; width: 3px; height: 0.95em; margin-left: 3px; vertical-align: -0.1em; background: currentColor; border-radius: 2px; animation: g-blink 1s steps(1) infinite; }
+@keyframes g-spin { to { transform: rotate(360deg); } }
+.g-spin { width: 18px; height: 18px; border-radius: 50%; border: 2.5px solid rgba(255, 255, 255, 0.45); border-top-color: #fff; animation: g-spin 0.8s linear infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .g-ob-card, .g-in, .g-caret { animation: none; }
+  .g-wipe { animation: none; clip-path: none; }
+}
+/* Welcome collage: as big as fits, so the start button stays on screen on short phones */
+.g-ob-collage { width: max(200px, min(100%, 340px, calc((100vh - 430px) * 1.15))); }
+@supports (height: 100dvh) {
+  .g-ob-collage { width: max(200px, min(100%, 340px, calc((100dvh - 430px) * 1.15))); }
+}

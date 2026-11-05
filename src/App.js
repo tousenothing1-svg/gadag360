@@ -5,6 +5,7 @@ import { auth } from "./firebase";
 import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
+import { Onboarding, WelcomeOffer, CoachTip, AreaNotice } from "./FirstOpen";
 
 // ── DETECT IF RUNNING IN CAPACITOR (native Android/iOS) ──
 const isNative = () => {
@@ -400,6 +401,8 @@ function ProductImage({ p }) {
 const WAREHOUSE_POS = [15.426861, 75.614917];
 // The shop's WhatsApp: new orders and "Get help" messages go here
 const SHOP_WHATSAPP = "919886888924";
+// We deliver within this distance of the warehouse (covers Gadag, Betageri and the district towns in the service list)
+const SERVICE_RADIUS_KM = 50;
 
 // ── MAPS ──
 // Leaflet (the map library) loads once from the CDN, only when a map is shown.
@@ -1105,6 +1108,14 @@ export default function Gadag360() {
   const [dbProducts, setDbProducts] = useState([]);
   const [vendorOrderStatus, setVendorOrderStatus] = useState({}); // {orderId: "accepted"|"rejected"}
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    try { return !localStorage.getItem("gd360_onboarded") && localStorage.getItem("gd360_loggedIn") !== "true"; } catch (e) { return false; }
+  });
+  const [showWelcomeOffer, setShowWelcomeOffer] = useState(false);
+  const [showTip, setShowTip] = useState(false);
+  const [userLoc, setUserLoc] = useState(() => readJSON("gd360_loc", null));
+  const [areaNoticeClosed, setAreaNoticeClosed] = useState(false);
+  const outsideArea = !!(userLoc && typeof userLoc.lat === "number" && kmBetween([userLoc.lat, userLoc.lon], WAREHOUSE_POS) > SERVICE_RADIUS_KM);
   // The running "Use GPS" watch, so a second tap (or placing the order) stops the old one
   const gpsWatchRef = useRef(null);
   const stopGpsWatch = () => {
@@ -1596,23 +1607,20 @@ const sendOtp = async () => {
   if(loginPhone.length!==10){ alert("Enter valid 10-digit number"); return; }
   setLoginStep("otp"); // go to name step
 };
-const verifyOtp = async () => {
-  if(!loginOtp.trim()){ alert("Enter your name"); return; }
-  try {
-    // loginOtp field is reused for name input temporarily
-      // Define existingUser at outer scope so it's always accessible
+// Find or create the customer by phone, then keep them signed in on this device. Returns their user id.
+const signIn = async (phone, name) => {
       let existingUser = null;
       try {
         let { data: existingUsers } = await supabase
-          .from("users").select("*").eq("phone", loginPhone).limit(1);
+          .from("users").select("*").eq("phone", phone).limit(1);
         existingUser = existingUsers && existingUsers.length > 0 ? existingUsers[0] : null;
         if (!existingUser) {
           const { data: newUser } = await supabase
-            .from("users").insert({ phone: loginPhone, name: loginOtp.trim(), coins: 120 }).select().single();
+            .from("users").insert({ phone, name, coins: 120 }).select().single();
           existingUser = newUser;
-        } else if (loginOtp.trim() && !existingUser.name) {
+        } else if (name && !existingUser.name) {
           // Save name if not set yet
-          await supabase.from("users").update({ name: loginOtp.trim() }).eq("id", existingUser.id);
+          await supabase.from("users").update({ name }).eq("id", existingUser.id);
         }
         if (existingUser) {
           setCurrentUserId(existingUser.id);
@@ -1630,8 +1638,8 @@ const verifyOtp = async () => {
 
       // Always login regardless of Supabase success
       const profileData = {
-        name: loginOtp.trim() || existingUser?.name || "",
-        phone: loginPhone,
+        name: name || existingUser?.name || "",
+        phone,
         email: existingUser?.email || ""
       };
       setUserProfile(profileData);
@@ -1643,9 +1651,35 @@ const verifyOtp = async () => {
       await Storage.set("gd360_profile", JSON.stringify(profileData));
       await Storage.set("gd360_userId", existingUser?.id||"");
       await Storage.set("gd360_coins", String(existingUser?.coins||120));
+      return existingUser?.id || null;
+};
+const verifyOtp = async () => {
+  if(!loginOtp.trim()){ alert("Enter your name"); return; }
+  try {
+    await signIn(loginPhone, loginOtp.trim());
+    setLoginPhone(""); setLoginOtp(""); setLoginStep("phone");
+  } catch(e){ alert("Login failed. Please try again."); }
+};
 
-      setLoginPhone(""); setLoginOtp(""); setLoginStep("phone");
-  } catch(e){ alert("Login failed. Please try again."); }  };
+  // ── FIRST OPEN: welcome, sign-in, a few questions; shown once to new visitors ──
+  const savePrefs = async (prefs, userId) => {
+    Storage.set("gd360_prefs", JSON.stringify(prefs));
+    const id = userId || currentUserId;
+    if (id) { try { await supabase.from("users").update({ prefs }).eq("id", id); } catch (e) {} }
+  };
+  const saveLocation = loc => { setUserLoc(loc); Storage.set("gd360_loc", JSON.stringify(loc)); };
+  const finishOnboarding = () => {
+    Storage.set("gd360_onboarded", "1");
+    setShowOnboarding(false);
+    setScreen("home"); setActiveTab("home");
+    setShowWelcomeOffer(true);
+  };
+  const closeWelcomeOffer = () => {
+    setShowWelcomeOffer(false);
+    let seen = false; try { seen = !!localStorage.getItem("gd360_tip_seen"); } catch (e) {}
+    if (!seen) setShowTip(true);
+  };
+  const closeTip = () => { setShowTip(false); Storage.set("gd360_tip_seen", "1"); };
   const toggleWishlist = (id) => setWishlist(w=>({...w,[id]:!w[id]}));
 
 
@@ -2289,6 +2323,10 @@ const verifyOtp = async () => {
           </div>
           {coins > 0 && <span style={{ fontSize:12, fontWeight:700, color:"#7A5A12", whiteSpace:"nowrap" }}>🪙 {coins}</span>}
         </div>
+
+        {outsideArea && !areaNoticeClosed && (
+          <AreaNotice lang={lang} loc={userLoc} shopWhatsApp={SHOP_WHATSAPP} onClose={() => setAreaNoticeClosed(true)}/>
+        )}
 
         {/* ── SHELVES: tap a pill to see just those products ── */}
         <div ref={chipsWrapRef} style={{ position:"relative", background:"#fff", paddingBottom: chipNote ? 40 : 12, borderBottom:`1px solid ${line}` }}>
@@ -2993,6 +3031,13 @@ const verifyOtp = async () => {
         )}
 
       </>}
+
+      {/* First open: welcome → sign-in → questions → brand promise; then the welcome offer and a tip */}
+      {showOnboarding && (
+        <Onboarding lang={lang} setLang={setLang} onSignIn={signIn} onSavePrefs={savePrefs} onLocation={saveLocation} onDone={finishOnboarding}/>
+      )}
+      {showWelcomeOffer && !showOnboarding && <WelcomeOffer lang={lang} name={userProfile.name} onClose={closeWelcomeOffer}/>}
+      {showTip && !showWelcomeOffer && screen === "home" && activeTab === "home" && <CoachTip lang={lang} onClose={closeTip}/>}
 
       {/* Rating modal — portal to document.body so it's never clipped by parent overflow/transform */}
       {showRating && ReactDOM.createPortal(
