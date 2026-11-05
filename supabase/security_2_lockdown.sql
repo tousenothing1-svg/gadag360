@@ -54,3 +54,7 @@ begin
 end $$;
 
 update public.delivery_boys set password = null where password is not null;
+
+-- 5. Trigger functions run only as triggers, never as API calls
+revoke all on function public.delivery_boys_password_hash(), public.delivery_boys_cleanup(),
+  public.orders_revoke_coins() from public, anon, authenticated;
