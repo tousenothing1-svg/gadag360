@@ -97,11 +97,12 @@ const HOUSEHOLD = [
 ];
 const DIET = [
   { id: "veg", e: "🥦", en: "Vegetarian", kn: "ಸಸ್ಯಾಹಾರಿ" },
-  { id: "egg", e: "🥚", en: "Eggetarian", kn: "ಮೊಟ್ಟೆ ಸಹಿತ ಸಸ್ಯಾಹಾರಿ" },
-  { id: "nonveg", e: "🍗", en: "Non-vegetarian", kn: "ಮಾಂಸಾಹಾರಿ" },
   { id: "vegan", e: "🌱", en: "Vegan", kn: "ವೀಗನ್" },
   { id: "jain", e: "🍃", en: "Jain food", kn: "ಜೈನ ಆಹಾರ" },
   { id: "protein", e: "💪", en: "High protein", kn: "ಹೆಚ್ಚು ಪ್ರೋಟೀನ್" },
+  { id: "fruits", e: "🍎", en: "Fruits", kn: "ಹಣ್ಣುಗಳು" },      // same names as the shop's categories
+  { id: "exotics", e: "🥑", en: "Exotics", kn: "ವಿದೇಶಿ ಹಣ್ಣು" },
+  { id: "spices", e: "🌶️", en: "Spices", kn: "ಮಸಾಲೆಗಳು" },
 ];
 const VALUES = [
   { id: "fresh", e: "🌿", en: "Freshness", kn: "ತಾಜಾತನ" },
