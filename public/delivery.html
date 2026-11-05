@@ -4,7 +4,6 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Royal Harvest – Delivery Panel</title>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f4f6f8; min-height: 100vh; }
@@ -217,7 +216,26 @@
 <script>
 const SUPABASE_URL = "https://lykhjuizzvurklywxflz.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx5a2hqdWl6enZ1cmtseXd4Zmx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEzODg3OTMsImV4cCI6MjEwNjk2NDc5M30.2gO3aK030mJ0pYTeMd95B7uZF-dHnFzDOSaPwt9hZ6Q";
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// Riders reach orders only through these database functions, with the session token from login.
+// The database checks the token and shows a rider only the orders assigned to them.
+async function rpc(fn, args) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
+    method: "POST",
+    headers: { apikey: SUPABASE_KEY, Authorization: "Bearer " + SUPABASE_KEY, "Content-Type": "application/json" },
+    body: JSON.stringify(args || {}),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+// A call that needs the login: if the login has ended, go back to the login screen
+async function call(fn, args) {
+  const r = await rpc(fn, { p_token: currentDeliveryBoy && currentDeliveryBoy.token, ...args });
+  if (r && r.ok === false && r.error === "session") { doLogout("Your login has ended. Please log in again."); throw new Error("session"); }
+  return r;
+}
+// Customer text (addresses, product names) is shown as text, never as page code
+const esc = s => String(s ?? "").replace(/[&<>"'`]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;","`":"&#96;"}[c]));
 
 // ── WAREHOUSE LOCATION ──
 const WAREHOUSE = {
@@ -227,31 +245,40 @@ const WAREHOUSE = {
 };
 const WAREHOUSE_MAP = `https://maps.google.com/?q=${WAREHOUSE.lat},${WAREHOUSE.lon}`;
 
-let currentDeliveryBoy = null;
+let currentDeliveryBoy = null; // { id, name, token }
+let refreshTimer = null;
+try { localStorage.removeItem("gd360_db"); } catch (e) {} // the old login kept the whole row here, password included
 
 // ── AUTH ──
 async function doLogin() {
   const phone = document.getElementById("loginPhone").value.trim();
-  const pass  = document.getElementById("loginPass").value.trim();
+  const pass  = document.getElementById("loginPass").value;
   const btn   = document.getElementById("loginBtn");
   const err   = document.getElementById("loginErr");
   err.textContent = "";
   if (!phone || !pass) { err.textContent = "Enter phone and password"; return; }
   btn.disabled = true; btn.textContent = "Logging in…";
-  const { data, error } = await sb.from("delivery_boys")
-    .select("*").eq("phone", phone).eq("password", pass).eq("active", true).single();
+  let r = null;
+  try { r = await rpc("staff_login", { p_phone: phone, p_password: pass, p_kind: "rider" }); } catch (e) {}
   btn.disabled = false; btn.textContent = "Login";
-  if (error || !data) { err.textContent = "❌ Wrong phone or password"; return; }
-  currentDeliveryBoy = data;
-  localStorage.setItem("gd360_db", JSON.stringify(data));
+  if (!r) { err.textContent = "Couldn't reach the server. Check your internet."; return; }
+  if (!r.ok) { err.textContent = r.error === "locked" ? "Too many wrong tries. Wait 15 minutes." : "❌ Wrong phone or password"; return; }
+  currentDeliveryBoy = { id: r.id, name: r.name, token: r.token };
+  try { localStorage.setItem("rh_rider", JSON.stringify(currentDeliveryBoy)); } catch (e) {}
+  document.getElementById("loginPass").value = "";
   showPanel();
 }
 
-function doLogout() {
-  localStorage.removeItem("gd360_db");
+function doLogout(msg) {
+  const t = currentDeliveryBoy && currentDeliveryBoy.token;
+  if (t && typeof msg !== "string") rpc("staff_logout", { p_token: t }).catch(() => {});
+  try { localStorage.removeItem("rh_rider"); } catch (e) {}
   currentDeliveryBoy = null;
+  stopRiderTracking();
+  clearInterval(refreshTimer);
   document.getElementById("mainPanel").style.display = "none";
   document.getElementById("loginScreen").style.display = "flex";
+  document.getElementById("loginErr").textContent = typeof msg === "string" ? msg : "";
 }
 
 function showPanel() {
@@ -260,18 +287,18 @@ function showPanel() {
   document.getElementById("headerName").textContent = "🛵 " + currentDeliveryBoy.name;
   loadOrders();
   // Auto-refresh every 60 seconds
-  setInterval(loadOrders, 60000);
+  clearInterval(refreshTimer);
+  refreshTimer = setInterval(loadOrders, 60000);
 }
 
 // ── ORDERS ──
 async function loadOrders() {
-  const { data: orders, error } = await sb
-    .from("orders")
-    .select("*, order_items(*)")
-    .eq("delivery_boy_id", currentDeliveryBoy.id)
-    .order("created_at", { ascending: false });
+  if (!currentDeliveryBoy) return;
+  let r = null;
+  try { r = await call("rider_orders", {}); } catch (e) { if (e.message === "session") return; }
+  const orders = r && r.ok ? r.orders : null;
 
-  if (error || !orders) {
+  if (!orders) {
     document.getElementById("activeOrders").innerHTML = `<div class="empty"><div class="icon">⚠️</div><p>Could not load orders</p></div>`;
     return;
   }
@@ -312,37 +339,38 @@ function renderOrders(containerId, orders, isActive) {
 function orderCard(o, isActive) {
   const items = o.order_items || [];
   const itemRows = items.map(i =>
-    `<div class="item-row"><span class="item-name">${i.product_name}</span><span class="item-qty">x${i.quantity} — ₹${i.price * i.quantity}</span></div>`
+    `<div class="item-row"><span class="item-name">${esc(i.product_name)}${i.variant ? ` <span style="color:#888">(${esc(i.variant)})</span>` : ""}</span><span class="item-qty">x${esc(i.quantity)} — ₹${esc(i.price * i.quantity)}</span></div>`
   ).join("");
 
-  const statusLabel = { placed: "New Order", confirmed: "Confirmed", pickedup: "Picked Up", picked_up: "Picked Up", delivered: "Delivered", cancelled: "Cancelled" }[o.status] || o.status;
+  const statusLabel = { placed: "New Order", confirmed: "Confirmed", pickedup: "Picked Up", picked_up: "Picked Up", delivered: "Delivered", cancelled: "Cancelled" }[o.status] || esc(o.status);
   const statusClass = { placed: "status-placed", confirmed: "status-placed", pickedup: "status-picked", picked_up: "status-picked", delivered: "status-delivered" }[o.status] || "";
 
-  const dropMap  = o.gps_lat && o.gps_lon
-    ? `https://maps.google.com/?q=${o.gps_lat},${o.gps_lon}`
+  const lat = Number(o.gps_lat), lon = Number(o.gps_lon);
+  const dropMap  = o.gps_lat && o.gps_lon && isFinite(lat) && isFinite(lon)
+    ? `https://maps.google.com/?q=${lat},${lon}`
     : null;
 
   const mapsLinks = `
     <div class="map-links">
-      <a class="map-btn map-pickup" href="${WAREHOUSE_MAP}" target="_blank">
+      <a class="map-btn map-pickup" href="${WAREHOUSE_MAP}" target="_blank" rel="noopener">
         📦 Pickup Point
       </a>
       ${dropMap
-        ? `<a class="map-btn map-drop" href="${dropMap}" target="_blank">🏠 Drop Location</a>`
+        ? `<a class="map-btn map-drop" href="${dropMap}" target="_blank" rel="noopener">🏠 Drop Location</a>`
         : `<span class="map-btn map-drop no-gps">📝 Address Only</span>`
       }
     </div>
   `;
 
   const addressLine = o.address && o.address !== "GPS location pinned ✓" && o.address !== "GPS ಸ್ಥಳ ಪಿನ್ ಮಾಡಲಾಗಿದೆ ✓"
-    ? `<div class="address-text">📍 ${o.address}</div>` : "";
+    ? `<div class="address-text">📍 ${esc(o.address)}</div>` : "";
 
   let actionBtn = "";
   if (isActive) {
     if (o.status === "placed" || o.status === "confirmed") {
-      actionBtn = `<button class="action-btn btn-pickup" onclick="updateStatus('${o.id}', 'pickedup')">✅ Mark as Picked Up</button>`;
+      actionBtn = `<button class="action-btn btn-pickup" data-id="${esc(o.id)}" onclick="updateStatus(this.dataset.id, 'pickedup')">✅ Mark as Picked Up</button>`;
     } else if (o.status === "pickedup" || o.status === "picked_up") {
-      actionBtn = `<button class="action-btn btn-deliver" onclick="updateStatus('${o.id}', 'delivered')">🏠 Mark as Delivered</button>`;
+      actionBtn = `<button class="action-btn btn-deliver" data-id="${esc(o.id)}" onclick="updateStatus(this.dataset.id, 'delivered')">🏠 Mark as Delivered</button>`;
     }
   } else {
     actionBtn = `<button class="action-btn btn-done" disabled>✓ Delivered</button>`;
@@ -350,12 +378,13 @@ function orderCard(o, isActive) {
 
   const time = new Date(o.created_at).toLocaleTimeString("en-IN", {hour:"2-digit", minute:"2-digit"});
   const date = new Date(o.created_at).toLocaleDateString("en-IN");
+  const pay = String(o.payment || "cod");
 
   return `
     <div class="order-card">
       <div class="order-card-header">
         <div>
-          <div class="order-id">#${o.id}</div>
+          <div class="order-id">#${esc(o.id)}</div>
           <div class="order-time">${date} · ${time}</div>
         </div>
         <span class="status-badge ${statusClass}">${statusLabel}</span>
@@ -363,9 +392,9 @@ function orderCard(o, isActive) {
       <div class="order-items">${itemRows}</div>
       <div class="order-footer">
         <div class="order-meta">
-          <span class="meta-pill meta-total">₹${o.total}</span>
-          <span class="meta-pill meta-payment">${o.payment === "cod" ? "💵 COD" : "📱 " + o.payment.toUpperCase()}</span>
-          <span class="meta-pill meta-slot">🕐 ${o.delivery_slot || "Standard"}</span>
+          <span class="meta-pill meta-total">₹${esc(o.total)}</span>
+          <span class="meta-pill meta-payment">${pay === "cod" ? "💵 COD" : "📱 " + esc(pay.toUpperCase())}</span>
+          <span class="meta-pill meta-slot">🕐 ${esc(o.delivery_slot || "Standard")}</span>
         </div>
         ${mapsLinks}
         ${addressLine}
@@ -383,15 +412,12 @@ function startRiderTracking(orderId) {
   if (!navigator.geolocation) return;
   riderTrackingOrderId = orderId;
 
-  // Push GPS to Supabase immediately and then every 10s
+  // Share the rider's position with this order's customer: now, then every 5s until delivered
   const pushLocation = () => {
     navigator.geolocation.getCurrentPosition(async (pos) => {
+      if (!currentDeliveryBoy) return;
       const { latitude: lat, longitude: lon } = pos.coords;
-      await sb.from("orders").update({
-        rider_lat: lat,
-        rider_lon: lon,
-        rider_updated_at: new Date().toISOString()
-      }).eq("id", orderId);
+      try { await call("rider_set_location", { p_id: orderId, p_lat: lat, p_lon: lon }); } catch (e) {}
     }, null, { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 });
   };
 
@@ -404,16 +430,21 @@ function stopRiderTracking() {
     clearInterval(riderWatchId);
     riderWatchId = null;
   }
-  // Keep last GPS location in DB so customer map still shows rider on delivery
-  // (App.js clears riderPos when customer navigates away / new order placed)
+  // The last position stays saved; the customer's map stops showing it once the order is delivered
   riderTrackingOrderId = null;
 }
 
 async function updateStatus(orderId, newStatus) {
-  const { error } = await sb.from("orders").update({ status: newStatus }).eq("id", orderId);
-  if (error) { alert("Failed to update. Try again."); return; }
+  let r = null;
+  try { r = await call("rider_set_status", { p_id: orderId, p_status: newStatus }); } catch (e) { if (e.message === "session") return; }
+  if (!r || !r.ok) {
+    alert(r && r.error === "bad_status" ? "This order has changed. Showing the latest." : "Failed to update. Try again.");
+    await loadOrders();
+    return;
+  }
   // Start GPS sharing when picked up, stop when delivered
   if (newStatus === "pickedup") {
+    stopRiderTracking();
     startRiderTracking(orderId);
   } else if (newStatus === "delivered") {
     stopRiderTracking();
@@ -429,14 +460,17 @@ function switchTab(tab) {
 }
 
 // ── RESTORE SESSION ──
-window.onload = () => {
-  const saved = localStorage.getItem("gd360_db");
-  if (saved) {
-    try {
-      currentDeliveryBoy = JSON.parse(saved);
-      showPanel();
-    } catch(e) { localStorage.removeItem("gd360_db"); }
-  }
+window.onload = async () => {
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem("rh_rider") || "null"); } catch (e) {}
+  if (!saved || !saved.token) return;
+  currentDeliveryBoy = saved;
+  try {
+    const me = await rpc("staff_me", { p_token: saved.token });
+    if (!me.ok || me.kind !== "rider") { doLogout("Please log in again."); return; }
+    currentDeliveryBoy.name = me.name || saved.name;
+  } catch (e) {} // offline: open with what we have; loading orders will say if it can't
+  showPanel();
 };
 </script>
 </body>

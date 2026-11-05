@@ -61,6 +61,41 @@ const Storage = {
 const SUPABASE_URL = "https://lykhjuizzvurklywxflz.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx5a2hqdWl6enZ1cmtseXd4Zmx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEzODg3OTMsImV4cCI6MjEwNjk2NDc5M30.2gO3aK030mJ0pYTeMd95B7uZF-dHnFzDOSaPwt9hZ6Q";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ── SECURE CALLS ──
+// Customer data (accounts, orders, addresses) is locked in the database. The app reaches it only through
+// these functions, which check who is asking (see supabase/security_1_functions.sql). Products stay public.
+const rpc = async (fn, args) => {
+  const { data, error } = await supabase.rpc(fn, args);
+  if (error) throw error;
+  return data;
+};
+const randomHex = (n) => {
+  const b = new Uint8Array(n);
+  window.crypto.getRandomValues(b);
+  return Array.from(b, x => x.toString(16).padStart(2, "0")).join("");
+};
+// A random id that never leaves this phone except to prove "this is the phone that placed the order".
+// Only this phone can track or cancel its orders.
+let memDevice = null;
+const deviceId = () => {
+  try {
+    let d = localStorage.getItem("gd360_device");
+    if (d && /^[A-Za-z0-9_-]{16,128}$/.test(d)) return d;
+    d = randomHex(18);
+    Storage.set("gd360_device", d);
+    return d;
+  } catch (e) {
+    return memDevice || (memDevice = randomHex(18));
+  }
+};
+// Order numbers like RH7KQ2M9XA: easy to read out on the phone, impossible to guess
+const newOrderId = () => {
+  const A = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const b = new Uint8Array(8);
+  window.crypto.getRandomValues(b);
+  return "RH" + Array.from(b, x => A[x % 32]).join("");
+};
 import { MapPin, Search, ShoppingCart, Plus, Minus, ArrowLeft, Check, Store, X, Globe, Bike, Star, Gift, Clock, Package, Copy, Tag, Zap, Users, ThumbsUp, History, Bell, ChevronRight, Award, Repeat, RotateCcw, User, Heart, CreditCard, HelpCircle, RefreshCcw, Home, LogOut, Phone, Mail, Edit3, Lightbulb, Info, Mic, ChevronDown, Menu, ShoppingBasket, Sparkles, Sunrise, Leaf, Truck, LocateFixed } from "lucide-react";
 
 // ── DESIGN TOKENS ──
@@ -1103,7 +1138,7 @@ export default function Gadag360() {
   const [suggestText, setSuggestText] = useState("");
   const [suggestSent, setSuggestSent] = useState(false);
   const [selectedVariant, setSelectedVariant] = useState(() => readJSON("gd360_sizes", {}));
-  const [currentUserId, setCurrentUserId] = useState(null);
+  const ctokenRef = useRef(null); // this phone's sign-in session (see signIn)
   const [tip, setTip] = useState(0);
   const [dbProducts, setDbProducts] = useState([]);
   const [vendorOrderStatus, setVendorOrderStatus] = useState({}); // {orderId: "accepted"|"rejected"}
@@ -1389,27 +1424,24 @@ export default function Gadag360() {
     setTimeout(() => { const el = document.getElementById("sec-" + id); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80);
   };
 
-  // Cancel for real: mark the order cancelled (the delivery app hides it) and put the items back in stock.
-  // Only before the rider picks it up.
+  // Cancel for real: the database marks the order cancelled (the delivery app hides it), puts the items back
+  // in stock and takes back the coins. Only before the rider picks it up, and only from the phone that placed it.
   const cancelOrder = async () => {
     const o = activeOrders[0];
     setShowCancelConfirm(false);
     if (!o) { setScreen("home"); return; }
-    try {
-      const { data: cur } = await supabase.from("orders").select("status").eq("id", o.id).single();
-      if (cur && ["pickedup", "picked_up", "delivered"].includes(cur.status)) {
-        alert(lang === "kn" ? "ಆರ್ಡರ್ ಈಗಾಗಲೇ ಹೊರಟಿದೆ, ರದ್ದು ಮಾಡಲು ಸಾಧ್ಯವಿಲ್ಲ." : "Your order is already on the way, so it can't be cancelled now.");
-        return;
-      }
-      await supabase.from("orders").update({ status: "cancelled" }).eq("id", o.id);
-      for (const it of (o.items || [])) {
-        // same match as placeOrder: by name first (admin-added rows have their own ids), then by id
-        const dbProd = dbProducts.find(d => d.name && it.name && d.name.toLowerCase() === it.name.toLowerCase()) || dbProducts.find(d => d.id === it.id);
-        if (!dbProd) continue;
-        const { data: p } = await supabase.from("products").select("id, stock_qty").eq("id", dbProd.id).single();
-        if (p) { const q = (p.stock_qty ?? 0) + (it.qty || 0); await supabase.from("products").update({ stock_qty: q, in_stock: q > 0 }).eq("id", p.id); }
-      }
-    } catch (e) {}
+    let r = null;
+    try { r = await rpc("cancel_order", { p_device: deviceId(), p_id: o.id }); } catch (e) {}
+    if (!r) {
+      alert(lang === "kn" ? "ಈಗ ರದ್ದು ಮಾಡಲು ಆಗಲಿಲ್ಲ. ಇಂಟರ್ನೆಟ್ ಪರಿಶೀಲಿಸಿ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ." : "Couldn't cancel just now. Please check your internet and try again.");
+      return;
+    }
+    if (!r.ok) {
+      alert(r.error === "on_the_way"
+        ? (lang === "kn" ? "ಆರ್ಡರ್ ಈಗಾಗಲೇ ಹೊರಟಿದೆ, ರದ್ದು ಮಾಡಲು ಸಾಧ್ಯವಿಲ್ಲ." : "Your order is already on the way, so it can't be cancelled now.")
+        : (lang === "kn" ? "ಈ ಆರ್ಡರ್ ಅನ್ನು ಆ್ಯಪ್‌ನಿಂದ ರದ್ದು ಮಾಡಲು ಆಗುವುದಿಲ್ಲ. ದಯವಿಟ್ಟು ನಮಗೆ WhatsApp ಮಾಡಿ." : "This order can't be cancelled from the app. Please WhatsApp us and we'll sort it out."));
+      return;
+    }
     revokeCoins(o);
     setActiveOrders(v => v.filter(x => x.id !== o.id));
     setOrderHistory(h => h.map(x => (x.id === o.id ? { ...x, status: "cancelled" } : x)));
@@ -1417,7 +1449,7 @@ export default function Gadag360() {
     alert(lang === "kn" ? "ಆರ್ಡರ್ ರದ್ದು ಮಾಡಲಾಗಿದೆ" : "Order cancelled");
   };
 
-  // A cancelled order doesn't earn coins: take them back, once per order
+  // A cancelled order doesn't earn coins: take them back, once per order (the database does the same for the account)
   const coinsRevokedRef = useRef(new Set());
   const revokeCoins = (o) => {
     if (!o || !o.coins || coinsRevokedRef.current.has(o.id)) return;
@@ -1425,17 +1457,17 @@ export default function Gadag360() {
     setCoins(c => {
       const n = Math.max(0, c - o.coins);
       Storage.set("gd360_coins", String(n));
-      if (currentUserId) supabase.from("users").update({ coins: n }).eq("id", currentUserId).then(() => {}, () => {});
       return n;
     });
   };
 
   const placeOrder = async () => {
     stopGpsWatch();
-    const orderId = "GD" + Math.floor(1000 + Math.random()*9000);
+    const orderId = newOrderId();
+    const cartBefore = cart;
     const newOrder = {id:orderId, status:"placed", placedAt:Date.now(), items:cartItems, total:finalTotal, coins:coinsEarned, address, gps_lat: gpsCoords?.lat || null, gps_lon: gpsCoords?.lon || null, payment, slot:deliverySlot, date: new Date().toLocaleDateString("en-IN"), customer_phone: userProfile.phone, customer_name: userProfile.name};
     setActiveOrders(v => [newOrder, ...v]);
-      sendOwnerNotification(newOrder);
+    sendOwnerNotification(newOrder); // keep before any await: phones only open WhatsApp straight from the tap
     setOrderHistory(h => [newOrder, ...h]);
     setCoins(c => {
       const newCoins = c + coinsEarned;
@@ -1446,62 +1478,44 @@ export default function Gadag360() {
     setShowRating(false); setLastRating(0); setDeliverySlot("");
     setTimeout(() => setNotifShown(true), 2000);
 
-    // ── REDUCE STOCK IN SUPABASE ──
-    try {
-      for (const item of cartItems) {
-        const prod = LIVE_PRODUCTS.find(p => p.id === item.id);
-        if (prod) {
-          const newQty = Math.max(0, (prod.stock_qty || 100) - item.qty);
-          // Match by name since admin-added products use timestamp IDs, not hardcoded IDs
-          const dbProd = dbProducts.find(d => d.name && prod.name && d.name.toLowerCase() === prod.name.toLowerCase()) || dbProducts.find(d => d.id === item.id);
-          if (dbProd) {
-            await supabase.from("products").update({ stock_qty: newQty, in_stock: newQty > 0 }).eq("id", dbProd.id);
-          }
-        }
-      }
-    } catch(e) {}
-
-    // ── SAVE TO SUPABASE ──
-    try {
-      // 1. Save order
-      await supabase.from("orders").insert({
-        id: orderId,
-        status: "placed",
-        total: finalTotal,
-        delivery_fee: deliveryFee,
-        discount: minOrderDiscount,
-        address,
-        gps_lat: gpsCoords ? gpsCoords.lat : null,
-        gps_lon: gpsCoords ? gpsCoords.lon : null,
-        delivery_slot: deliverySlot || "Standard",
-        payment,
-        user_id: currentUserId || null,
-      });
-      // 2. Save order items
-      const items = cartItems.map(i => {
-        // cartItems already carry the size and price the customer chose (see unitOf)
-        const varLabel = i.unitLabel || selectedVariant[i.id] || null;
-        const varPrice = i.price;
+    // ── SAVE: one secure call works out the bill, saves the order and its items, and updates stock and coins ──
+    const payload = {
+      id: orderId, address, payment, tip,
+      gps_lat: gpsCoords ? gpsCoords.lat : null,
+      gps_lon: gpsCoords ? gpsCoords.lon : null,
+      delivery_slot: deliverySlot || "Standard",
+      items: cartItems.map(i => {
+        // cartItems already carry the size and price the customer chose (see unitOf);
+        // db_id is the products row the price and stock come from (same match as LIVE_PRODUCTS)
+        const codeP = PRODUCTS.find(c => c.id === i.id);
+        const dbP = codeP ? findDbProduct(codeP) : null; // products added in the admin panel already use their row id
         return {
-          order_id: orderId,
           product_id: i.id,
+          db_id: (dbP && dbP.id) || i.id,
           product_name: i.name,
           quantity: i.qty,
-          price: varPrice,
-          variant: varLabel,
+          price: i.price,
+          variant: i.unitLabel || selectedVariant[i.id] || null,
         };
-      });
-      const { data: itemsData, error: itemsError } = await supabase.from("order_items").insert(items);
-      // 3. Update user coins
-      if (currentUserId) {
-        await supabase.from("users")
-          .update({ coins: coins + coinsEarned })
-          .eq("id", currentUserId);
-      }
-    } catch(e) {}
-
-    // Status advances only when delivery boy updates it in delivery.html
-    // (polled every 10s via the order status polling effect below)
+      }),
+    };
+    let res = null;
+    for (let attempt = 0; attempt < 3 && !res; attempt++) { // retry only when the network drops
+      if (attempt) await new Promise(r => setTimeout(r, attempt * 1500));
+      try { res = await rpc("place_order", { p_token: ctokenRef.current, p_device: deviceId(), p_order: payload }); } catch (e) {}
+    }
+    if (res && res.ok) {
+      if (typeof res.coins === "number") { setCoins(res.coins); Storage.set("gd360_coins", String(res.coins)); }
+      return; // status now advances only when the rider updates it in delivery.html (see the poll below)
+    }
+    // Not saved: undo, so nobody waits for an order the shop never got
+    setActiveOrders(v => v.filter(x => x.id !== orderId));
+    setOrderHistory(h => h.filter(x => x.id !== orderId));
+    setCoins(c => { const n = Math.max(0, c - coinsEarned); Storage.set("gd360_coins", String(n)); return n; });
+    setCart(cartBefore); setScreen("cart");
+    alert(res && res.error === "slow_down"
+      ? (lang === "kn" ? "ಸ್ವಲ್ಪ ಸಮಯದಲ್ಲಿ ತುಂಬಾ ಆರ್ಡರ್‌ಗಳು. ಸ್ವಲ್ಪ ಹೊತ್ತು ಬಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ." : "That's a lot of orders in a short time. Please wait a little and try again.")
+      : (lang === "kn" ? "ಕ್ಷಮಿಸಿ, ನಿಮ್ಮ ಆರ್ಡರ್ ತಲುಪಲಿಲ್ಲ. ಇಂಟರ್ನೆಟ್ ಪರಿಶೀಲಿಸಿ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ. WhatsApp ತೆರೆದಿದ್ದರೆ ಆ ಸಂದೇಶವನ್ನು ಕಳುಹಿಸಬೇಡಿ." : "Sorry, your order didn't go through. Please check your internet and try again. If WhatsApp opened, please don't send that message."));
   };
 
   // F4 Smart reorder
@@ -1607,51 +1621,46 @@ const sendOtp = async () => {
   if(loginPhone.length!==10){ alert("Enter valid 10-digit number"); return; }
   setLoginStep("otp"); // go to name step
 };
-// Find or create the customer by phone, then keep them signed in on this device. Returns their user id.
-const signIn = async (phone, name) => {
-      let existingUser = null;
-      try {
-        let { data: existingUsers } = await supabase
-          .from("users").select("*").eq("phone", phone).limit(1);
-        existingUser = existingUsers && existingUsers.length > 0 ? existingUsers[0] : null;
-        if (!existingUser) {
-          const { data: newUser } = await supabase
-            .from("users").insert({ phone, name, coins: 120 }).select().single();
-          existingUser = newUser;
-        } else if (name && !existingUser.name) {
-          // Save name if not set yet
-          await supabase.from("users").update({ name }).eq("id", existingUser.id);
-        }
-        if (existingUser) {
-          setCurrentUserId(existingUser.id);
-          setCoins(existingUser.coins || 120);
-          const { data: orders } = await supabase
-            .from("orders").select("*, order_items(*)").eq("user_id", existingUser.id).order("created_at", {ascending:false});
-          if (orders) setOrderHistory(orders.map(o => ({
-            id: o.id, total: o.total, address: o.address,
-            payment: o.payment, slot: o.delivery_slot, status: o.status,
-            date: new Date(o.created_at).toLocaleDateString("en-IN"),
-            items: (o.order_items||[]).map(i => ({id:i.product_id, name:i.product_name, qty:i.quantity, price:i.price}))
-          })));
-        }
-      } catch(e) {}
+// ── CUSTOMER SESSION ──
+// Orders from the database, in the shape the screens use
+const mapOrders = (list) => (Array.isArray(list) ? list : []).map(o => ({
+  id: o.id, total: o.total, address: o.address, payment: o.payment, slot: o.delivery_slot, status: o.status,
+  coins: o.coins_earned || 0,
+  date: o.created_at ? new Date(o.created_at).toLocaleDateString("en-IN") : "",
+  items: (o.items || []).map(i => ({ id: i.product_id, name: i.product_name, qty: i.quantity, price: i.price })),
+}));
+const saveToken = (t) => {
+  ctokenRef.current = t || null;
+  if (t) Storage.set("gd360_ctoken", t); else Storage.remove("gd360_ctoken");
+};
+const loadMyOrders = async (token) => {
+  try { const r = await rpc("customer_orders", { p_token: token }); if (r && r.ok) setOrderHistory(mapOrders(r.orders)); } catch (e) {}
+};
+const setServerCoins = (n) => { if (typeof n === "number") { setCoins(n); Storage.set("gd360_coins", String(n)); } };
 
-      // Always login regardless of Supabase success
-      const profileData = {
-        name: name || existingUser?.name || "",
-        phone,
-        email: existingUser?.email || ""
-      };
-      setUserProfile(profileData);
-      setEditProfile(profileData);
-      setIsLoggedIn(true);
-
-      // Save session
-      await Storage.set("gd360_loggedIn", "true");
-      await Storage.set("gd360_profile", JSON.stringify(profileData));
-      await Storage.set("gd360_userId", existingUser?.id||"");
-      await Storage.set("gd360_coins", String(existingUser?.coins||120));
-      return existingUser?.id || null;
+// Find or create the customer by phone, then keep them signed in on this phone. Returns the session token.
+// Until OTP, the database shows a phone the account's saved details only if this phone created the account
+// (or was already signed in to it); any other phone sees just the orders it places itself.
+const signIn = async (phone, name, legacyId) => {
+  let s = null;
+  try {
+    const r = await rpc("customer_sign_in", { p_phone: phone, p_name: name || "", p_device: deviceId(), p_legacy_id: legacyId || null });
+    if (r && r.ok) s = r;
+  } catch (e) {}
+  if (s) {
+    saveToken(s.token);
+    setServerCoins(s.coins);
+    loadMyOrders(s.token);
+  }
+  // Always sign in on this phone, even if the network failed (the next app start tries again)
+  const profileData = { name: name || (s && s.name) || "", phone, email: (s && s.email) || "" };
+  setUserProfile(profileData);
+  setEditProfile(profileData);
+  setIsLoggedIn(true);
+  await Storage.set("gd360_loggedIn", "true");
+  await Storage.set("gd360_profile", JSON.stringify(profileData));
+  Storage.remove("gd360_userId"); // the old way of remembering the account
+  return s ? s.token : null;
 };
 const verifyOtp = async () => {
   if(!loginOtp.trim()){ alert("Enter your name"); return; }
@@ -1662,10 +1671,10 @@ const verifyOtp = async () => {
 };
 
   // ── FIRST OPEN: welcome, sign-in, a few questions; shown once to new visitors ──
-  const savePrefs = async (prefs, userId) => {
+  const savePrefs = async (prefs, token) => {
     Storage.set("gd360_prefs", JSON.stringify(prefs));
-    const id = userId || currentUserId;
-    if (id) { try { await supabase.from("users").update({ prefs }).eq("id", id); } catch (e) {} }
+    const t = token || ctokenRef.current;
+    if (t) { try { await rpc("customer_save_prefs", { p_token: t, p_prefs: prefs }); } catch (e) {} }
   };
   const saveLocation = loc => { setUserLoc(loc); Storage.set("gd360_loc", JSON.stringify(loc)); };
   const finishOnboarding = () => {
@@ -1717,31 +1726,49 @@ const verifyOtp = async () => {
           savedCoins = localStorage.getItem("gd360_coins");
           savedUserId = localStorage.getItem("gd360_userId");
         }
+        let savedToken = null;
+        try { savedToken = localStorage.getItem("gd360_ctoken"); } catch (e) {}
+        if (isNative()) {
+          // the phone app also keeps the session and device id in Preferences, in case the web view was cleared
+          try {
+            const { Preferences } = await import("@capacitor/preferences");
+            if (!savedToken) savedToken = (await Preferences.get({ key: "gd360_ctoken" })).value;
+            const d = (await Preferences.get({ key: "gd360_device" })).value;
+            if (d && !localStorage.getItem("gd360_device")) localStorage.setItem("gd360_device", d);
+          } catch (e) {}
+        }
 
         if (loggedIn === "true") {
+          let profile = null;
           if (profileStr) {
             try {
-              const profile = JSON.parse(profileStr);
+              profile = JSON.parse(profileStr);
               setUserProfile(profile);
               setEditProfile(profile);
             } catch(e) {}
           }
           if (savedCoins) setCoins(parseInt(savedCoins)||120);
-          if (savedUserId) {
-            setCurrentUserId(savedUserId);
-            // Fetch order history on session restore (not just after login)
-            try {
-              const { data: orders } = await supabase
-                .from("orders").select("*, order_items(*)").eq("user_id", savedUserId).order("created_at", {ascending:false});
-              if (orders) setOrderHistory(orders.map(o => ({
-                id: o.id, total: o.total, address: o.address,
-                payment: o.payment, slot: o.delivery_slot, status: o.status,
-                date: new Date(o.created_at).toLocaleDateString("en-IN"),
-                items: (o.order_items||[]).map(i => ({id:i.product_id, name:i.product_name, qty:i.quantity, price:i.price}))
-              })));
-            } catch(e) {}
-          }
           setIsLoggedIn(true);
+          let token = savedToken;
+          if (token) {
+            ctokenRef.current = token;
+            try {
+              const me = await rpc("customer_session", { p_token: token });
+              if (me && me.ok === false) token = null;           // ran out or signed out: get a new one below
+              else if (me && me.trusted) setServerCoins(me.coins);
+            } catch (e) {}                                        // offline: keep the session we have
+          }
+          if (!token && profile && profile.phone) {
+            // Signed in before sessions existed (the old account id proves it), or the session ran out
+            try {
+              const r = await rpc("customer_sign_in", { p_phone: profile.phone, p_name: profile.name || "", p_device: deviceId(), p_legacy_id: savedUserId || null });
+              if (r && r.ok) { token = r.token; saveToken(token); setServerCoins(r.coins); }
+            } catch (e) {}
+          }
+          if (token) {
+            Storage.remove("gd360_userId");
+            loadMyOrders(token); // order history on session restore, not just after login
+          }
         }
       } catch(e) {}
     };
@@ -1818,11 +1845,8 @@ const verifyOtp = async () => {
     const pollOrder = async () => {
       if (deliveredRef.current) return;
       try {
-        const { data } = await supabase
-          .from("orders")
-          .select("status, rider_lat, rider_lon")
-          .eq("id", activeOrderId)
-          .single();
+        const list = await rpc("order_status", { p_device: deviceId(), p_ids: [activeOrderId] });
+        const data = Array.isArray(list) ? list[0] : null;
         if (!data) return;
         setOrderStatusIdx(STATUS_TO_IDX[data.status] ?? 0);
         if (data.rider_lat && data.rider_lon) {
@@ -1866,7 +1890,11 @@ const verifyOtp = async () => {
                     <Home size={14}/> {lang==="kn"?"ಮುಖಪುಟ":"Home"}
                   </button>
                   <button onClick={()=>{
+                    const t = ctokenRef.current;
+                    if (t) rpc("customer_sign_out", { p_token: t }).catch(() => {});
+                    saveToken(null);
                     setIsLoggedIn(false);
+                    setOrderHistory([]); // the next person on this phone shouldn't see these
                     Storage.remove("gd360_loggedIn");
                     Storage.remove("gd360_profile");
                     Storage.remove("gd360_userId");
@@ -2228,11 +2256,13 @@ const verifyOtp = async () => {
               </div>
             ))}
             <button onClick={async()=>{
+              if (ctokenRef.current) {
+                let r = null;
+                try { r = await rpc("customer_update_profile", { p_token: ctokenRef.current, p_name: editProfile.name, p_email: editProfile.email }); } catch (e) {}
+                if (r && r.error === "bad_email") { alert(lang==="kn" ? "ಇಮೇಲ್ ವಿಳಾಸವನ್ನು ಪರಿಶೀಲಿಸಿ" : "Please check the email address"); return; }
+              }
               setUserProfile({...editProfile});
               Storage.set("gd360_profile", JSON.stringify(editProfile));
-              if(currentUserId){
-                await supabase.from("users").update({name:editProfile.name, email:editProfile.email}).eq("id",currentUserId);
-              }
               setProfileSection(null);
             }} className="w-full py-3 rounded-2xl font-bold text-sm" style={{backgroundColor:basil,color:"white"}}>
               {lang==="kn"?"ಪ್ರೊಫೈಲ್ ಉಳಿಸಿ":"Save Profile"}

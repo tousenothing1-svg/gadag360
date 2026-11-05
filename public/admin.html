@@ -56,14 +56,34 @@ input[type=password],input[type=text],input[type=number],select,textarea{width:1
 </head>
 <body>
 
-<div class="login-screen" id="loginScreen">
-  <div class="login-box">
+<div class="login-screen" id="loginScreen" style="display:none">
+  <div class="login-box" id="loginBox">
     <div class="login-logo">🛒 Royal Harvest</div>
     <div style="color:#888;font-size:13px;margin-bottom:16px">Admin Panel</div>
-    <label>Password</label>
-    <input type="password" id="pwInput" placeholder="Enter admin password" onkeydown="if(event.key==='Enter')doLogin()"/>
+    <label for="phoneInput">Phone number</label>
+    <input type="text" id="phoneInput" inputmode="numeric" autocomplete="username" placeholder="10-digit mobile number" onkeydown="if(event.key==='Enter')doLogin()"/>
+    <label for="pwInput">Password</label>
+    <input type="password" id="pwInput" autocomplete="current-password" placeholder="Your admin password" onkeydown="if(event.key==='Enter')doLogin()"/>
     <div id="loginError" style="color:var(--red);font-size:12px;margin-top:8px"></div>
-    <button class="btn btn-green" style="width:100%;padding:12px;margin-top:16px" onclick="doLogin()">Login</button>
+    <button class="btn btn-green" id="loginBtn" style="width:100%;padding:12px;margin-top:16px" onclick="doLogin()">Login</button>
+    <button class="btn btn-gray" id="setupLink" style="display:none;width:100%;padding:10px;margin-top:10px" onclick="showBox('setupBox')">First time? Set up the admin account</button>
+  </div>
+  <div class="login-box" id="setupBox" style="display:none">
+    <div class="login-logo">🛒 Royal Harvest</div>
+    <div style="color:#888;font-size:13px;margin-bottom:8px">Set up the admin account (one time). You need the setup code you were given.</div>
+    <label for="suCode">Setup code</label>
+    <input type="text" id="suCode" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="RH-XXXX-XXXX-XXXX-XXXX"/>
+    <label for="suName">Your name</label>
+    <input type="text" id="suName" autocomplete="name"/>
+    <label for="suPhone">Your phone number (you log in with this)</label>
+    <input type="text" id="suPhone" inputmode="numeric" autocomplete="username" placeholder="10-digit mobile number"/>
+    <label for="suPass">Choose a password (at least 8 characters)</label>
+    <input type="password" id="suPass" autocomplete="new-password"/>
+    <label for="suPass2">Type the password again</label>
+    <input type="password" id="suPass2" autocomplete="new-password" onkeydown="if(event.key==='Enter')doSetup()"/>
+    <div id="setupError" style="color:var(--red);font-size:12px;margin-top:8px"></div>
+    <button class="btn btn-green" id="setupBtn" style="width:100%;padding:12px;margin-top:16px" onclick="doSetup()">Create admin account</button>
+    <button class="btn btn-gray" style="width:100%;padding:10px;margin-top:10px" onclick="showBox('loginBox')">Back to login</button>
   </div>
 </div>
 
@@ -72,6 +92,7 @@ input[type=password],input[type=text],input[type=number],select,textarea{width:1
     <h1>🛒 Royal Harvest Admin</h1>
     <div style="display:flex;gap:10px;align-items:center;font-size:13px">
       <span id="connStatus">⚪ Connecting...</span>
+      <button class="btn btn-gray btn-sm" onclick="openPwModal()">Change password</button>
       <button class="btn btn-gray btn-sm" onclick="logout()">Logout</button>
     </div>
   </div>
@@ -191,8 +212,9 @@ input[type=password],input[type=text],input[type=number],select,textarea{width:1
       <div><label>ID (login username)</label><input id="dbId" placeholder="e.g. db1, raju"/></div>
       <div><label>Name</label><input id="dbName" placeholder="Full name"/></div>
       <div><label>Phone</label><input id="dbPhone" placeholder="10-digit phone"/></div>
-      <div><label>Password</label><input id="dbPass" placeholder="Set login password"/></div>
+      <div><label>Password</label><input type="password" id="dbPass" autocomplete="new-password" placeholder="Set login password"/></div>
     </div>
+    <div style="font-size:11px;color:#888;margin-top:8px">Passwords are stored scrambled, so nobody (not even you) can read them later. To change a rider's password, type a new one here.</div>
     <input type="hidden" id="dbIdHidden"/>
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
       <button class="btn btn-gray" onclick="closeDeliveryBoyModal()">Cancel</button>
@@ -289,13 +311,45 @@ input[type=password],input[type=text],input[type=number],select,textarea{width:1
   </div>
 </div>
 
+<!-- Change Password Modal -->
+<div class="modal-overlay" id="pwModal">
+  <div class="modal" style="max-width:380px">
+    <div style="font-size:17px;font-weight:800;margin-bottom:8px">Change admin password</div>
+    <label for="pwOld">Current password</label><input type="password" id="pwOld" autocomplete="current-password"/>
+    <label for="pwNew">New password (at least 8 characters)</label><input type="password" id="pwNew" autocomplete="new-password"/>
+    <label for="pwNew2">Type the new password again</label><input type="password" id="pwNew2" autocomplete="new-password"/>
+    <div id="pwError" style="color:var(--red);font-size:12px;margin-top:8px"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
+      <button class="btn btn-gray" onclick="closePwModal()">Cancel</button>
+      <button class="btn btn-green" onclick="changePassword()">Save</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast" class="toast" style="display:none"></div>
 
 <script>
 const URL  = "https://lykhjuizzvurklywxflz.supabase.co/rest/v1";
 const KEY  = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx5a2hqdWl6enZ1cmtseXd4Zmx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEzODg3OTMsImV4cCI6MjEwNjk2NDc5M30.2gO3aK030mJ0pYTeMd95B7uZF-dHnFzDOSaPwt9hZ6Q";
-const PASS = "gadag360admin";
+// Every request carries the public key. After login it also carries this admin's session token in
+// "x-staff-token"; the database shows customers, orders, suppliers and riders only when that token is live.
 const H    = {"apikey":KEY,"Authorization":"Bearer "+KEY,"Content-Type":"application/json","Prefer":"return=representation"};
+let TOKEN = null;
+try { TOKEN = localStorage.getItem("rh_admin_token"); } catch(e) {}
+if (TOKEN) H["x-staff-token"] = TOKEN;
+
+// Names, addresses and product names come from customers and staff: always show them as text, never as page code
+const esc = s => String(s ?? "").replace(/[&<>"'`]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;","`":"&#96;"}[c]));
+const q = s => encodeURIComponent(String(s ?? ""));
+// The database stores order times in UTC without a zone; read them as UTC so dates show in local time
+const toDate = s => { if (!s) return null; let t = String(s).replace(" ", "T").replace(/(\.\d{3})\d+/, "$1"); if (!/(Z|[+-]\d\d:?\d\d)$/.test(t)) t += "Z"; const d = new Date(t); return isNaN(d) ? null : d; };
+const fmtDate = s => { const d = toDate(s); return d ? d.toLocaleDateString("en-IN") : "—"; };
+
+async function rpc(fn, args) {
+  const res = await fetch(`${URL}/rpc/${fn}`, {method:"POST", headers:{"apikey":KEY,"Authorization":"Bearer "+KEY,"Content-Type":"application/json"}, body:JSON.stringify(args||{})});
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
 
 async function db(table, opts={}) {
   const {method="GET", filter="", body=null} = opts;
@@ -304,25 +358,121 @@ async function db(table, opts={}) {
   return method==="DELETE" ? [] : res.json();
 }
 
-let allOrders=[], allProducts=[];
-
-function doLogin() {
-  if (document.getElementById("pwInput").value === PASS) {
-    document.getElementById("loginScreen").style.display="none";
-    document.getElementById("mainApp").style.display="block";
-    document.getElementById("connStatus").textContent="🟢 Connected";
-    loadDashboard();
-  } else {
-    document.getElementById("loginError").textContent="Wrong password.";
-  }
+// Changes: say so when the database saved nothing (for example after the login ran out)
+async function send(method, path, body) {
+  const res = await fetch(`${URL}/${path}`, {method, headers:H, body:body?JSON.stringify(body):null});
+  if (!res.ok) throw new Error((await res.text()) || res.statusText);
+  const rows = res.status === 204 ? [] : await res.json().catch(() => []);
+  if (!Array.isArray(rows) || rows.length === 0) throw new Error("Nothing was saved. Please log in again.");
+  return rows;
 }
-function logout(){document.getElementById("loginScreen").style.display="flex";document.getElementById("mainApp").style.display="none";}
 
-function showPage(p,el){
+let allOrders=[], allProducts=[], allVendors=[], allCustomers=[];
+
+// ── LOGIN ────────────────────────────────────────────────────
+function setToken(t) {
+  TOKEN = t || null;
+  try { if (t) localStorage.setItem("rh_admin_token", t); else localStorage.removeItem("rh_admin_token"); } catch(e) {}
+  if (t) H["x-staff-token"] = t; else delete H["x-staff-token"];
+}
+function showBox(id) {
+  ["loginBox","setupBox"].forEach(b => document.getElementById(b).style.display = b === id ? "block" : "none");
+}
+function showLogin(msg) {
+  document.getElementById("mainApp").style.display = "none";
+  document.getElementById("loginScreen").style.display = "flex";
+  showBox("loginBox");
+  document.getElementById("loginError").textContent = msg || "";
+  rpc("admin_exists").then(has => { document.getElementById("setupLink").style.display = has ? "none" : "block"; }).catch(() => {});
+}
+function enterApp(name) {
+  document.getElementById("loginScreen").style.display = "none";
+  document.getElementById("mainApp").style.display = "block";
+  document.getElementById("connStatus").textContent = "🟢 " + (name || "Admin");
+  loadDashboard();
+}
+async function doLogin() {
+  const phone = document.getElementById("phoneInput").value.trim();
+  const pass = document.getElementById("pwInput").value;
+  const err = document.getElementById("loginError");
+  const btn = document.getElementById("loginBtn");
+  err.textContent = "";
+  if (!phone || !pass) { err.textContent = "Enter your phone number and password."; return; }
+  btn.disabled = true; btn.textContent = "Checking…";
+  try {
+    const r = await rpc("staff_login", {p_phone: phone, p_password: pass, p_kind: "admin"});
+    if (r.ok) { setToken(r.token); document.getElementById("pwInput").value = ""; enterApp(r.name); }
+    else err.textContent = r.error === "locked" ? "Too many wrong tries. Please wait 15 minutes and try again." : "Wrong phone number or password.";
+  } catch(e) { err.textContent = "Couldn't reach the server. Check your internet and try again."; }
+  btn.disabled = false; btn.textContent = "Login";
+}
+async function doSetup() {
+  const v = id => document.getElementById(id).value;
+  const err = document.getElementById("setupError");
+  const btn = document.getElementById("setupBtn");
+  err.textContent = "";
+  if (v("suPass").length < 8) { err.textContent = "Use at least 8 characters for the password."; return; }
+  if (v("suPass") !== v("suPass2")) { err.textContent = "The two passwords don't match."; return; }
+  btn.disabled = true; btn.textContent = "Creating…";
+  try {
+    const r = await rpc("admin_setup", {p_code: v("suCode"), p_name: v("suName"), p_phone: v("suPhone"), p_password: v("suPass")});
+    if (r.ok) {
+      setToken(r.token);
+      ["suCode","suPass","suPass2"].forEach(id => document.getElementById(id).value = "");
+      enterApp(r.name);
+      toast("✅ Admin account created. Log in with your phone number and password from now on.");
+    } else {
+      err.textContent = ({
+        bad_code: "That setup code isn't right, or it has already been used.",
+        bad_phone: "Enter a 10-digit mobile number.",
+        bad_name: "Enter your name.",
+        weak_password: "Use at least 8 characters for the password.",
+        phone_taken: "That phone number already has an admin account. Go back and log in.",
+      })[r.error] || "Couldn't set up the account. Please try again.";
+    }
+  } catch(e) { err.textContent = "Couldn't reach the server. Check your internet and try again."; }
+  btn.disabled = false; btn.textContent = "Create admin account";
+}
+function logout() {
+  const t = TOKEN;
+  setToken(null);
+  if (t) rpc("staff_logout", {p_token: t}).catch(() => {});
+  showLogin();
+}
+async function ensureSession() {
+  if (!TOKEN) { showLogin(); return false; }
+  try {
+    const me = await rpc("staff_me", {p_token: TOKEN});
+    if (!me.ok || me.kind !== "admin") { setToken(null); showLogin("Your login has ended. Please log in again."); return false; }
+  } catch(e) {}
+  return true;
+}
+function openPwModal() {
+  ["pwOld","pwNew","pwNew2"].forEach(id => document.getElementById(id).value = "");
+  document.getElementById("pwError").textContent = "";
+  document.getElementById("pwModal").classList.add("open");
+}
+function closePwModal() { document.getElementById("pwModal").classList.remove("open"); }
+async function changePassword() {
+  const v = id => document.getElementById(id).value;
+  const err = document.getElementById("pwError");
+  err.textContent = "";
+  if (v("pwNew").length < 8) { err.textContent = "Use at least 8 characters."; return; }
+  if (v("pwNew") !== v("pwNew2")) { err.textContent = "The two new passwords don't match."; return; }
+  try {
+    const r = await rpc("staff_change_password", {p_token: TOKEN, p_old: v("pwOld"), p_new: v("pwNew")});
+    if (r.ok) { closePwModal(); toast("✅ Password changed. Any other device was logged out."); return; }
+    if (r.error === "session") { closePwModal(); setToken(null); showLogin("Your login has ended. Please log in again."); return; }
+    err.textContent = r.error === "wrong_password" ? "Your current password isn't right." : "Use at least 8 characters.";
+  } catch(e) { err.textContent = "Couldn't reach the server. Check your internet and try again."; }
+}
+
+async function showPage(p,el){
   document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));
   document.querySelectorAll(".nav-item").forEach(x=>x.classList.remove("active"));
   document.getElementById("page-"+p).classList.add("active");
   el.classList.add("active");
+  if (!(await ensureSession())) return;
   if(p==="dashboard")loadDashboard();
   if(p==="orders")loadOrders();
   if(p==="products")loadProducts();
@@ -334,118 +484,135 @@ function showPage(p,el){
 function toast(msg,color="#1A6B3C"){
   const t=document.getElementById("toast");
   t.textContent=msg;t.style.background=color;t.style.display="block";
-  setTimeout(()=>t.style.display="none",3000);
+  clearTimeout(toast.timer);
+  toast.timer=setTimeout(()=>t.style.display="none",3500);
 }
+const errRow = (cols, e) => `<tr><td colspan='${cols}' style='color:red;text-align:center;padding:20px'>Error: ${esc(e.message)}</td></tr>`;
 
+// ── DASHBOARD ────────────────────────────────────────────────
 async function loadDashboard(){
   try {
     const [orders,customers,products] = await Promise.all([
-      db("orders").catch(()=>[]),db("users").catch(()=>[]),db("products").catch(()=>[])
+      db("orders",{filter:"select=id,total,payment,status,created_at"}).catch(()=>[]),db("users",{filter:"select=id"}).catch(()=>[]),db("products",{filter:"select=id"}).catch(()=>[])
     ]);
-    const rev = (orders||[]).reduce((s,o)=>s+(o.total||0),0);
+    const rev = (orders||[]).filter(o=>o.status!=="cancelled").reduce((s,o)=>s+(o.total||0),0);
     document.getElementById("statOrders").textContent=(orders||[]).length;
     document.getElementById("statRevenue").textContent="₹"+rev.toLocaleString("en-IN");
     document.getElementById("statCustomers").textContent=(customers||[]).length;
     document.getElementById("statProducts").textContent=(products||[]).length;
-    const recent=(orders||[]).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,10);
+    const recent=(orders||[]).sort((a,b)=>(toDate(b.created_at)||0)-(toDate(a.created_at)||0)).slice(0,10);
     document.getElementById("recentOrdersBody").innerHTML=recent.length===0
       ? "<tr><td colspan='5' style='text-align:center;color:#aaa;padding:20px'>No orders yet</td></tr>"
-      : recent.map(o=>`<tr><td><b>#${o.id}</b></td><td>${o.created_at?new Date(o.created_at).toLocaleDateString("en-IN"):"—"}</td><td><b>₹${o.total}</b></td><td>${o.payment==="upi"?"UPI":"COD"}</td><td><span class="badge badge-green">${o.status||"placed"}</span></td></tr>`).join("");
-  } catch(e){document.getElementById("recentOrdersBody").innerHTML=`<tr><td colspan='5' style='color:red;text-align:center;padding:20px'>Error: ${e.message}</td></tr>`;}
+      : recent.map(o=>`<tr><td><b>#${esc(o.id)}</b></td><td>${fmtDate(o.created_at)}</td><td><b>₹${esc(o.total)}</b></td><td>${o.payment==="upi"?"UPI":"COD"}</td><td><span class="badge badge-green">${esc(o.status||"placed")}</span></td></tr>`).join("");
+  } catch(e){document.getElementById("recentOrdersBody").innerHTML=errRow(5,e);}
 }
+
+// ── ORDERS ───────────────────────────────────────────────────
+const STATUS_OPTS = [["placed","Placed"],["confirmed","Confirmed"],["pickedup","Picked up"],["delivered","Delivered"],["cancelled","Cancelled"]];
 
 async function loadOrders(){
   document.getElementById("ordersBody").innerHTML="<tr><td colspan='7' style='text-align:center;padding:20px'><span class='spinner'></span>Loading...</td></tr>";
   try {
-    allOrders = await db("orders",{filter:"order=created_at.desc"});
+    allOrders = await db("orders",{filter:"select=*,order_items(product_name,quantity,variant,price)&order=created_at.desc"});
     renderOrders(allOrders);
-  } catch(e){document.getElementById("ordersBody").innerHTML=`<tr><td colspan='7' style='color:red;text-align:center;padding:20px'>Error: ${e.message}</td></tr>`;}
+  } catch(e){document.getElementById("ordersBody").innerHTML=errRow(7,e);}
 }
 
 function renderOrders(orders){
   document.getElementById("ordersBody").innerHTML=orders.length===0
     ? "<tr><td colspan='7' style='text-align:center;color:#aaa;padding:20px'>No orders found</td></tr>"
     : orders.map(o=>`<tr>
-        <td><b>#${o.id}</b></td>
-        <td>${o.created_at?new Date(o.created_at).toLocaleDateString("en-IN"):"—"}</td>
-        <td><b>₹${o.total}</b></td>
+        <td><b>#${esc(o.id)}</b></td>
+        <td>${fmtDate(o.created_at)}</td>
+        <td><b>₹${esc(o.total)}</b></td>
         <td>${o.payment==="upi"?"UPI":"COD"}</td>
-        <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${o.address||"—"}</td>
-        <td><select onchange="updateStatus('${o.id}',this.value)" style="border:1px solid #ddd;border-radius:6px;padding:3px 6px;font-size:12px">
-          <option ${o.status==="placed"?"selected":""} value="placed">Placed</option>
-          <option ${o.status==="confirmed"?"selected":""} value="confirmed">Confirmed</option>
-          <option ${o.status==="delivered"?"selected":""} value="delivered">Delivered</option>
-          <option ${o.status==="cancelled"?"selected":""} value="cancelled">Cancelled</option>
+        <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(o.address)}">${esc(o.address||"—")}</td>
+        <td><select data-id="${esc(o.id)}" onchange="updateStatus(this.dataset.id,this.value)" style="border:1px solid #ddd;border-radius:6px;padding:3px 6px;font-size:12px;width:auto">
+          ${STATUS_OPTS.map(([v,l])=>`<option value="${v}" ${(o.status===v||(v==="pickedup"&&o.status==="picked_up"))?"selected":""}>${l}</option>`).join("")}
         </select></td>
-        <td><button class="btn btn-gray btn-sm" onclick="alert('Order #${o.id}\\nTotal: ₹${o.total}\\nAddress: ${(o.address||"").replace(/'/g,"\\'")}')">View</button></td>
+        <td><button class="btn btn-gray btn-sm" data-id="${esc(o.id)}" onclick="viewOrder(this.dataset.id)">View</button></td>
       </tr>`).join("");
 }
 
+function viewOrder(id){
+  const o = allOrders.find(x => x.id === id);
+  if (!o) return;
+  const items = (o.order_items||[]).map(i => `• ${i.product_name}${i.variant ? " ("+i.variant+")" : ""} x${i.quantity} — ₹${i.price*i.quantity}`).join("\n");
+  alert(`Order #${o.id}\nTotal: ₹${o.total}\nAddress: ${o.address||""}${o.gps_lat&&o.gps_lon?`\nMap: https://maps.google.com/?q=${o.gps_lat},${o.gps_lon}`:""}${items?"\n\n"+items:""}`);
+}
+
 function filterOrders(){
-  const q=document.getElementById("orderSearch").value.toLowerCase();
-  renderOrders(allOrders.filter(o=>!q||o.id.toLowerCase().includes(q)));
+  const s=document.getElementById("orderSearch").value.toLowerCase();
+  renderOrders(allOrders.filter(o=>!s||String(o.id).toLowerCase().includes(s)));
 }
 
 async function updateStatus(id,status){
   try{
-    await fetch(`${URL}/orders?id=eq.${id}`,{method:"PATCH",headers:H,body:JSON.stringify({status})});
+    await send("PATCH", `orders?id=eq.${q(id)}&select=id`, {status});
+    const o = allOrders.find(x => x.id === id); if (o) o.status = status;
     toast("✅ Status updated!");
   }catch(e){toast("Error: "+e.message,"#E53935");}
 }
 
+// ── PRODUCTS ─────────────────────────────────────────────────
 async function loadProducts(){
   document.getElementById("productsBody").innerHTML="<tr><td colspan='7' style='text-align:center;padding:20px'><span class='spinner'></span>Loading...</td></tr>";
   try {
     allProducts = await db("products",{filter:"order=cat.asc"});
     renderProducts(allProducts);
-  } catch(e){document.getElementById("productsBody").innerHTML=`<tr><td colspan='7' style='color:red;text-align:center;padding:20px'>${e.message}</td></tr>`;}
+  } catch(e){document.getElementById("productsBody").innerHTML=errRow(7,e);}
 }
 
 function renderProducts(products){
   document.getElementById("productsBody").innerHTML=products.length===0
     ? "<tr><td colspan='7' style='text-align:center;color:#aaa;padding:20px'>No products found</td></tr>"
-    : products.map((p,i)=>`<tr>
+    : products.map((p,i)=>{
+        const on = p.in_stock!==false;
+        return `<tr>
         <td>${i+1}</td>
-        <td><b>${p.name}</b></td>
-        <td><span class="badge badge-green">${p.cat}</span></td>
-        <td><input type="number" value="${p.price}" style="width:70px;padding:4px 6px;border:1.5px solid #ddd;border-radius:6px;font-size:13px" onchange="updatePrice('${p.id}',this.value)"/></td>
-        <td>${p.unit||"—"}</td>
-        <td><span class="badge ${p.in_stock!==false?"badge-green":"badge-red"}" style="cursor:pointer" onclick="toggleStock('${p.id}',${p.in_stock!==false})">${p.in_stock!==false?"✅ In Stock":"❌ Out"}</span></td>
+        <td><b>${esc(p.name)}</b></td>
+        <td><span class="badge badge-green">${esc(p.cat)}</span></td>
+        <td><input type="number" value="${esc(p.price)}" data-id="${esc(p.id)}" style="width:70px;padding:4px 6px;border:1.5px solid #ddd;border-radius:6px;font-size:13px" onchange="updatePrice(this.dataset.id,this.value)"/></td>
+        <td>${esc(p.unit||"—")}</td>
+        <td><span class="badge ${on?"badge-green":"badge-red"}" style="cursor:pointer" data-id="${esc(p.id)}" data-on="${on?1:0}" onclick="toggleStock(this.dataset.id,this.dataset.on==='1')">${on?"✅ In Stock":"❌ Out"}</span></td>
         <td style="display:flex;gap:4px">
-          <button class="btn btn-gray btn-sm" onclick='editProduct(${JSON.stringify(p).replace(/'/g,"&#39;")})'>Edit</button>
-          <button class="btn btn-red btn-sm" onclick="delProduct('${p.id}')">Del</button>
+          <button class="btn btn-gray btn-sm" data-id="${esc(p.id)}" onclick="editProduct(this.dataset.id)">Edit</button>
+          <button class="btn btn-red btn-sm" data-id="${esc(p.id)}" onclick="delProduct(this.dataset.id)">Del</button>
         </td>
-      </tr>`).join("");
+      </tr>`;}).join("");
 }
 
 function filterProducts(){
-  const q=document.getElementById("productSearch").value.toLowerCase();
+  const s=document.getElementById("productSearch").value.toLowerCase();
   const c=document.getElementById("catFilter").value;
-  renderProducts(allProducts.filter(p=>(!q||p.name.toLowerCase().includes(q))&&(!c||p.cat===c)));
+  renderProducts(allProducts.filter(p=>(!s||String(p.name).toLowerCase().includes(s))&&(!c||p.cat===c)));
 }
 
 async function updatePrice(id,price){
+  const n = parseInt(price);
+  if (!(n >= 0)) { toast("Enter a price in rupees","#E53935"); return; }
   try{
-    await fetch(`${URL}/products?id=eq.${id}`,{method:"PATCH",headers:H,body:JSON.stringify({price:parseInt(price)})});
-    toast("✅ Price updated to ₹"+price);
-  }catch(e){toast("Error","#E53935");}
+    await send("PATCH", `products?id=eq.${q(id)}&select=id`, {price:n});
+    const p = allProducts.find(x => x.id === id); if (p) p.price = n;
+    toast("✅ Price updated to ₹"+n);
+  }catch(e){toast("Error: "+e.message,"#E53935");}
 }
 
 async function toggleStock(id,cur){
   try{
-    await fetch(`${URL}/products?id=eq.${id}`,{method:"PATCH",headers:H,body:JSON.stringify({in_stock:!cur})});
+    await send("PATCH", `products?id=eq.${q(id)}&select=id`, {in_stock:!cur});
     toast(!cur?"✅ In Stock":"❌ Out of Stock");
     loadProducts();
-  }catch(e){toast("Error","#E53935");}
+  }catch(e){toast("Error: "+e.message,"#E53935");}
 }
 
 async function delProduct(id){
   if(!confirm("Delete this product?"))return;
   try{
-    await fetch(`${URL}/products?id=eq.${id}`,{method:"DELETE",headers:H});
+    await send("DELETE", `products?id=eq.${q(id)}&select=id`);
     toast("🗑️ Deleted","#E53935");
     loadProducts();
-  }catch(e){toast("Error","#E53935");}
+  }catch(e){toast("Error: "+e.message,"#E53935");}
 }
 
 function showAddProduct(){
@@ -454,10 +621,12 @@ function showAddProduct(){
   document.getElementById("productModal").classList.add("open");
 }
 
-function editProduct(p){
+function editProduct(id){
+  const p = allProducts.find(x => x.id === id);
+  if (!p) return;
   document.getElementById("modalTitle").textContent="Edit Product";
   document.getElementById("pId").value=p.id;
-  document.getElementById("pName").value=p.name;
+  document.getElementById("pName").value=p.name||"";
   document.getElementById("pCat").value=p.cat;
   document.getElementById("pPrice").value=p.price;
   document.getElementById("pUnit").value=p.unit||"";
@@ -470,48 +639,51 @@ function closeModal(){document.getElementById("productModal").classList.remove("
 
 async function saveProduct(){
   const id=document.getElementById("pId").value;
-  const data={name:document.getElementById("pName").value,cat:document.getElementById("pCat").value,price:parseInt(document.getElementById("pPrice").value),unit:document.getElementById("pUnit").value,vendor_id:document.getElementById("pVendor").value,in_stock:document.getElementById("pStock").value==="true"};
+  const data={name:document.getElementById("pName").value.trim(),cat:document.getElementById("pCat").value,price:parseInt(document.getElementById("pPrice").value),unit:document.getElementById("pUnit").value,vendor_id:document.getElementById("pVendor").value,in_stock:document.getElementById("pStock").value==="true"};
   if(!data.name||!data.price){toast("Fill name & price","#E53935");return;}
   try{
     if(id){
-      await fetch(`${URL}/products?id=eq.${id}`,{method:"PATCH",headers:H,body:JSON.stringify(data)});
+      await send("PATCH", `products?id=eq.${q(id)}&select=id`, data);
       toast("✅ Updated!");
     }else{
       data.id="p"+Date.now();
-      await fetch(`${URL}/products`,{method:"POST",headers:H,body:JSON.stringify(data)});
+      await send("POST", "products?select=id", data);
       toast("✅ Added!");
     }
     closeModal();loadProducts();
   }catch(e){toast("Error: "+e.message,"#E53935");}
 }
 
+// ── SUPPLIERS ────────────────────────────────────────────────
 async function loadVendors(){
   try{
-    const vendors=await db("vendors",{filter:"order=id.asc"});
-    document.getElementById("vendorsBody").innerHTML=vendors.length===0
+    allVendors=await db("vendors",{filter:"order=id.asc"});
+    document.getElementById("vendorsBody").innerHTML=allVendors.length===0
       ? "<tr><td colspan='6' style='text-align:center;color:#aaa;padding:20px'>No suppliers yet</td></tr>"
-      : vendors.map(v=>`<tr>
-          <td><b>${v.name}</b></td>
-          <td>${v.area||"Gadag"}</td>
-          <td>${v.phone||"—"}</td>
-          <td>${v.email||"—"}</td>
+      : allVendors.map(v=>`<tr>
+          <td><b>${esc(v.name)}</b></td>
+          <td>${esc(v.area||"Gadag")}</td>
+          <td>${esc(v.phone||"—")}</td>
+          <td>${esc(v.email||"—")}</td>
           <td><span class="badge ${v.active?"badge-green":"badge-red"}">${v.active?"Active":"Inactive"}</span></td>
           <td style="display:flex;gap:4px">
-            <button class="btn btn-gray btn-sm" onclick='editSupplier(${JSON.stringify(v).replace(/'/g,"&#39;")})'>Edit</button>
-            <button class="btn btn-sm ${v.active?"btn-red":"btn-green"}" onclick="toggleVendor('${v.id}',${v.active})">${v.active?"Deactivate":"Activate"}</button>
+            <button class="btn btn-gray btn-sm" data-id="${esc(v.id)}" onclick="editSupplier(this.dataset.id)">Edit</button>
+            <button class="btn btn-sm ${v.active?"btn-red":"btn-green"}" data-id="${esc(v.id)}" data-on="${v.active?1:0}" onclick="toggleVendor(this.dataset.id,this.dataset.on==='1')">${v.active?"Deactivate":"Activate"}</button>
           </td>
         </tr>`).join("");
-  }catch(e){document.getElementById("vendorsBody").innerHTML=`<tr><td colspan='6' style='color:red;text-align:center;padding:20px'>${e.message}</td></tr>`;}
+  }catch(e){document.getElementById("vendorsBody").innerHTML=errRow(6,e);}
 }
 
 async function toggleVendor(id,active){
   try{
-    await fetch(`${URL}/vendors?id=eq.${id}`,{method:"PATCH",headers:H,body:JSON.stringify({active:!active})});
+    await send("PATCH", `vendors?id=eq.${q(id)}&select=id`, {active:!active});
     toast(active?"Deactivated":"✅ Activated");loadVendors();
-  }catch(e){toast("Error","#E53935");}
+  }catch(e){toast("Error: "+e.message,"#E53935");}
 }
 
-function editSupplier(v){
+function editSupplier(id){
+  const v = allVendors.find(x => x.id === id);
+  if (!v) return;
   document.getElementById("sId").value=v.id;
   document.getElementById("sName").value=v.name||"";
   document.getElementById("sArea").value=v.area||"";
@@ -528,32 +700,35 @@ async function saveSupplier(){
   const data={name:document.getElementById("sName").value,area:document.getElementById("sArea").value,phone:document.getElementById("sPhone").value,email:document.getElementById("sEmail").value,bank_details:document.getElementById("sBank").value};
   if(!data.name){toast("Name is required","#E53935");return;}
   try{
-    await fetch(`${URL}/vendors?id=eq.${id}`,{method:"PATCH",headers:H,body:JSON.stringify(data)});
+    await send("PATCH", `vendors?id=eq.${q(id)}&select=id`, data);
     toast("✅ Supplier updated!");closeSupplierModal();loadVendors();
   }catch(e){toast("Error: "+e.message,"#E53935");}
 }
 
+// ── CUSTOMERS ────────────────────────────────────────────────
 async function loadCustomers(){
   try{
-    const customers=await db("users",{filter:"order=created_at.desc"});
-    document.getElementById("customersBody").innerHTML=customers.length===0
+    allCustomers=await db("users",{filter:"order=created_at.desc"});
+    document.getElementById("customersBody").innerHTML=allCustomers.length===0
       ? "<tr><td colspan='6' style='text-align:center;color:#aaa;padding:20px'>No customers yet</td></tr>"
-      : customers.map(c=>`<tr>
-          <td><b>${c.phone||"—"}</b></td>
-          <td>${c.name||"—"}</td>
-          <td>${c.email||"—"}</td>
-          <td>🪙${c.coins||0}</td>
-          <td>${c.created_at?new Date(c.created_at).toLocaleDateString("en-IN"):"—"}</td>
+      : allCustomers.map(c=>`<tr>
+          <td><b>${esc(c.phone||"—")}</b></td>
+          <td>${esc(c.name||"—")}</td>
+          <td>${esc(c.email||"—")}</td>
+          <td>🪙${esc(c.coins||0)}</td>
+          <td>${fmtDate(c.created_at)}</td>
           <td style="display:flex;gap:4px">
-            <button class="btn btn-gray btn-sm" onclick='editCustomer(${JSON.stringify(c).replace(/'/g,"&#39;")})'>Edit</button>
-            <button class="btn btn-green btn-sm" onclick="viewHistory('${c.id}','${(c.name||c.phone||"Customer").replace(/'/g,"\\'")}')">History</button>
-            <button class="btn btn-red btn-sm" onclick="delCustomer('${c.id}')">Delete</button>
+            <button class="btn btn-gray btn-sm" data-id="${esc(c.id)}" onclick="editCustomer(this.dataset.id)">Edit</button>
+            <button class="btn btn-green btn-sm" data-id="${esc(c.id)}" onclick="viewHistory(this.dataset.id)">History</button>
+            <button class="btn btn-red btn-sm" data-id="${esc(c.id)}" onclick="delCustomer(this.dataset.id)">Delete</button>
           </td>
         </tr>`).join("");
-  }catch(e){document.getElementById("customersBody").innerHTML=`<tr><td colspan='6' style='color:red;text-align:center;padding:20px'>${e.message}</td></tr>`;}
+  }catch(e){document.getElementById("customersBody").innerHTML=errRow(6,e);}
 }
 
-function editCustomer(c){
+function editCustomer(id){
+  const c = allCustomers.find(x => x.id === id);
+  if (!c) return;
   document.getElementById("cId").value=c.id;
   document.getElementById("cName").value=c.name||"";
   document.getElementById("cPhone").value=c.phone||"";
@@ -568,38 +743,39 @@ async function saveCustomer(){
   const id=document.getElementById("cId").value;
   const data={name:document.getElementById("cName").value,phone:document.getElementById("cPhone").value,email:document.getElementById("cEmail").value,coins:parseInt(document.getElementById("cCoins").value)||0};
   try{
-    await fetch(`${URL}/users?id=eq.${id}`,{method:"PATCH",headers:H,body:JSON.stringify(data)});
+    await send("PATCH", `users?id=eq.${q(id)}&select=id`, data);
     toast("✅ Customer updated!");closeCustomerModal();loadCustomers();
   }catch(e){toast("Error: "+e.message,"#E53935");}
 }
 
-async function viewHistory(userId, userName){
-  document.getElementById("historyTitle").textContent = "📋 Purchase History — " + userName;
+async function viewHistory(userId){
+  const c = allCustomers.find(x => x.id === userId) || {};
+  document.getElementById("historyTitle").textContent = "📋 Purchase History — " + (c.name || c.phone || "Customer");
   document.getElementById("historyStats").innerHTML = "";
   document.getElementById("historyBody").innerHTML = "<tr><td colspan='6' style='text-align:center;padding:20px'><span class='spinner'></span>Loading...</td></tr>";
   document.getElementById("historyModal").classList.add("open");
   try {
-    const orders = await db("orders", {filter: `user_id=eq.${userId}&order=created_at.desc`});
+    const orders = await db("orders", {filter: `user_id=eq.${q(userId)}&select=*,order_items(product_name,quantity)&order=created_at.desc`});
     if(!orders || orders.length === 0){
       document.getElementById("historyBody").innerHTML = "<tr><td colspan='6' style='text-align:center;color:#aaa;padding:24px'>No orders yet</td></tr>";
       return;
     }
-    const total = orders.reduce((s,o)=>s+(o.total||0),0);
+    const total = orders.filter(o=>o.status!=="cancelled").reduce((s,o)=>s+(o.total||0),0);
     document.getElementById("historyStats").innerHTML = `
       <div style="background:#f0faf4;border-radius:10px;padding:10px 16px;font-size:13px"><span style="font-weight:800;color:#1A6B3C;font-size:18px">${orders.length}</span><br>Total Orders</div>
       <div style="background:#f0faf4;border-radius:10px;padding:10px 16px;font-size:13px"><span style="font-weight:800;color:#1A6B3C;font-size:18px">₹${total.toLocaleString("en-IN")}</span><br>Total Spent</div>
       <div style="background:#f0faf4;border-radius:10px;padding:10px 16px;font-size:13px"><span style="font-weight:800;color:#1A6B3C;font-size:18px">₹${Math.round(total/orders.length).toLocaleString("en-IN")}</span><br>Avg Order</div>
     `;
     document.getElementById("historyBody").innerHTML = orders.map(o=>`<tr>
-      <td><b>#${o.id}</b></td>
-      <td>${o.created_at ? new Date(o.created_at).toLocaleDateString("en-IN") : "—"}</td>
-      <td style="max-width:160px;font-size:12px;color:#555">${o.items ? (Array.isArray(o.items) ? o.items.map(i=>i.name||i).join(", ") : o.items) : "—"}</td>
-      <td><b>₹${o.total}</b></td>
+      <td><b>#${esc(o.id)}</b></td>
+      <td>${fmtDate(o.created_at)}</td>
+      <td style="max-width:160px;font-size:12px;color:#555">${(o.order_items||[]).map(i=>esc(i.product_name)+" x"+esc(i.quantity)).join(", ")||"—"}</td>
+      <td><b>₹${esc(o.total)}</b></td>
       <td>${o.payment==="upi"?"UPI":"COD"}</td>
-      <td><span class="badge badge-green">${o.status||"placed"}</span></td>
+      <td><span class="badge badge-green">${esc(o.status||"placed")}</span></td>
     </tr>`).join("");
   } catch(e){
-    document.getElementById("historyBody").innerHTML = `<tr><td colspan='6' style='color:red;text-align:center;padding:20px'>Error: ${e.message}</td></tr>`;
+    document.getElementById("historyBody").innerHTML = errRow(6,e);
   }
 }
 
@@ -608,9 +784,9 @@ function closeHistoryModal(){document.getElementById("historyModal").classList.r
 async function delCustomer(id){
   if(!confirm("Delete this customer account? This cannot be undone."))return;
   try{
-    await fetch(`${URL}/users?id=eq.${id}`,{method:"DELETE",headers:H});
+    await send("DELETE", `users?id=eq.${q(id)}&select=id`);
     toast("🗑️ Customer deleted","#E53935");loadCustomers();
-  }catch(e){toast("Error","#E53935");}
+  }catch(e){toast("Error: "+e.message,"#E53935");}
 }
 
 // ── DELIVERY BOYS ────────────────────────────────────────────
@@ -619,46 +795,50 @@ let allDeliveryBoys = [];
 async function loadDeliveryBoys(){
   document.getElementById("deliveryBody").innerHTML="<tr><td colspan='6' style='text-align:center;padding:20px'><span class='spinner'></span>Loading...</td></tr>";
   try {
-    allDeliveryBoys = await db("delivery_boys", {filter:"order=created_at.desc"});
+    allDeliveryBoys = await db("delivery_boys", {filter:"select=id,name,phone,active,created_at&order=created_at.desc"});
     if(!allDeliveryBoys || allDeliveryBoys.length===0){
       document.getElementById("deliveryBody").innerHTML="<tr><td colspan='6' style='text-align:center;color:#aaa;padding:20px'>No delivery boys added yet</td></tr>";
       return;
     }
     // get today's order counts
     const today = new Date().toISOString().split("T")[0];
-    const todayOrders = await db("orders", {filter:`delivery_boy_id=not.is.null&created_at=gte.${today}T00:00:00`}).catch(()=>[]);
+    const todayOrders = await db("orders", {filter:`select=delivery_boy_id,status&delivery_boy_id=not.is.null&created_at=gte.${today}T00:00:00`}).catch(()=>[]);
     document.getElementById("deliveryBody").innerHTML = allDeliveryBoys.map(b=>{
       const cnt = (todayOrders||[]).filter(o=>o.delivery_boy_id===b.id&&o.status==="delivered").length;
       return `<tr>
-        <td><b>${b.id}</b></td>
-        <td>${b.name}</td>
-        <td>${b.phone||"—"}</td>
+        <td><b>${esc(b.id)}</b></td>
+        <td>${esc(b.name)}</td>
+        <td>${esc(b.phone||"—")}</td>
         <td><span class="badge ${b.active?"badge-green":"badge-red"}">${b.active?"Active":"Inactive"}</span></td>
         <td>${cnt} delivered</td>
         <td style="display:flex;gap:4px">
-          <button class="btn btn-gray btn-sm" onclick='editDeliveryBoy(${JSON.stringify(b).replace(/'/g,"&#39;")})'>Edit</button>
-          <button class="btn btn-sm ${b.active?"btn-red":"btn-green"}" onclick="toggleDeliveryBoy('${b.id}',${b.active})">${b.active?"Deactivate":"Activate"}</button>
+          <button class="btn btn-gray btn-sm" data-id="${esc(b.id)}" onclick="editDeliveryBoy(this.dataset.id)">Edit</button>
+          <button class="btn btn-sm ${b.active?"btn-red":"btn-green"}" data-id="${esc(b.id)}" data-on="${b.active?1:0}" onclick="toggleDeliveryBoy(this.dataset.id,this.dataset.on==='1')">${b.active?"Deactivate":"Activate"}</button>
         </td>
       </tr>`;
     }).join("");
-  } catch(e){ document.getElementById("deliveryBody").innerHTML=`<tr><td colspan='6' style='color:red;text-align:center;padding:20px'>Error: ${e.message}</td></tr>`; }
+  } catch(e){ document.getElementById("deliveryBody").innerHTML=errRow(6,e); }
 }
 
 function showAddDeliveryBoy(){
   document.getElementById("dbModalTitle").textContent="Add Delivery Boy";
   ["dbId","dbName","dbPhone","dbPass","dbIdHidden"].forEach(id=>document.getElementById(id).value="");
+  document.getElementById("dbPass").placeholder="Set login password (6+ characters)";
   document.getElementById("dbId").disabled=false;
   document.getElementById("deliveryBoyModal").classList.add("open");
 }
 
-function editDeliveryBoy(b){
+function editDeliveryBoy(id){
+  const b = allDeliveryBoys.find(x => x.id === id);
+  if (!b) return;
   document.getElementById("dbModalTitle").textContent="Edit Delivery Boy";
   document.getElementById("dbIdHidden").value=b.id;
   document.getElementById("dbId").value=b.id;
   document.getElementById("dbId").disabled=true;
   document.getElementById("dbName").value=b.name||"";
   document.getElementById("dbPhone").value=b.phone||"";
-  document.getElementById("dbPass").value=b.password||"";
+  document.getElementById("dbPass").value="";
+  document.getElementById("dbPass").placeholder="Leave empty to keep the current password";
   document.getElementById("deliveryBoyModal").classList.add("open");
 }
 
@@ -667,31 +847,34 @@ function closeDeliveryBoyModal(){ document.getElementById("deliveryBoyModal").cl
 async function saveDeliveryBoy(){
   const isEdit = !!document.getElementById("dbIdHidden").value;
   const id = document.getElementById(isEdit?"dbIdHidden":"dbId").value.trim();
+  const pass = document.getElementById("dbPass").value.trim();
   const data = {
     name: document.getElementById("dbName").value.trim(),
     phone: document.getElementById("dbPhone").value.trim(),
-    password: document.getElementById("dbPass").value.trim(),
     active: true
   };
-  if(!id||!data.name||!data.password){ toast("Fill all required fields","#E53935"); return; }
+  if(!id||!data.name||!data.phone||(!isEdit&&!pass)){ toast("Fill all required fields","#E53935"); return; }
+  if(pass && pass.length<6){ toast("Use at least 6 characters for the password","#E53935"); return; }
+  if(pass) data.password = pass; // the database stores only a scrambled (hashed) copy
   try {
     if(isEdit){
-      await fetch(`${URL}/delivery_boys?id=eq.${id}`,{method:"PATCH",headers:H,body:JSON.stringify(data)});
+      await send("PATCH", `delivery_boys?id=eq.${q(id)}&select=id`, data);
       toast("✅ Delivery boy updated!");
     } else {
       data.id = id;
-      await fetch(`${URL}/delivery_boys`,{method:"POST",headers:H,body:JSON.stringify(data)});
+      await send("POST", "delivery_boys?select=id", data);
       toast("✅ Delivery boy added!");
     }
+    document.getElementById("dbPass").value="";
     closeDeliveryBoyModal(); loadDeliveryBoys();
   } catch(e){ toast("Error: "+e.message,"#E53935"); }
 }
 
 async function toggleDeliveryBoy(id, active){
   try {
-    await fetch(`${URL}/delivery_boys?id=eq.${id}`,{method:"PATCH",headers:H,body:JSON.stringify({active:!active})});
+    await send("PATCH", `delivery_boys?id=eq.${q(id)}&select=id`, {active:!active});
     toast(active?"Deactivated":"✅ Activated"); loadDeliveryBoys();
-  } catch(e){ toast("Error","#E53935"); }
+  } catch(e){ toast("Error: "+e.message,"#E53935"); }
 }
 
 // ── ASSIGN DELIVERY BOY TO ORDER ─────────────────────────────
@@ -710,15 +893,15 @@ async function loadUnassignedOrders(){
       return;
     }
     document.getElementById("assignBody").innerHTML = orders.map(o=>`<tr>
-      <td><b>#${o.id}</b></td>
-      <td>${o.created_at?new Date(o.created_at).toLocaleDateString("en-IN"):"—"}</td>
-      <td><b>₹${o.total}</b></td>
-      <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${o.address||"—"}</td>
-      <td><span class="badge badge-green">${o.status||"placed"}</span></td>
-      <td>${o.delivery_boy_name ? `<span class="badge badge-green">🛵 ${o.delivery_boy_name}</span>` : '<span style="color:#aaa;font-size:12px">Not assigned</span>'}</td>
-      <td><button class="btn btn-green btn-sm" onclick="openAssignModal('${o.id}')">Assign</button></td>
+      <td><b>#${esc(o.id)}</b></td>
+      <td>${fmtDate(o.created_at)}</td>
+      <td><b>₹${esc(o.total)}</b></td>
+      <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(o.address)}">${esc(o.address||"—")}</td>
+      <td><span class="badge badge-green">${esc(o.status||"placed")}</span></td>
+      <td>${o.delivery_boy_name ? `<span class="badge badge-green">🛵 ${esc(o.delivery_boy_name)}</span>` : '<span style="color:#aaa;font-size:12px">Not assigned</span>'}</td>
+      <td><button class="btn btn-green btn-sm" data-id="${esc(o.id)}" onclick="openAssignModal(this.dataset.id)">Assign</button></td>
     </tr>`).join("");
-  } catch(e){ document.getElementById("assignBody").innerHTML=`<tr><td colspan='7' style='color:red;text-align:center;padding:20px'>Error: ${e.message}</td></tr>`; }
+  } catch(e){ document.getElementById("assignBody").innerHTML=errRow(7,e); }
 }
 
 function openAssignModal(orderId){
@@ -726,7 +909,7 @@ function openAssignModal(orderId){
   document.getElementById("assignOrderId").textContent = "#"+orderId;
   const boys = allDeliveryBoys.filter(b=>b.active);
   if(boys.length===0){ toast("No active delivery boys. Add one first.","#E53935"); return; }
-  document.getElementById("assignSelect").innerHTML = boys.map(b=>`<option value="${b.id}" data-name="${b.name}">${b.name} (${b.id})</option>`).join("");
+  document.getElementById("assignSelect").innerHTML = boys.map(b=>`<option value="${esc(b.id)}" data-name="${esc(b.name)}">${esc(b.name)} (${esc(b.id)})</option>`).join("");
   document.getElementById("assignModal").classList.add("open");
 }
 
@@ -738,11 +921,23 @@ async function confirmAssign(){
   const boyId = sel.value;
   const boyName = sel.options[sel.selectedIndex].dataset.name;
   try {
-    await fetch(`${URL}/orders?id=eq.${assigningOrderId}`,{method:"PATCH",headers:H,body:JSON.stringify({delivery_boy_id:boyId, delivery_boy_name:boyName, status:"confirmed"})});
+    await send("PATCH", `orders?id=eq.${q(assigningOrderId)}&select=id`, {delivery_boy_id:boyId, delivery_boy_name:boyName, status:"confirmed"});
     toast(`✅ Assigned to ${boyName}!`);
     closeAssignModal(); loadUnassignedOrders();
   } catch(e){ toast("Error: "+e.message,"#E53935"); }
 }
+
+// ── START: reuse a live login, else show the login screen ────
+(async function start(){
+  if (TOKEN) {
+    try {
+      const me = await rpc("staff_me", {p_token: TOKEN});
+      if (me.ok && me.kind === "admin") { enterApp(me.name); return; }
+      setToken(null);
+    } catch(e) { showLogin("Couldn't reach the server. Check your internet and reload the page."); return; }
+  }
+  showLogin();
+})();
 </script>
 </body>
 </html>
