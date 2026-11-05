@@ -89,6 +89,20 @@ const deviceId = () => {
     return memDevice || (memDevice = randomHex(18));
   }
 };
+// ── FRESH START ──
+// Changing this date signs every phone out on its next visit and shows the welcome flow again, so everyone
+// signs in as a new customer. The cart, language and any order being tracked stay.
+const FRESH_START = "2026-11-06";
+const FRESH_START_KEYS = ["gd360_loggedIn", "gd360_profile", "gd360_userId", "gd360_coins", "gd360_ctoken",
+  "gd360_onboarded", "gd360_prefs", "gd360_tip_seen", "gd360_loc"];
+let freshStartNow = false;
+try {
+  if (localStorage.getItem("gd360_fresh") !== FRESH_START) {
+    FRESH_START_KEYS.forEach(k => Storage.remove(k)); // web storage now, the phone app's storage right after
+    localStorage.setItem("gd360_fresh", FRESH_START);
+    freshStartNow = true;
+  }
+} catch (e) {}
 // Order numbers like RH7KQ2M9XA: easy to read out on the phone, impossible to guess
 const newOrderId = () => {
   const A = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -1696,6 +1710,7 @@ const verifyOtp = async () => {
   useEffect(() => {
     // 1. Restore login session
     const restoreSession = async () => {
+      if (freshStartNow) return; // just signed out for the fresh start: nothing to restore
       try {
         // Try Capacitor Preferences first
         let loggedIn = null;
