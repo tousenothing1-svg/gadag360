@@ -1229,6 +1229,7 @@ export default function Gadag360() {
         ...p,
         name: dbP && dbP.name ? String(dbP.name).replace(/\s+/g, " ").trim() : p.name, // admin edits & spelling fixes win
         name_kn: (dbP && dbP.name_kn) || KN_NAMES[p.name] || undefined,
+        img: (dbP && dbP.img_url) || p.img, // a photo uploaded in the admin panel replaces the built-in one
         price: livePrice,
         variants: scaledVariants,
         in_stock: dbP ? dbP.in_stock !== false : true,

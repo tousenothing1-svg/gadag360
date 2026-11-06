@@ -52,6 +52,14 @@ input[type=password],input[type=text],input[type=number],select,textarea{width:1
 .toast{position:fixed;bottom:24px;right:24px;padding:12px 20px;border-radius:10px;color:white;font-size:14px;font-weight:600;z-index:300;box-shadow:0 4px 20px rgba(0,0,0,0.2)}
 .spinner{display:inline-block;width:20px;height:20px;border:3px solid #f0f0f0;border-top-color:var(--green);border-radius:50%;animation:spin 0.8s linear infinite;vertical-align:middle;margin-right:8px}
 @keyframes spin{to{transform:rotate(360deg)}}
+/* product photos: same 4:3 shape as the shop's product cards */
+.ph{width:60px;height:45px;padding:0;border-radius:8px;border:1.5px dashed #c9d3c4;background:#f7f8f5;display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer;font-size:11px;font-weight:700;color:#6B716A;position:relative}
+.ph img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#f7f8f5}
+.ph:hover{border-color:var(--green)}
+.ph.busy{opacity:0.45;pointer-events:none}
+.ph-big{width:100%;aspect-ratio:4/3;border-radius:12px;border:1.5px dashed #c9d3c4;background:#f7f8f5;display:flex;align-items:center;justify-content:center;overflow:hidden;color:#6B716A;font-size:13px;font-weight:600}
+.ph-big img{width:100%;height:100%;object-fit:contain}
+input.qty-in{width:72px;padding:4px 6px;border:1.5px solid #ddd;border-radius:6px;font-size:13px}
 </style>
 </head>
 <body>
@@ -164,9 +172,11 @@ input[type=password],input[type=text],input[type=number],select,textarea{width:1
           <button class="btn btn-green" onclick="loadProducts()">🔄 Refresh</button>
         </div>
         <div class="card"><div class="table-wrap"><table>
-          <thead><tr><th>#</th><th>Name</th><th>Category</th><th>Price (₹)</th><th>Unit</th><th>Stock</th><th>Action</th></tr></thead>
-          <tbody id="productsBody"><tr><td colspan="7" style="text-align:center;padding:20px"><span class="spinner"></span>Loading...</td></tr></tbody>
+          <thead><tr><th>#</th><th>Photo</th><th>Name</th><th>Category</th><th>Price (₹)</th><th>Unit</th><th>Stock left</th><th>Status</th><th>Action</th></tr></thead>
+          <tbody id="productsBody"><tr><td colspan="9" style="text-align:center;padding:20px"><span class="spinner"></span>Loading...</td></tr></tbody>
         </table></div></div>
+        <div style="font-size:12px;color:#888;margin-top:10px">Tap a photo to take or choose a new one. "Stock left" is how many packs you have; each pack ordered (any size) takes 1 off, and at 0 the product shows as out of stock by itself.</div>
+        <input type="file" id="photoPicker" accept="image/*" style="display:none" onchange="photoPicked(this)"/>
       </div>
 
       <div class="page" id="page-vendors">
@@ -305,17 +315,27 @@ input[type=password],input[type=text],input[type=number],select,textarea{width:1
   <div class="modal">
     <div style="font-size:17px;font-weight:800;margin-bottom:16px" id="modalTitle">Add Product</div>
     <div class="form-grid">
-      <div><label>Name</label><input id="pName" placeholder="Product name"/></div>
+      <div><label>Name</label><input type="text" id="pName" placeholder="Product name"/></div>
       <div><label>Category</label><select id="pCat"><option>Dairy</option><option>Fruits</option><option>Vegetables</option><option>Exotics</option><option>Spices</option><option>Oils</option><option>Flowers</option></select></div>
       <div><label>Price (₹)</label><input id="pPrice" type="number" placeholder="0"/></div>
-      <div><label>Unit</label><input id="pUnit" placeholder="e.g. 500g, 1pc"/></div>
+      <div><label>Unit</label><input type="text" id="pUnit" placeholder="e.g. 500g, 1pc"/></div>
       <div><label>Supplier</label><select id="pVendor"><option value="v1">Sasnur Bakery</option><option value="v2">Katapur Fruits</option><option value="v3">Totad Vegetables</option><option value="v4">Dandin Exotics</option><option value="v5">Mulla Spices & Oils</option><option value="v6">Attar Flowers</option></select></div>
-      <div><label>Stock</label><select id="pStock"><option value="true">✅ In Stock</option><option value="false">❌ Out of Stock</option></select></div>
+      <div><label>Stock left (packs)</label><input id="pQty" type="number" min="0" step="1" inputmode="numeric" placeholder="How many you have"/></div>
+      <div><label>Show in shop</label><select id="pStock"><option value="true">✅ Yes</option><option value="false">❌ No (hidden)</option></select></div>
     </div>
+    <label style="margin-top:12px">Photo</label>
+    <div style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center">
+      <div class="ph-big" id="pPhotoBox">No photo yet</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button class="btn btn-green btn-sm" type="button" onclick="document.getElementById('pPhotoInput').click()">📷 Take or choose photo</button>
+        <span style="font-size:11px;color:#888;max-width:150px">It's cropped to the shop's card shape (4:3) and made small for fast loading.</span>
+      </div>
+    </div>
+    <input type="file" id="pPhotoInput" accept="image/*" style="display:none" onchange="modalPhotoPicked(this)"/>
     <input type="hidden" id="pId"/>
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
       <button class="btn btn-gray" onclick="closeModal()">Cancel</button>
-      <button class="btn btn-green" onclick="saveProduct()">Save</button>
+      <button class="btn btn-green" id="pSaveBtn" onclick="saveProduct()">Save</button>
     </div>
   </div>
 </div>
@@ -582,30 +602,39 @@ async function updateStatus(id,status){
 }
 
 // ── PRODUCTS ─────────────────────────────────────────────────
+// Photos live in the public "product-photos" bucket; only a logged-in admin can upload (the database checks the token).
+const STORAGE = "https://lykhjuizzvurklywxflz.supabase.co/storage/v1";
+const PHOTO_PUBLIC = `${STORAGE}/object/public/product-photos/`;
+// The photo customers see: the uploaded one, else the one that came with the app (built-in products only)
+const photoOf = p => p.img_url || (/^p\d{1,3}$/.test(p.id) ? `/products/${p.id}.jpg` : "");
+
 async function loadProducts(){
-  document.getElementById("productsBody").innerHTML="<tr><td colspan='7' style='text-align:center;padding:20px'><span class='spinner'></span>Loading...</td></tr>";
+  document.getElementById("productsBody").innerHTML="<tr><td colspan='9' style='text-align:center;padding:20px'><span class='spinner'></span>Loading...</td></tr>";
   try {
     allProducts = await db("products",{filter:"order=cat.asc"});
-    renderProducts(allProducts);
-  } catch(e){document.getElementById("productsBody").innerHTML=errRow(7,e);}
+    filterProducts();
+  } catch(e){document.getElementById("productsBody").innerHTML=errRow(9,e);}
 }
 
 function renderProducts(products){
   document.getElementById("productsBody").innerHTML=products.length===0
-    ? "<tr><td colspan='7' style='text-align:center;color:#aaa;padding:20px'>No products found</td></tr>"
+    ? "<tr><td colspan='9' style='text-align:center;color:#aaa;padding:20px'>No products found</td></tr>"
     : products.map((p,i)=>{
         const on = p.in_stock!==false;
+        const ph = photoOf(p);
         return `<tr>
         <td>${i+1}</td>
+        <td><button class="ph" data-id="${esc(p.id)}" onclick="pickPhoto(this.dataset.id)" title="Tap to take or choose a new photo" aria-label="Change photo of ${esc(p.name)}"><span>+ Photo</span>${ph ? `<img src="${esc(ph)}" alt="" loading="lazy" onerror="this.remove()"/>` : ""}</button></td>
         <td><b>${esc(p.name)}</b></td>
         <td><span class="badge badge-green">${esc(p.cat)}</span></td>
         <td><input type="number" value="${esc(p.price)}" data-id="${esc(p.id)}" style="width:70px;padding:4px 6px;border:1.5px solid #ddd;border-radius:6px;font-size:13px" onchange="updatePrice(this.dataset.id,this.value)"/></td>
         <td>${esc(p.unit||"—")}</td>
+        <td><input class="qty-in" type="number" min="0" step="1" inputmode="numeric" value="${esc(p.stock_qty ?? "")}" data-id="${esc(p.id)}" aria-label="Stock left for ${esc(p.name)}" onchange="updateStockQty(this.dataset.id,this.value)"/></td>
         <td><span class="badge ${on?"badge-green":"badge-red"}" style="cursor:pointer" data-id="${esc(p.id)}" data-on="${on?1:0}" onclick="toggleStock(this.dataset.id,this.dataset.on==='1')">${on?"✅ In Stock":"❌ Out"}</span></td>
-        <td style="display:flex;gap:4px">
+        <td><div style="display:flex;gap:4px">
           <button class="btn btn-gray btn-sm" data-id="${esc(p.id)}" onclick="editProduct(this.dataset.id)">Edit</button>
           <button class="btn btn-red btn-sm" data-id="${esc(p.id)}" onclick="delProduct(this.dataset.id)">Del</button>
-        </td>
+        </div></td>
       </tr>`;}).join("");
 }
 
@@ -625,11 +654,31 @@ async function updatePrice(id,price){
   }catch(e){toast("Error: "+e.message,"#E53935");}
 }
 
+// Stock left: setting a number also puts the product on sale (or out of stock at 0)
+async function updateStockQty(id,value){
+  const v = String(value).trim();
+  if (!/^\d{1,6}$/.test(v)) { toast("Enter how many are left: a whole number, 0 or more","#E53935"); filterProducts(); return; }
+  const n = parseInt(v, 10);
+  try{
+    await send("PATCH", `products?id=eq.${q(id)}&select=id`, {stock_qty:n, in_stock:n>0});
+    const p = allProducts.find(x => x.id === id); if (p) { p.stock_qty = n; p.in_stock = n > 0; }
+    toast(n>0 ? `✅ ${n} left · on sale` : "❌ 0 left · shown as out of stock", n>0 ? "#1A6B3C" : "#E53935");
+    filterProducts();
+  }catch(e){toast("Error: "+e.message,"#E53935");}
+}
+
 async function toggleStock(id,cur){
+  const p = allProducts.find(x => x.id === id);
+  if (!cur && p && p.stock_qty != null && p.stock_qty <= 0) {
+    toast("First type how many are left in \"Stock left\"","#E53935");
+    const box = document.querySelector(`.qty-in[data-id="${CSS.escape(id)}"]`); if (box) box.focus();
+    return;
+  }
   try{
     await send("PATCH", `products?id=eq.${q(id)}&select=id`, {in_stock:!cur});
+    if (p) p.in_stock = !cur;
     toast(!cur?"✅ In Stock":"❌ Out of Stock");
-    loadProducts();
+    filterProducts();
   }catch(e){toast("Error: "+e.message,"#E53935");}
 }
 
@@ -642,9 +691,101 @@ async function delProduct(id){
   }catch(e){toast("Error: "+e.message,"#E53935");}
 }
 
+// ── PHOTOS ──
+// (window.URL: this page uses the name URL for the database address)
+// Phone photos are big: crop to the shop's card shape (4:3) and shrink to 800×600 before uploading (~100 KB)
+function shrinkPhoto(file){
+  return new Promise((resolve, reject) => {
+    if (!file || !/^image\//.test(file.type || "image/")) { reject(new Error("please choose a photo")); return; }
+    const img = new Image(), src = window.URL.createObjectURL(file);
+    img.onload = () => {
+      const W = 800, H = 600, s = Math.max(W / img.naturalWidth, H / img.naturalHeight);
+      const w = img.naturalWidth * s, h = img.naturalHeight * s;
+      const c = document.createElement("canvas"); c.width = W; c.height = H;
+      const g = c.getContext("2d");
+      g.fillStyle = "#fff"; g.fillRect(0, 0, W, H);
+      g.imageSmoothingQuality = "high";
+      g.drawImage(img, (W - w) / 2, (H - h) / 2, w, h);
+      window.URL.revokeObjectURL(src);
+      c.toBlob(b => b ? resolve(b) : reject(new Error("couldn't read that photo")), "image/jpeg", 0.85);
+    };
+    img.onerror = () => { window.URL.revokeObjectURL(src); reject(new Error("couldn't read that photo, try a JPG or PNG")); };
+    img.src = src;
+  });
+}
+
+async function uploadPhoto(productId, blob){
+  const path = `${String(productId).replace(/[^A-Za-z0-9_-]/g, "_")}-${Date.now()}.jpg`; // new name each time, so phones never show an old copy
+  const res = await fetch(`${STORAGE}/object/product-photos/${path}`, {
+    method: "POST",
+    headers: {"apikey":KEY,"Authorization":"Bearer "+KEY,"x-staff-token":TOKEN||"","Content-Type":"image/jpeg","cache-control":"max-age=31536000"},
+    body: blob,
+  });
+  if (!res.ok) {
+    const t = await res.text();
+    throw new Error(/row-level security|Unauthorized|AccessDenied/i.test(t) ? "your login has ended, please log in again" : (t || res.statusText).slice(0, 140));
+  }
+  return PHOTO_PUBLIC + path;
+}
+
+// Remove a replaced photo from storage (only ones uploaded here; the built-in photos stay)
+function removeStoredPhoto(url){
+  if (!url || !url.startsWith(PHOTO_PUBLIC)) return;
+  fetch(`${STORAGE}/object/product-photos/${url.slice(PHOTO_PUBLIC.length)}`, {
+    method: "DELETE", headers: {"apikey":KEY,"Authorization":"Bearer "+KEY,"x-staff-token":TOKEN||""},
+  }).catch(() => {});
+}
+
+// Tap a photo in the list: pick, upload, save — done
+function pickPhoto(id){
+  const input = document.getElementById("photoPicker");
+  input.dataset.id = id; input.value = "";
+  input.click();
+}
+async function photoPicked(input){
+  const id = input.dataset.id, file = input.files && input.files[0];
+  if (!id || !file) return;
+  const btn = document.querySelector(`.ph[data-id="${CSS.escape(id)}"]`);
+  if (btn) btn.classList.add("busy");
+  toast("⏳ Saving photo…");
+  try {
+    const blob = await shrinkPhoto(file);
+    const url = await uploadPhoto(id, blob);
+    const p = allProducts.find(x => x.id === id), old = p && p.img_url;
+    await send("PATCH", `products?id=eq.${q(id)}&select=id`, {img_url:url});
+    if (p) p.img_url = url;
+    removeStoredPhoto(old);
+    toast("✅ Photo saved. Customers see it next time they open the app.");
+    filterProducts();
+  } catch(e) {
+    if (btn) btn.classList.remove("busy");
+    toast("Photo not saved: "+e.message,"#E53935");
+  }
+}
+
+// ── ADD / EDIT ──
+let pendingPhoto = null;
+function showPhotoIn(box, url){
+  box.innerHTML = "";
+  if (!url) { box.textContent = "No photo yet"; return; }
+  const im = document.createElement("img"); im.src = url; im.alt = ""; im.onerror = () => { box.textContent = "No photo yet"; };
+  box.appendChild(im);
+}
+async function modalPhotoPicked(input){
+  const file = input.files && input.files[0];
+  input.value = "";
+  if (!file) return;
+  try {
+    pendingPhoto = await shrinkPhoto(file);
+    showPhotoIn(document.getElementById("pPhotoBox"), window.URL.createObjectURL(pendingPhoto));
+  } catch(e) { pendingPhoto = null; toast(e.message,"#E53935"); }
+}
+
 function showAddProduct(){
   document.getElementById("modalTitle").textContent="Add Product";
-  ["pId","pName","pPrice","pUnit"].forEach(id=>document.getElementById(id).value="");
+  ["pId","pName","pPrice","pUnit","pQty"].forEach(id=>document.getElementById(id).value="");
+  document.getElementById("pStock").value="true";
+  pendingPhoto = null; showPhotoIn(document.getElementById("pPhotoBox"), "");
   document.getElementById("productModal").classList.add("open");
 }
 
@@ -658,27 +799,40 @@ function editProduct(id){
   document.getElementById("pPrice").value=p.price;
   document.getElementById("pUnit").value=p.unit||"";
   document.getElementById("pVendor").value=p.vendor_id||"v1";
+  document.getElementById("pQty").value=p.stock_qty ?? "";
   document.getElementById("pStock").value=String(p.in_stock!==false);
+  pendingPhoto = null; showPhotoIn(document.getElementById("pPhotoBox"), photoOf(p));
   document.getElementById("productModal").classList.add("open");
 }
 
-function closeModal(){document.getElementById("productModal").classList.remove("open");}
+function closeModal(){ pendingPhoto = null; document.getElementById("productModal").classList.remove("open"); }
 
 async function saveProduct(){
   const id=document.getElementById("pId").value;
-  const data={name:document.getElementById("pName").value.trim(),cat:document.getElementById("pCat").value,price:parseInt(document.getElementById("pPrice").value),unit:document.getElementById("pUnit").value,vendor_id:document.getElementById("pVendor").value,in_stock:document.getElementById("pStock").value==="true"};
+  const qtyRaw=document.getElementById("pQty").value.trim();
+  const data={name:document.getElementById("pName").value.trim(),cat:document.getElementById("pCat").value,price:parseInt(document.getElementById("pPrice").value),unit:document.getElementById("pUnit").value,vendor_id:document.getElementById("pVendor").value};
   if(!data.name||!data.price){toast("Fill name & price","#E53935");return;}
+  if(!/^\d{1,6}$/.test(qtyRaw)){toast("Enter how many are left (0 or more)","#E53935");return;}
+  data.stock_qty = parseInt(qtyRaw, 10);
+  data.in_stock = data.stock_qty > 0 && document.getElementById("pStock").value === "true";
+  const saveBtn = document.getElementById("pSaveBtn");
   try{
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = "Saving…"; }
+    const rowId = id || ("p"+Date.now());
+    const old = id ? (allProducts.find(x => x.id === id) || {}).img_url : null;
+    if (pendingPhoto) data.img_url = await uploadPhoto(rowId, pendingPhoto);
     if(id){
       await send("PATCH", `products?id=eq.${q(id)}&select=id`, data);
+      if (data.img_url) removeStoredPhoto(old);
       toast("✅ Updated!");
     }else{
-      data.id="p"+Date.now();
+      data.id=rowId;
       await send("POST", "products?select=id", data);
       toast("✅ Added!");
     }
     closeModal();loadProducts();
   }catch(e){toast("Error: "+e.message,"#E53935");}
+  finally { if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = "Save"; } }
 }
 
 // ── SUPPLIERS ────────────────────────────────────────────────
