@@ -377,6 +377,15 @@ function unitOf(p, picked) {
   const v = vs.find(x => x.label === want) || vs[0];
   return v ? { label: v.label, price: v.price } : { label: p.unit, price: p.price };
 }
+// Market price for the size shown. The admin sets it for the product's base pack; other sizes scale with
+// the price. Shown (crossed out) only when it's higher than our price, so the saving is real.
+function marketOf(p, u) {
+  const m = Number(p && p.market_price);
+  if (!m || !(p.price > 0) || !u || !(u.price > 0)) return null;
+  const mp = Math.round(u.price * m / p.price);
+  return mp > u.price ? mp : null;
+}
+const offPct = (mp, price) => Math.round(((mp - price) / mp) * 100);
 // Search matches English names, Kannada names and category names (both languages)
 function matchesQuery(p, q) {
   const raw = String(q || "").trim();
@@ -703,6 +712,7 @@ function ProductSheet({ p, inCart, picked, lang, KN_NAMES, onCommit, onClose }) 
   const closeRef = useRef(null);
   const u = sizes.find(s => s.label === size) || current;
   const oos = p.in_stock === false;
+  const mp = oos ? null : marketOf(p, u);
   const maxQty = Math.max(1, Math.min(10, p.stock_qty ?? 10));
   const name = kn ? (KN_NAMES[p.name] || p.name_kn || p.name) : p.name;
   const changed = qty !== inCart || (inCart > 0 && size !== current.label);
@@ -744,7 +754,12 @@ function ProductSheet({ p, inCart, picked, lang, KN_NAMES, onCommit, onClose }) 
             <div style={{ fontSize: 19, fontWeight: 700, lineHeight: 1.25 }}>{name}</div>
             <div style={{ marginTop: 6, fontSize: 15 }}>
               <span style={{ fontWeight: 800 }}>{rs(u.price)}</span><span style={{ color: soil }}> / {u.label}</span>
+              {mp && <span style={{ marginLeft: 8, fontSize: 13, color: soil, textDecoration: "line-through" }}
+                aria-label={kn ? `ಮಾರುಕಟ್ಟೆ ಬೆಲೆ ${rs(mp)}` : `market price ${rs(mp)}`}>{rs(mp)}</span>}
             </div>
+            {mp && <div style={{ marginTop: 4, fontSize: 12.5, fontWeight: 700, color: basil }}>
+              {kn ? `ಮಾರುಕಟ್ಟೆ ಬೆಲೆಗಿಂತ ${rs(mp - u.price)} ಕಡಿಮೆ (${offPct(mp, u.price)}%)` : `${rs(mp - u.price)} less than market price (${offPct(mp, u.price)}% off)`}
+            </div>}
             {oos
               ? <div style={{ marginTop: 6, fontSize: 13, fontWeight: 700, color: chili }}>{kn ? "ಸದ್ಯಕ್ಕೆ ದಾಸ್ತಾನಿಲ್ಲ" : "Out of stock right now"}</div>
               : inCart > 0 ? <div style={{ marginTop: 6, fontSize: 13, fontWeight: 600, color: basil }}>{kn ? `ಬುಟ್ಟಿಯಲ್ಲಿ ${inCart} ಇದೆ` : `${inCart} in your cart`}</div> : null}
@@ -892,23 +907,27 @@ function HandpickdLayout({ filtered, listMode, onClearList, suggestions, onSugge
   /* ── Product card: photo, name, price and add button, all inside the card ── */
   const narrow = (p, opts = {}) => {
     const u = unitOf(p, selectedVariant), oos = p.in_stock === false;
+    const mp = oos ? null : marketOf(p, u);
     const full = pname(p);
     const name = opts.groupKey ? shortName(p, opts.groupKey, opts.groupLabel) : full;
     return (
       <div key={p.id} style={{ minWidth: 0, display: "flex", flexDirection: "column", background: "#fff", borderRadius: 14,
         border: `1px solid ${line}`, boxShadow: cardShadow, overflow: "hidden", ...(opts.style || null) }}>
         <button className="g-reset g-tap" onClick={() => setSheetProduct(p)}
-          aria-label={`${full}, ${rs(u.price)} / ${u.label}${oos ? (kn ? ", ದಾಸ್ತಾನಿಲ್ಲ" : ", out of stock") : ""}`}
+          aria-label={`${full}, ${rs(u.price)} / ${u.label}${mp ? (kn ? `, ಮಾರುಕಟ್ಟೆ ಬೆಲೆ ${rs(mp)}` : `, market price ${rs(mp)}`) : ""}${oos ? (kn ? ", ದಾಸ್ತಾನಿಲ್ಲ" : ", out of stock") : ""}`}
           style={{ flex: 1, display: "flex", flexDirection: "column", textAlign: "left", filter: oos ? "grayscale(1)" : "none", opacity: oos ? 0.6 : 1 }}>
           <div style={{ position: "relative", width: "100%", paddingTop: "76%", background: "#F7F8F5" }}>
             <div style={{ position: "absolute", inset: 6 }}><ProductImage p={p}/></div>
             {oos && <span style={{ position: "absolute", left: 6, bottom: 6, fontSize: 10, fontWeight: 800, color: chili, padding: "3px 7px",
               background: "#FDECEC", borderRadius: 6 }}>{kn ? "ದಾಸ್ತಾನಿಲ್ಲ" : "Out of stock"}</span>}
+            {mp && <span style={{ position: "absolute", left: 6, top: 6, fontSize: 10, fontWeight: 800, color: "#fff", padding: "3px 6px",
+              background: basil, borderRadius: 6, letterSpacing: 0.2 }}>{offPct(mp, u.price)}% {kn ? "ಕಡಿಮೆ" : "OFF"}</span>}
           </div>
           <div style={{ padding: "8px 9px 0", fontSize: 13, fontWeight: 600, color: ink, lineHeight: 1.25, minHeight: 41, ...clamp2 }}>{name}</div>
         </button>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 4, padding: "6px 6px 8px 9px" }}>
-          <span style={{ fontSize: 12.5, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          <span style={{ display: "block", fontSize: 12.5, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {mp && <span style={{ display: "block", fontSize: 10.5, lineHeight: 1.15, color: soil, textDecoration: "line-through" }}>{rs(mp)}</span>}
             <span style={{ fontWeight: 800, color: ink }}>{rs(u.price)}</span><span style={{ fontSize: 11, color: soil }}>/{u.label}</span>
           </span>
           {addControl(p, full)}
@@ -1234,6 +1253,7 @@ export default function Gadag360() {
         variants: scaledVariants,
         in_stock: dbP ? dbP.in_stock !== false : true,
         stock_qty: dbP ? (dbP.stock_qty ?? 100) : 100,
+        market_price: dbP ? (dbP.market_price ?? null) : null,
         created_at: dbP ? dbP.created_at : undefined,
       });
     });
@@ -1243,7 +1263,7 @@ export default function Gadag360() {
         id: d.id, cat: d.cat, name: String(d.name).trim(), name_kn: d.name_kn || undefined,
         price: d.price || 0, unit: d.unit || "1 unit", img: d.img_url || "",
         variants: Array.isArray(d.variants) && d.variants.length ? d.variants : undefined,
-        in_stock: d.in_stock !== false, stock_qty: d.stock_qty ?? 100, created_at: d.created_at,
+        in_stock: d.in_stock !== false, stock_qty: d.stock_qty ?? 100, market_price: d.market_price ?? null, created_at: d.created_at,
       }));
     return [...fromCode, ...addedInAdmin];
   }, [dbProducts]);
@@ -1356,11 +1376,12 @@ export default function Gadag360() {
       const p = LIVE_PRODUCTS.find(x => x.id === id);
       if (!p) return null;
       const u = unitOf(p, selectedVariant);
-      return { ...p, qty, price: u.price, unitLabel: u.label };
+      return { ...p, qty, price: u.price, unitLabel: u.label, market: p.in_stock === false ? null : marketOf(p, u) };
     })
     .filter(Boolean);
   const itemCount = cartItems.reduce((s,i) => s + i.qty, 0);
   const subtotal = cartItems.reduce((s,i) => s + i.qty * i.price, 0);
+  const marketSaving = cartItems.reduce((s,i) => s + (i.market ? (i.market - i.price) * i.qty : 0), 0); // shown on the bill
   // ── BILL: one calculation for the cart bar, the bill screen and the saved order ──
   const deliveryFee = subtotal > 0 && subtotal < 250 ? 15 : 0; // free delivery from ₹250, as the bill promises
   const total = subtotal + deliveryFee;
@@ -1793,7 +1814,7 @@ const verifyOtp = async () => {
     // Load products from Supabase (overrides hardcoded prices)
     const loadProductsFromDB = async (attempt = 1) => {
       try {
-        const { data, error } = await supabase.from("products").select("id, name, name_kn, cat, price, unit, in_stock, stock_qty, variants, img_url, created_at");
+        const { data, error } = await supabase.from("products").select("id, name, name_kn, cat, price, unit, in_stock, stock_qty, variants, img_url, created_at, market_price");
         if (error) throw error;
         if (data && data.length > 0) {
           setDbProducts(data);
@@ -2799,6 +2820,9 @@ const verifyOtp = async () => {
                     <span style={{fontSize:14,fontWeight:800,color:ink}}>{lang==="kn"?"ಒಟ್ಟು ಪಾವತಿ":"Total to pay"}</span>
                     <span style={{fontSize:14,fontWeight:800,color:ink}}>{rs(finalTotal)}</span>
                   </div>
+                  {marketSaving>0&&<div style={{marginTop:10,padding:"8px 10px",borderRadius:10,background:"#E5F1E8",color:basil,fontSize:12,fontWeight:700,textAlign:"center"}}>
+                    {lang==="kn"?`🎉 ಮಾರುಕಟ್ಟೆ ಬೆಲೆಗಿಂತ ${rs(marketSaving)} ಉಳಿತಾಯ`:`🎉 You save ${rs(marketSaving)} compared to market price`}
+                  </div>}
                 </div>
 
                 {/* Payment + Place Order */}

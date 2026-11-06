@@ -161,3 +161,7 @@ begin
    where p.id = q.pid;
   return jsonb_build_object('ok', true, 'status', 'cancelled');
 end $$;
+
+-- Market price for the product's base pack: shown crossed out next to our price when it is higher.
+alter table public.products add column if not exists market_price int
+  check (market_price is null or market_price >= 0);

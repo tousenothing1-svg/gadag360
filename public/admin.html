@@ -59,7 +59,8 @@ input[type=password],input[type=text],input[type=number],select,textarea{width:1
 .ph.busy{opacity:0.45;pointer-events:none}
 .ph-big{width:100%;aspect-ratio:4/3;border-radius:12px;border:1.5px dashed #c9d3c4;background:#f7f8f5;display:flex;align-items:center;justify-content:center;overflow:hidden;color:#6B716A;font-size:13px;font-weight:600}
 .ph-big img{width:100%;height:100%;object-fit:contain}
-input.qty-in{width:72px;padding:4px 6px;border:1.5px solid #ddd;border-radius:6px;font-size:13px}
+input.qty-in,input.mkt-in{width:72px;padding:4px 6px;border:1.5px solid #ddd;border-radius:6px;font-size:13px}
+.off{display:inline-block;margin-left:6px;font-size:11px;font-weight:700;color:var(--green);white-space:nowrap}
 
 /* ── PHONES: menu across the top, every table row as a card ── */
 @media (max-width:760px){
@@ -83,18 +84,20 @@ input.qty-in{width:72px;padding:4px 6px;border:1.5px solid #ddd;border-radius:6p
   .table-wrap td{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:4px 0;border:0;text-align:right;max-width:none!important;white-space:normal!important}
   .table-wrap td::before{content:attr(data-label);font-size:11px;font-weight:700;color:#999;text-transform:uppercase;text-align:left;flex-shrink:0}
   tr:hover td{background:none}
-  /* products: photo on the left, then name, price, stock left, status, buttons */
-  #page-products .table-wrap tr{display:grid;grid-template-columns:96px 1fr 1fr;grid-template-areas:"photo name name" "photo price qty" "photo unit status" "act act act";gap:6px 10px;align-items:center}
+  /* products: photo on the left, then name, size, price, market price, stock left, status, buttons */
+  #page-products .table-wrap tr{display:grid;grid-template-columns:96px 1fr 1fr;grid-template-areas:"photo name name" "photo unit unit" "photo price mkt" "photo qty status" "act act act";gap:6px 10px;align-items:center}
   #page-products .table-wrap td{padding:0}
   #page-products .table-wrap td:nth-child(1),#page-products .table-wrap td:nth-child(4){display:none}
-  #page-products .table-wrap td:nth-child(2){grid-area:photo}
+  #page-products .table-wrap td:nth-child(2){grid-area:photo;align-self:start}
   #page-products .table-wrap td:nth-child(3){grid-area:name;justify-content:flex-start;text-align:left;font-size:14px}
   #page-products .table-wrap td:nth-child(5){grid-area:price;flex-direction:column;align-items:flex-start;gap:2px}
-  #page-products .table-wrap td:nth-child(6){grid-area:unit;justify-content:flex-start;color:#777;font-size:12px}
-  #page-products .table-wrap td:nth-child(7){grid-area:qty;flex-direction:column;align-items:flex-start;gap:2px}
-  #page-products .table-wrap td:nth-child(8){grid-area:status;justify-content:flex-start}
-  #page-products .table-wrap td:nth-child(9){grid-area:act;justify-content:flex-end}
-  #page-products .table-wrap td:nth-child(2)::before,#page-products .table-wrap td:nth-child(3)::before,#page-products .table-wrap td:nth-child(6)::before,#page-products .table-wrap td:nth-child(8)::before,#page-products .table-wrap td:nth-child(9)::before{content:none}
+  #page-products .table-wrap td:nth-child(6){grid-area:mkt;flex-direction:column;align-items:flex-start;gap:2px}
+  #page-products .table-wrap td:nth-child(7){grid-area:unit;justify-content:flex-start;color:#777;font-size:12px}
+  #page-products .table-wrap td:nth-child(8){grid-area:qty;flex-direction:column;align-items:flex-start;gap:2px}
+  #page-products .table-wrap td:nth-child(9){grid-area:status;justify-content:flex-start}
+  #page-products .table-wrap td:nth-child(10){grid-area:act;justify-content:flex-end}
+  #page-products .table-wrap td:nth-child(2)::before,#page-products .table-wrap td:nth-child(3)::before,#page-products .table-wrap td:nth-child(7)::before,#page-products .table-wrap td:nth-child(9)::before,#page-products .table-wrap td:nth-child(10)::before{content:none}
+  #page-products .table-wrap td:nth-child(6) .off{margin-left:0}
   #page-products .ph{width:96px;height:72px}
   .table-wrap td[colspan],#page-products .table-wrap td[colspan]{display:flex;grid-column:1/-1;justify-content:center}
   .table-wrap td[colspan]::before{content:none}
@@ -211,8 +214,8 @@ input.qty-in{width:72px;padding:4px 6px;border:1.5px solid #ddd;border-radius:6p
           <button class="btn btn-green" onclick="loadProducts()">🔄 Refresh</button>
         </div>
         <div class="card"><div class="table-wrap"><table>
-          <thead><tr><th>#</th><th>Photo</th><th>Name</th><th>Category</th><th>Price (₹)</th><th>Unit</th><th>Stock left</th><th>Status</th><th>Action</th></tr></thead>
-          <tbody id="productsBody"><tr><td colspan="9" style="text-align:center;padding:20px"><span class="spinner"></span>Loading...</td></tr></tbody>
+          <thead><tr><th>#</th><th>Photo</th><th>Name</th><th>Category</th><th>Price (₹)</th><th>Market price (₹)</th><th>Unit</th><th>Stock left</th><th>Status</th><th>Action</th></tr></thead>
+          <tbody id="productsBody"><tr><td colspan="10" style="text-align:center;padding:20px"><span class="spinner"></span>Loading...</td></tr></tbody>
         </table></div></div>
         <div style="font-size:12px;color:#888;margin-top:10px">Tap a photo to take or choose a new one. "Stock left" is how many packs you have; each pack ordered (any size) takes 1 off, and at 0 the product shows as out of stock by itself.</div>
         <input type="file" id="photoPicker" accept="image/*" style="display:none" onchange="photoPicked(this)"/>
@@ -359,6 +362,7 @@ input.qty-in{width:72px;padding:4px 6px;border:1.5px solid #ddd;border-radius:6p
       <div><label>Price (₹)</label><input id="pPrice" type="number" placeholder="0"/></div>
       <div><label>Unit</label><input type="text" id="pUnit" placeholder="e.g. 500g, 1pc"/></div>
       <div><label>Supplier</label><select id="pVendor"><option value="v1">Sasnur Bakery</option><option value="v2">Katapur Fruits</option><option value="v3">Totad Vegetables</option><option value="v4">Dandin Exotics</option><option value="v5">Mulla Spices & Oils</option><option value="v6">Attar Flowers</option></select></div>
+      <div><label>Market price (₹), optional</label><input id="pMkt" type="number" min="0" step="1" inputmode="numeric" placeholder="Price at the local market"/></div>
       <div><label>Stock left (packs)</label><input id="pQty" type="number" min="0" step="1" inputmode="numeric" placeholder="How many you have"/></div>
       <div><label>Show in shop</label><select id="pStock"><option value="true">✅ Yes</option><option value="false">❌ No (hidden)</option></select></div>
     </div>
@@ -684,16 +688,16 @@ const PHOTO_PUBLIC = `${STORAGE}/object/public/product-photos/`;
 const photoOf = p => p.img_url || (/^p\d{1,3}$/.test(p.id) ? `/products/${p.id}.jpg` : "");
 
 async function loadProducts(){
-  document.getElementById("productsBody").innerHTML="<tr><td colspan='9' style='text-align:center;padding:20px'><span class='spinner'></span>Loading...</td></tr>";
+  document.getElementById("productsBody").innerHTML="<tr><td colspan='10' style='text-align:center;padding:20px'><span class='spinner'></span>Loading...</td></tr>";
   try {
     allProducts = await db("products",{filter:"order=cat.asc"});
     filterProducts();
-  } catch(e){document.getElementById("productsBody").innerHTML=errRow(9,e);}
+  } catch(e){document.getElementById("productsBody").innerHTML=errRow(10,e);}
 }
 
 function renderProducts(products){
   document.getElementById("productsBody").innerHTML=products.length===0
-    ? "<tr><td colspan='9' style='text-align:center;color:#aaa;padding:20px'>No products found</td></tr>"
+    ? "<tr><td colspan='10' style='text-align:center;color:#aaa;padding:20px'>No products found</td></tr>"
     : products.map((p,i)=>{
         const on = p.in_stock!==false;
         const ph = photoOf(p);
@@ -703,6 +707,7 @@ function renderProducts(products){
         <td><b>${esc(p.name)}</b></td>
         <td><span class="badge badge-green">${esc(p.cat)}</span></td>
         <td><input type="number" value="${esc(p.price)}" data-id="${esc(p.id)}" style="width:70px;padding:4px 6px;border:1.5px solid #ddd;border-radius:6px;font-size:13px" onchange="updatePrice(this.dataset.id,this.value)"/></td>
+        <td><input class="mkt-in" type="number" min="0" step="1" inputmode="numeric" value="${esc(p.market_price ?? "")}" placeholder="—" data-id="${esc(p.id)}" aria-label="Market price for ${esc(p.name)}" onchange="updateMarketPrice(this.dataset.id,this.value)"/>${offTag(p)}</td>
         <td>${esc(p.unit||"—")}</td>
         <td><input class="qty-in" type="number" min="0" step="1" inputmode="numeric" value="${esc(p.stock_qty ?? "")}" data-id="${esc(p.id)}" aria-label="Stock left for ${esc(p.name)}" onchange="updateStockQty(this.dataset.id,this.value)"/></td>
         <td><span class="badge ${on?"badge-green":"badge-red"}" style="cursor:pointer" data-id="${esc(p.id)}" data-on="${on?1:0}" onclick="toggleStock(this.dataset.id,this.dataset.on==='1')">${on?"✅ In Stock":"❌ Out"}</span></td>
@@ -726,6 +731,27 @@ async function updatePrice(id,price){
     await send("PATCH", `products?id=eq.${q(id)}&select=id`, {price:n});
     const p = allProducts.find(x => x.id === id); if (p) p.price = n;
     toast("✅ Price updated to ₹"+n);
+    filterProducts(); // the "% off" next to the market price changes too
+  }catch(e){toast("Error: "+e.message,"#E53935");}
+}
+
+// Market price: what the same pack costs at the local market. Customers see it crossed out next to
+// your price, with the saving, only when it's higher than your price. Leave it empty to show nothing.
+function offTag(p){
+  const m = Number(p.market_price), pr = Number(p.price);
+  return m > pr && pr > 0 ? `<span class="off">${Math.round((m - pr) / m * 100)}% off</span>` : "";
+}
+async function updateMarketPrice(id,value){
+  const v = String(value).trim();
+  if (v !== "" && !/^\d{1,6}$/.test(v)) { toast("Enter the market price in rupees, or leave it empty","#E53935"); filterProducts(); return; }
+  const n = v === "" ? null : parseInt(v, 10);
+  try{
+    await send("PATCH", `products?id=eq.${q(id)}&select=id`, {market_price:n});
+    const p = allProducts.find(x => x.id === id); if (p) p.market_price = n;
+    if (n === null) toast("Market price removed");
+    else if (p && n <= p.price) toast(`Saved. ₹${n} isn't higher than your price (₹${p.price}), so customers won't see a saving.`, "#946500");
+    else toast(`✅ Market price ₹${n}: customers see ${Math.round((n - p.price) / n * 100)}% off`);
+    filterProducts();
   }catch(e){toast("Error: "+e.message,"#E53935");}
 }
 
@@ -859,7 +885,7 @@ async function modalPhotoPicked(input){
 
 function showAddProduct(){
   document.getElementById("modalTitle").textContent="Add Product";
-  ["pId","pName","pPrice","pUnit","pQty"].forEach(id=>document.getElementById(id).value="");
+  ["pId","pName","pPrice","pUnit","pQty","pMkt"].forEach(id=>document.getElementById(id).value="");
   document.getElementById("pStock").value="true";
   pendingPhoto = null; showPhotoIn(document.getElementById("pPhotoBox"), "");
   document.getElementById("productModal").classList.add("open");
@@ -876,6 +902,7 @@ function editProduct(id){
   document.getElementById("pUnit").value=p.unit||"";
   document.getElementById("pVendor").value=p.vendor_id||"v1";
   document.getElementById("pQty").value=p.stock_qty ?? "";
+  document.getElementById("pMkt").value=p.market_price ?? "";
   document.getElementById("pStock").value=String(p.in_stock!==false);
   pendingPhoto = null; showPhotoIn(document.getElementById("pPhotoBox"), photoOf(p));
   document.getElementById("productModal").classList.add("open");
@@ -889,6 +916,9 @@ async function saveProduct(){
   const data={name:document.getElementById("pName").value.trim(),cat:document.getElementById("pCat").value,price:parseInt(document.getElementById("pPrice").value),unit:document.getElementById("pUnit").value,vendor_id:document.getElementById("pVendor").value};
   if(!data.name||!data.price){toast("Fill name & price","#E53935");return;}
   if(!/^\d{1,6}$/.test(qtyRaw)){toast("Enter how many are left (0 or more)","#E53935");return;}
+  const mktRaw=document.getElementById("pMkt").value.trim();
+  if(mktRaw!=="" && !/^\d{1,6}$/.test(mktRaw)){toast("Enter the market price in rupees, or leave it empty","#E53935");return;}
+  data.market_price = mktRaw==="" ? null : parseInt(mktRaw, 10);
   data.stock_qty = parseInt(qtyRaw, 10);
   data.in_stock = data.stock_qty > 0 && document.getElementById("pStock").value === "true";
   const saveBtn = document.getElementById("pSaveBtn");
