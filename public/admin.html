@@ -61,6 +61,18 @@ input[type=password],input[type=text],input[type=number],select,textarea{width:1
 .ph-big img{width:100%;height:100%;object-fit:contain}
 input.qty-in,input.mkt-in{width:72px;padding:4px 6px;border:1.5px solid #ddd;border-radius:6px;font-size:13px}
 .off{display:inline-block;margin-left:6px;font-size:11px;font-weight:700;color:var(--green);white-space:nowrap}
+/* unit and the sizes customers can pick */
+.unit-cell b{font-size:13px;color:#222}
+.unit-cell .sizes{display:block;font-size:11px;color:#777;margin-top:2px;white-space:nowrap}
+.unit-bad{color:#E53935;font-weight:700;font-size:12px}
+.qty-wrap{display:flex;align-items:center;gap:4px}
+.of-unit{font-size:11px;color:#777;white-space:nowrap}
+.size-btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.size-btns button{padding:6px 11px;border-radius:999px;border:1.5px solid var(--line);background:#fff;font-size:12px;font-weight:600;cursor:pointer;color:#333}
+.size-btns button:hover{border-color:var(--green);color:var(--green)}
+.size-preview{font-size:12.5px;color:var(--green);font-weight:700;margin-top:8px;min-height:17px}
+.size-preview.bad{color:#E53935}
+.hint{font-size:11px;color:#888;margin-top:3px}
 
 /* ── PHONES: menu across the top, every table row as a card ── */
 @media (max-width:760px){
@@ -98,6 +110,8 @@ input.qty-in,input.mkt-in{width:72px;padding:4px 6px;border:1.5px solid #ddd;bor
   #page-products .table-wrap td:nth-child(10){grid-area:act;justify-content:flex-end}
   #page-products .table-wrap td:nth-child(2)::before,#page-products .table-wrap td:nth-child(3)::before,#page-products .table-wrap td:nth-child(7)::before,#page-products .table-wrap td:nth-child(9)::before,#page-products .table-wrap td:nth-child(10)::before{content:none}
   #page-products .table-wrap td:nth-child(6) .off{margin-left:0}
+  #page-products .unit-cell{text-align:left}
+  #page-products .unit-cell .sizes{display:inline;margin-left:8px;white-space:normal}
   #page-products .ph{width:96px;height:72px}
   .table-wrap td[colspan],#page-products .table-wrap td[colspan]{display:flex;grid-column:1/-1;justify-content:center}
   .table-wrap td[colspan]::before{content:none}
@@ -214,10 +228,10 @@ input.qty-in,input.mkt-in{width:72px;padding:4px 6px;border:1.5px solid #ddd;bor
           <button class="btn btn-green" onclick="loadProducts()">🔄 Refresh</button>
         </div>
         <div class="card"><div class="table-wrap"><table>
-          <thead><tr><th>#</th><th>Photo</th><th>Name</th><th>Category</th><th>Price (₹)</th><th>Market price (₹)</th><th>Unit</th><th>Stock left</th><th>Status</th><th>Action</th></tr></thead>
+          <thead><tr><th>#</th><th>Photo</th><th>Name</th><th>Category</th><th>Price (₹)</th><th>Market price (₹)</th><th>Unit · sizes</th><th>Stock left</th><th>Status</th><th>Action</th></tr></thead>
           <tbody id="productsBody"><tr><td colspan="10" style="text-align:center;padding:20px"><span class="spinner"></span>Loading...</td></tr></tbody>
         </table></div></div>
-        <div style="font-size:12px;color:#888;margin-top:10px">Tap a photo to take or choose a new one. "Stock left" is how many packs you have; each pack ordered (any size) takes 1 off, and at 0 the product shows as out of stock by itself.</div>
+        <div style="font-size:12px;color:#888;margin-top:10px">Tap a photo to take or choose a new one. The price is for the unit (for example ₹40 for 1kg); other sizes are worked out from it. "Stock left" counts units: 20 × 500g is 10kg. Selling 1kg of it takes 2 off, 250g takes 0.5, and at 0 the product shows as out of stock by itself.</div>
         <input type="file" id="photoPicker" accept="image/*" style="display:none" onchange="photoPicked(this)"/>
       </div>
 
@@ -359,13 +373,21 @@ input.qty-in,input.mkt-in{width:72px;padding:4px 6px;border:1.5px solid #ddd;bor
     <div class="form-grid">
       <div><label>Name</label><input type="text" id="pName" placeholder="Product name"/></div>
       <div><label>Category</label><select id="pCat"><option>Dairy</option><option>Fruits</option><option>Vegetables</option><option>Exotics</option><option>Spices</option><option>Oils</option><option>Flowers</option></select></div>
-      <div><label>Price (₹)</label><input id="pPrice" type="number" placeholder="0"/></div>
-      <div><label>Unit</label><input type="text" id="pUnit" placeholder="e.g. 500g, 1pc"/></div>
+      <div><label for="pPrice">Price (₹)</label><input id="pPrice" type="number" placeholder="0" oninput="showSizes()"/></div>
+      <div><label for="pUnit">Unit (the price is for this)</label><input type="text" id="pUnit" placeholder="e.g. 1kg, 500g, 1pc, 1 bunch" oninput="unitTyped()"/></div>
       <div><label>Supplier</label><select id="pVendor"><option value="v1">Sasnur Bakery</option><option value="v2">Katapur Fruits</option><option value="v3">Totad Vegetables</option><option value="v4">Dandin Exotics</option><option value="v5">Mulla Spices & Oils</option><option value="v6">Attar Flowers</option></select></div>
       <div><label>Market price (₹), optional</label><input id="pMkt" type="number" min="0" step="1" inputmode="numeric" placeholder="Price at the local market"/></div>
-      <div><label>Stock left (packs)</label><input id="pQty" type="number" min="0" step="1" inputmode="numeric" placeholder="How many you have"/></div>
+      <div><label for="pQty">Stock left (how many units)</label><input id="pQty" type="number" min="0" step="any" inputmode="decimal" placeholder="How many you have"/><div class="hint" id="pQtyHint"></div></div>
       <div><label>Show in shop</label><select id="pStock"><option value="true">✅ Yes</option><option value="false">❌ No (hidden)</option></select></div>
     </div>
+    <label for="pSizes" style="margin-top:14px">Sizes customers can pick</label>
+    <input type="text" id="pSizes" placeholder="e.g. 250g, 500g, 1kg" oninput="sizesTyped()"/>
+    <div class="size-btns">
+      <button type="button" onclick="setSizes('250g, 500g, 1kg')">250g · 500g · 1kg</button>
+      <button type="button" onclick="setSizes('1pc, 2pc')">1pc · 2pc</button>
+      <button type="button" onclick="setSizes(cleanSize(document.getElementById('pUnit').value) || '')">Only the unit</button>
+    </div>
+    <div class="size-preview" id="pSizesPreview" aria-live="polite"></div>
     <label style="margin-top:12px">Photo</label>
     <div style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center">
       <div class="ph-big" id="pPhotoBox">No photo yet</div>
@@ -687,6 +709,71 @@ const PHOTO_PUBLIC = `${STORAGE}/object/public/product-photos/`;
 // The photo customers see: the uploaded one, else the one that came with the app (built-in products only)
 const photoOf = p => p.img_url || (/^p\d{1,3}$/.test(p.id) ? `/products/${p.id}.jpg` : "");
 
+// SIZES-BEGIN
+// ── SIZES ── (the same code is in src/App.js and public/admin.html)
+// A product's price is for its unit ("500g", "1kg", "1pc", "1 bunch"). Customers can also pick other sizes of the
+// same kind; each costs price × size ÷ unit, rounded to the rupee. Stock is counted in units, so 250g of a 500g
+// product uses half a unit.
+const SIZE_UNITS = { kg: ["g", 1000], kgs: ["g", 1000], g: ["g", 1], gm: ["g", 1], gms: ["g", 1], gram: ["g", 1], grams: ["g", 1],
+  ml: ["ml", 1], l: ["ml", 1000], ltr: ["ml", 1000], litre: ["ml", 1000], liter: ["ml", 1000], lit: ["ml", 1000],
+  pc: ["pc", 1], pcs: ["pc", 1], piece: ["pc", 1], pieces: ["pc", 1], bunch: ["bunch", 1], bunches: ["bunch", 1],
+  pack: ["pack", 1], packs: ["pack", 1], packet: ["pack", 1], packets: ["pack", 1], box: ["box", 1], boxes: ["box", 1], peti: ["box", 1] };
+const SIZE_RE = /^(\d+(?:\.\d+)?)\s*([a-z]+)$/;
+function parseSize(s) {
+  const m = String(s == null ? "" : s).trim().toLowerCase().match(SIZE_RE);
+  const k = m && Object.prototype.hasOwnProperty.call(SIZE_UNITS, m[2]) ? SIZE_UNITS[m[2]] : null;
+  if (!k) return null;
+  const n = Math.round(parseFloat(m[1]) * k[1] * 1000) / 1000;
+  return n > 0 ? { n, u: k[0] } : null;
+}
+function fmtSize(s) {
+  const k = x => String(Math.round(x * 1000) / 1000);
+  if (s.u === "g") return s.n >= 1000 ? k(s.n / 1000) + "kg" : k(s.n) + "g";
+  if (s.u === "ml") return s.n >= 1000 ? k(s.n / 1000) + "L" : k(s.n) + "ml";
+  if (s.u === "pc") return k(s.n) + "pc";
+  return k(s.n) + " " + s.u;
+}
+function cleanSize(s) { const p = parseSize(s); return p ? fmtSize(p) : null; }
+function sizeRatio(size, unit) { const a = parseSize(size), b = parseSize(unit); return a && b && a.u === b.u ? a.n / b.n : 1; }
+// The usual sizes for a unit: 250g · 500g · 1kg by weight (smaller packs for spices), 1pc · 2pc by the piece
+function defaultSizes(unit) {
+  const s = parseSize(unit);
+  if (!s) return [];
+  const W = { 10: [10, 20, 50], 20: [20, 50, 100], 25: [25, 50, 100], 50: [50, 100, 250], 100: [100, 250, 500],
+    200: [200, 500, 1000], 250: [250, 500, 1000], 500: [250, 500, 1000], 1000: [250, 500, 1000] };
+  if (s.u === "g" && W[s.n]) return W[s.n].map(n => fmtSize({ n, u: "g" }));
+  if (s.u === "pc" && s.n <= 2) return ["1pc", "2pc"];
+  if ((s.u === "bunch" || s.u === "pack") && s.n === 1) return ["1 " + s.u, "2 " + s.u];
+  return [fmtSize(s)];
+}
+// What customers can pick, smallest first, with prices. `list` is the admin's own choice of sizes (empty: the usual ones).
+function sizeOptions(unit, price, list) {
+  const base = parseSize(unit);
+  if (!base || !(price > 0)) return [];
+  const labels = Array.isArray(list) && list.length ? list.map(x => (x && typeof x === "object" ? x.label : x)) : defaultSizes(unit);
+  const seen = {}, out = [];
+  labels.concat([unit]).forEach(l => {
+    const s = parseSize(l);
+    if (!s || s.u !== base.u) return;
+    const label = fmtSize(s);
+    if (seen[label]) return;
+    seen[label] = 1;
+    const pr = Math.round(price * s.n / base.n);
+    if (pr >= 1) out.push({ label, price: pr, n: s.n });
+  });
+  return out.sort((a, b) => a.n - b.n).map(o => ({ label: o.label, price: o.price }));
+}
+// SIZES-END
+
+// Products list: the unit and what each size costs, as customers see it
+function unitCell(p){
+  const unit = cleanSize(p.unit);
+  if (!unit) return `<span class="unit-bad" title="Write the unit like 500g, 1kg, 1pc or 1 bunch">${p.unit ? esc(p.unit) + " · " : ""}⚠️ set the unit</span>`;
+  const opts = sizeOptions(unit, Number(p.price) || 0, p.variants);
+  return `<div class="unit-cell"><b>${esc(unit)}</b><span class="sizes">${opts.length > 1 ? opts.map(o => `${esc(o.label)} ₹${o.price}`).join(" · ") : "only this size"}</span></div>`;
+}
+const fmtQty = n => String(Math.round(Number(n) * 1000) / 1000);
+
 async function loadProducts(){
   document.getElementById("productsBody").innerHTML="<tr><td colspan='10' style='text-align:center;padding:20px'><span class='spinner'></span>Loading...</td></tr>";
   try {
@@ -708,8 +795,8 @@ function renderProducts(products){
         <td><span class="badge badge-green">${esc(p.cat)}</span></td>
         <td><input type="number" value="${esc(p.price)}" data-id="${esc(p.id)}" style="width:70px;padding:4px 6px;border:1.5px solid #ddd;border-radius:6px;font-size:13px" onchange="updatePrice(this.dataset.id,this.value)"/></td>
         <td><input class="mkt-in" type="number" min="0" step="1" inputmode="numeric" value="${esc(p.market_price ?? "")}" placeholder="—" data-id="${esc(p.id)}" aria-label="Market price for ${esc(p.name)}" onchange="updateMarketPrice(this.dataset.id,this.value)"/>${offTag(p)}</td>
-        <td>${esc(p.unit||"—")}</td>
-        <td><input class="qty-in" type="number" min="0" step="1" inputmode="numeric" value="${esc(p.stock_qty ?? "")}" data-id="${esc(p.id)}" aria-label="Stock left for ${esc(p.name)}" onchange="updateStockQty(this.dataset.id,this.value)"/></td>
+        <td>${unitCell(p)}</td>
+        <td><div class="qty-wrap"><input class="qty-in" type="number" min="0" step="any" inputmode="decimal" value="${esc(p.stock_qty == null ? "" : fmtQty(p.stock_qty))}" data-id="${esc(p.id)}" aria-label="Stock left for ${esc(p.name)}${cleanSize(p.unit) ? ", in units of " + esc(cleanSize(p.unit)) : ""}" onchange="updateStockQty(this.dataset.id,this.value)"/>${cleanSize(p.unit) ? `<span class="of-unit">× ${esc(cleanSize(p.unit))}</span>` : ""}</div></td>
         <td><span class="badge ${on?"badge-green":"badge-red"}" style="cursor:pointer" data-id="${esc(p.id)}" data-on="${on?1:0}" onclick="toggleStock(this.dataset.id,this.dataset.on==='1')">${on?"✅ In Stock":"❌ Out"}</span></td>
         <td><div style="display:flex;gap:4px">
           <button class="btn btn-gray btn-sm" data-id="${esc(p.id)}" onclick="editProduct(this.dataset.id)">Edit</button>
@@ -755,15 +842,17 @@ async function updateMarketPrice(id,value){
   }catch(e){toast("Error: "+e.message,"#E53935");}
 }
 
-// Stock left: setting a number also puts the product on sale (or out of stock at 0)
+// Stock left, counted in the product's unit (halves are fine: 2.5 × 1kg). Setting it also puts the product on sale
+// (or out of stock at 0).
 async function updateStockQty(id,value){
   const v = String(value).trim();
-  if (!/^\d{1,6}$/.test(v)) { toast("Enter how many are left: a whole number, 0 or more","#E53935"); filterProducts(); return; }
-  const n = parseInt(v, 10);
+  if (!/^\d{1,6}(\.\d{1,3})?$/.test(v)) { toast("Enter how many units are left: 0 or more (2.5 is fine)","#E53935"); filterProducts(); return; }
+  const n = Math.round(parseFloat(v) * 1000) / 1000;
   try{
     await send("PATCH", `products?id=eq.${q(id)}&select=id`, {stock_qty:n, in_stock:n>0});
     const p = allProducts.find(x => x.id === id); if (p) { p.stock_qty = n; p.in_stock = n > 0; }
-    toast(n>0 ? `✅ ${n} left · on sale` : "❌ 0 left · shown as out of stock", n>0 ? "#1A6B3C" : "#E53935");
+    const u = p ? cleanSize(p.unit) : null;
+    toast(n>0 ? `✅ ${fmtQty(n)}${u ? " × " + u : ""} left · on sale` : "❌ 0 left · shown as out of stock", n>0 ? "#1A6B3C" : "#E53935");
     filterProducts();
   }catch(e){toast("Error: "+e.message,"#E53935");}
 }
@@ -883,10 +972,40 @@ async function modalPhotoPicked(input){
   } catch(e) { pendingPhoto = null; toast(e.message,"#E53935"); }
 }
 
+// ── Sizes in the product form ──
+// The box lists the sizes customers can pick. It follows the unit (250g · 500g · 1kg, 1pc · 2pc…) until you change it.
+let sizesTouched = false;
+function formSizes(){ return document.getElementById("pSizes").value.split(/[,;·]+/).map(s => s.trim()).filter(Boolean); }
+function sizesCheck(){
+  const unit = cleanSize(document.getElementById("pUnit").value);
+  const price = parseInt(document.getElementById("pPrice").value, 10) || 0;
+  const raw = formSizes(), base = unit && parseSize(unit);
+  const bad = raw.filter(s => { const x = parseSize(s); return !x || !base || x.u !== base.u; });
+  return { unit, price, raw, bad, opts: unit ? sizeOptions(unit, price, raw) : [] };
+}
+function showSizes(){
+  const el = document.getElementById("pSizesPreview"), c = sizesCheck();
+  const typed = document.getElementById("pUnit").value.trim();
+  el.className = "size-preview" + (typed && (!c.unit || c.bad.length) ? " bad" : "");
+  document.getElementById("pQtyHint").textContent = c.unit ? `in units of ${c.unit}: 20 means 20 × ${c.unit}` : "";
+  if (!typed) el.textContent = "Type the unit first, for example 1kg, 500g or 1pc";
+  else if (!c.unit) el.textContent = "Write the unit like 1kg, 500g, 1pc or 1 bunch";
+  else if (c.bad.length) el.textContent = `${c.bad.join(", ")} doesn't match the unit ${c.unit}. Use sizes like ${defaultSizes(c.unit).join(", ")}, or change the unit.`;
+  else if (!c.price) el.textContent = "Enter the price to see what each size costs";
+  else el.textContent = "Customers see: " + c.opts.map(o => `${o.label} ₹${o.price}`).join(" · ");
+}
+function unitTyped(){
+  if (!sizesTouched) document.getElementById("pSizes").value = defaultSizes(document.getElementById("pUnit").value).join(", ");
+  showSizes();
+}
+function sizesTyped(){ sizesTouched = true; showSizes(); }
+function setSizes(v){ document.getElementById("pSizes").value = v; sizesTouched = true; showSizes(); }
+
 function showAddProduct(){
   document.getElementById("modalTitle").textContent="Add Product";
-  ["pId","pName","pPrice","pUnit","pQty","pMkt"].forEach(id=>document.getElementById(id).value="");
+  ["pId","pName","pPrice","pUnit","pQty","pMkt","pSizes"].forEach(id=>document.getElementById(id).value="");
   document.getElementById("pStock").value="true";
+  sizesTouched = false; showSizes();
   pendingPhoto = null; showPhotoIn(document.getElementById("pPhotoBox"), "");
   document.getElementById("productModal").classList.add("open");
 }
@@ -899,11 +1018,15 @@ function editProduct(id){
   document.getElementById("pName").value=p.name||"";
   document.getElementById("pCat").value=p.cat;
   document.getElementById("pPrice").value=p.price;
-  document.getElementById("pUnit").value=p.unit||"";
+  const unit = cleanSize(p.unit);
+  document.getElementById("pUnit").value=unit||p.unit||"";
+  document.getElementById("pSizes").value=unit ? sizeOptions(unit, 1e6, p.variants).map(o => o.label).join(", ") : "";
+  sizesTouched = Array.isArray(p.variants) && p.variants.length > 0; // the product's own sizes stay when the unit changes
   document.getElementById("pVendor").value=p.vendor_id||"v1";
-  document.getElementById("pQty").value=p.stock_qty ?? "";
+  document.getElementById("pQty").value=p.stock_qty == null ? "" : fmtQty(p.stock_qty);
   document.getElementById("pMkt").value=p.market_price ?? "";
   document.getElementById("pStock").value=String(p.in_stock!==false);
+  showSizes();
   pendingPhoto = null; showPhotoIn(document.getElementById("pPhotoBox"), photoOf(p));
   document.getElementById("productModal").classList.add("open");
 }
@@ -913,13 +1036,20 @@ function closeModal(){ pendingPhoto = null; document.getElementById("productModa
 async function saveProduct(){
   const id=document.getElementById("pId").value;
   const qtyRaw=document.getElementById("pQty").value.trim();
-  const data={name:document.getElementById("pName").value.trim(),cat:document.getElementById("pCat").value,price:parseInt(document.getElementById("pPrice").value),unit:document.getElementById("pUnit").value,vendor_id:document.getElementById("pVendor").value};
+  const data={name:document.getElementById("pName").value.trim(),cat:document.getElementById("pCat").value,price:parseInt(document.getElementById("pPrice").value),vendor_id:document.getElementById("pVendor").value};
   if(!data.name||!data.price){toast("Fill name & price","#E53935");return;}
-  if(!/^\d{1,6}$/.test(qtyRaw)){toast("Enter how many are left (0 or more)","#E53935");return;}
+  const sz = sizesCheck();
+  if(!sz.unit){toast("Write the unit like 1kg, 500g, 1pc or 1 bunch","#E53935");return;}
+  if(sz.bad.length){toast(`Sizes must match the unit ${sz.unit}: fix ${sz.bad.join(", ")}`,"#E53935");return;}
+  data.unit = sz.unit;
+  // The usual sizes for the unit are saved as "none chosen", so they follow the unit if it changes later
+  const chosen = sizeOptions(sz.unit, 1e6, sz.raw).map(o => o.label), usual = sizeOptions(sz.unit, 1e6, null).map(o => o.label);
+  data.variants = !sz.raw.length || chosen.join() === usual.join() ? null : chosen;
+  if(!/^\d{1,6}(\.\d{1,3})?$/.test(qtyRaw)){toast("Enter how many units are left (0 or more)","#E53935");return;}
   const mktRaw=document.getElementById("pMkt").value.trim();
   if(mktRaw!=="" && !/^\d{1,6}$/.test(mktRaw)){toast("Enter the market price in rupees, or leave it empty","#E53935");return;}
   data.market_price = mktRaw==="" ? null : parseInt(mktRaw, 10);
-  data.stock_qty = parseInt(qtyRaw, 10);
+  data.stock_qty = Math.round(parseFloat(qtyRaw) * 1000) / 1000;
   data.in_stock = data.stock_qty > 0 && document.getElementById("pStock").value === "true";
   const saveBtn = document.getElementById("pSaveBtn");
   try{

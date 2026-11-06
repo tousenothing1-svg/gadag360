@@ -369,13 +369,75 @@ const ts = (s) => (s ? Date.parse(String(s).replace(" ", "T").replace(/(\.\d{3})
 function readJSON(key, fallback) {
   try { const v = JSON.parse(localStorage.getItem(key)); return v && typeof v === "object" ? v : fallback; } catch (e) { return fallback; }
 }
-// Price truth: a product sells at the size the customer picked, else its first size, else its base unit.
-// Cards, the product sheet, the cart and saved orders all use this, so the price shown is the price charged.
+// SIZES-BEGIN
+// ── SIZES ── (the same code is in src/App.js and public/admin.html)
+// A product's price is for its unit ("500g", "1kg", "1pc", "1 bunch"). Customers can also pick other sizes of the
+// same kind; each costs price × size ÷ unit, rounded to the rupee. Stock is counted in units, so 250g of a 500g
+// product uses half a unit.
+const SIZE_UNITS = { kg: ["g", 1000], kgs: ["g", 1000], g: ["g", 1], gm: ["g", 1], gms: ["g", 1], gram: ["g", 1], grams: ["g", 1],
+  ml: ["ml", 1], l: ["ml", 1000], ltr: ["ml", 1000], litre: ["ml", 1000], liter: ["ml", 1000], lit: ["ml", 1000],
+  pc: ["pc", 1], pcs: ["pc", 1], piece: ["pc", 1], pieces: ["pc", 1], bunch: ["bunch", 1], bunches: ["bunch", 1],
+  pack: ["pack", 1], packs: ["pack", 1], packet: ["pack", 1], packets: ["pack", 1], box: ["box", 1], boxes: ["box", 1], peti: ["box", 1] };
+const SIZE_RE = /^(\d+(?:\.\d+)?)\s*([a-z]+)$/;
+function parseSize(s) {
+  const m = String(s == null ? "" : s).trim().toLowerCase().match(SIZE_RE);
+  const k = m && Object.prototype.hasOwnProperty.call(SIZE_UNITS, m[2]) ? SIZE_UNITS[m[2]] : null;
+  if (!k) return null;
+  const n = Math.round(parseFloat(m[1]) * k[1] * 1000) / 1000;
+  return n > 0 ? { n, u: k[0] } : null;
+}
+function fmtSize(s) {
+  const k = x => String(Math.round(x * 1000) / 1000);
+  if (s.u === "g") return s.n >= 1000 ? k(s.n / 1000) + "kg" : k(s.n) + "g";
+  if (s.u === "ml") return s.n >= 1000 ? k(s.n / 1000) + "L" : k(s.n) + "ml";
+  if (s.u === "pc") return k(s.n) + "pc";
+  return k(s.n) + " " + s.u;
+}
+function cleanSize(s) { const p = parseSize(s); return p ? fmtSize(p) : null; }
+function sizeRatio(size, unit) { const a = parseSize(size), b = parseSize(unit); return a && b && a.u === b.u ? a.n / b.n : 1; }
+// The usual sizes for a unit: 250g · 500g · 1kg by weight (smaller packs for spices), 1pc · 2pc by the piece
+function defaultSizes(unit) {
+  const s = parseSize(unit);
+  if (!s) return [];
+  const W = { 10: [10, 20, 50], 20: [20, 50, 100], 25: [25, 50, 100], 50: [50, 100, 250], 100: [100, 250, 500],
+    200: [200, 500, 1000], 250: [250, 500, 1000], 500: [250, 500, 1000], 1000: [250, 500, 1000] };
+  if (s.u === "g" && W[s.n]) return W[s.n].map(n => fmtSize({ n, u: "g" }));
+  if (s.u === "pc" && s.n <= 2) return ["1pc", "2pc"];
+  if ((s.u === "bunch" || s.u === "pack") && s.n === 1) return ["1 " + s.u, "2 " + s.u];
+  return [fmtSize(s)];
+}
+// What customers can pick, smallest first, with prices. `list` is the admin's own choice of sizes (empty: the usual ones).
+function sizeOptions(unit, price, list) {
+  const base = parseSize(unit);
+  if (!base || !(price > 0)) return [];
+  const labels = Array.isArray(list) && list.length ? list.map(x => (x && typeof x === "object" ? x.label : x)) : defaultSizes(unit);
+  const seen = {}, out = [];
+  labels.concat([unit]).forEach(l => {
+    const s = parseSize(l);
+    if (!s || s.u !== base.u) return;
+    const label = fmtSize(s);
+    if (seen[label]) return;
+    seen[label] = 1;
+    const pr = Math.round(price * s.n / base.n);
+    if (pr >= 1) out.push({ label, price: pr, n: s.n });
+  });
+  return out.sort((a, b) => a.n - b.n).map(o => ({ label: o.label, price: o.price }));
+}
+// SIZES-END
+
+// Price truth: a product sells at the size the customer picked, else its unit (the size its price is for), else its
+// first size. Cards, the product sheet, the cart and saved orders all use this, so the price shown is the price charged.
 function unitOf(p, picked) {
   const vs = Array.isArray(p && p.variants) ? p.variants : [];
   const want = picked && p ? picked[p.id] : undefined;
-  const v = vs.find(x => x.label === want) || vs[0];
+  const v = vs.find(x => x.label === want) || vs.find(x => x.label === p.unit) || vs[0];
   return v ? { label: v.label, price: v.price } : { label: p.unit, price: p.price };
+}
+// How many of a size the stock allows (at most 10). Stock is counted in the product's unit.
+function maxPacks(p, u) {
+  const s = p ? Number(p.stock_qty) : NaN;
+  if (!p || p.stock_qty == null || !isFinite(s)) return 10;
+  return Math.max(1, Math.min(10, Math.floor(s / sizeRatio(u && u.label, p.unit) + 1e-9)));
 }
 // Market price for the size shown. The admin sets it for the product's base pack; other sizes scale with
 // the price. Shown (crossed out) only when it's higher than our price, so the saving is real.
@@ -713,7 +775,7 @@ function ProductSheet({ p, inCart, picked, lang, KN_NAMES, onCommit, onClose }) 
   const u = sizes.find(s => s.label === size) || current;
   const oos = p.in_stock === false;
   const mp = oos ? null : marketOf(p, u);
-  const maxQty = Math.max(1, Math.min(10, p.stock_qty ?? 10));
+  const maxQty = maxPacks(p, u);
   const name = kn ? (KN_NAMES[p.name] || p.name_kn || p.name) : p.name;
   const changed = qty !== inCart || (inCart > 0 && size !== current.label);
   const total = rs(qty * u.price);
@@ -776,7 +838,7 @@ function ProductSheet({ p, inCart, picked, lang, KN_NAMES, onCommit, onClose }) 
             {sizes.map(s => {
               const on = s.label === size;
               return (
-                <button key={s.label} role="radio" aria-checked={on} onClick={() => setSize(s.label)} className="g-reset g-tap"
+                <button key={s.label} role="radio" aria-checked={on} onClick={() => { setSize(s.label); setQty(q => Math.min(q, maxPacks(p, s))); }} className="g-reset g-tap"
                   style={{ minWidth: 78, padding: "8px 12px", borderRadius: 12, border: `1.5px solid ${on ? basil : line}`, background: on ? "#EEF7F1" : "#fff" }}>
                   <div style={{ fontSize: 14, fontWeight: 700, color: on ? basil : ink }}>{s.label}</div>
                   <div style={{ fontSize: 12, color: on ? basil : soil, marginTop: 1 }}>{rs(s.price)}</div>
@@ -885,7 +947,7 @@ function HandpickdLayout({ filtered, listMode, onClearList, suggestions, onSugge
   const addControl = (p, name) => {
     if (p.in_stock === false) return null;
     const q = qtyOf(p);
-    const max = Math.max(1, Math.min(10, p.stock_qty ?? 10));
+    const max = maxPacks(p, unitOf(p, selectedVariant));
     if (q === 0) return (
       <button className="g-reset g-tap" aria-label={kn ? `${name} ಬುಟ್ಟಿಗೆ ಸೇರಿಸಿ` : `Add ${name} to cart`} onClick={() => addToCart(p.id)}
         style={{ width: 30, height: 30, flexShrink: 0, borderRadius: 9, border: `1.5px solid ${basil}`, background: "#fff", color: basil,
@@ -1173,7 +1235,8 @@ export default function Gadag360() {
   const [selectedVariant, setSelectedVariant] = useState(() => readJSON("gd360_sizes", {}));
   const ctokenRef = useRef(null); // this phone's sign-in session (see signIn)
   const [tip, setTip] = useState(0);
-  const [dbProducts, setDbProducts] = useState([]);
+  // Last product list seen (prices, units, stock), so the shop opens with them instead of the built-in ones
+  const [dbProducts, setDbProducts] = useState(() => { const v = readJSON("gd360_products", null); return Array.isArray(v) ? v : []; });
   const [vendorOrderStatus, setVendorOrderStatus] = useState({}); // {orderId: "accepted"|"rejected"}
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(() => {
@@ -1240,8 +1303,11 @@ export default function Gadag360() {
       const dbP = findDbProduct(p);
       if (dbLoaded && !dbP) return; // deleted in the admin panel
       const livePrice = dbP && dbP.price != null ? dbP.price : p.price;
-      // If admin changed the base price, scale variant prices proportionally
-      const scaledVariants = p.variants && p.price && livePrice !== p.price
+      // The admin panel's unit wins: the price is for that unit and the sizes are worked out from it.
+      // Without one, the built-in sizes stay (scaled if the admin changed the price).
+      const unit = dbP ? cleanSize(dbP.unit) : null;
+      const scaledVariants = unit ? sizeOptions(unit, livePrice, dbP.variants)
+        : p.variants && p.price && livePrice !== p.price
         ? p.variants.map(v => ({ ...v, price: Math.round((v.price / p.price) * livePrice) }))
         : p.variants;
       fromCode.push({
@@ -1250,6 +1316,7 @@ export default function Gadag360() {
         name_kn: (dbP && dbP.name_kn) || KN_NAMES[p.name] || undefined,
         img: (dbP && dbP.img_url) || p.img, // a photo uploaded in the admin panel replaces the built-in one
         price: livePrice,
+        unit: unit || p.unit,
         variants: scaledVariants,
         in_stock: dbP ? dbP.in_stock !== false : true,
         stock_qty: dbP ? (dbP.stock_qty ?? 100) : 100,
@@ -1259,12 +1326,16 @@ export default function Gadag360() {
     });
     const addedInAdmin = dbProducts
       .filter(d => d.name && !PRODUCTS.some(p => p.id === d.id || nm(p.name) === nm(d.name)))
-      .map(d => ({
-        id: d.id, cat: d.cat, name: String(d.name).trim(), name_kn: d.name_kn || undefined,
-        price: d.price || 0, unit: d.unit || "1 unit", img: d.img_url || "",
-        variants: Array.isArray(d.variants) && d.variants.length ? d.variants : undefined,
-        in_stock: d.in_stock !== false, stock_qty: d.stock_qty ?? 100, market_price: d.market_price ?? null, created_at: d.created_at,
-      }));
+      .map(d => {
+        const unit = cleanSize(d.unit);
+        const own = Array.isArray(d.variants) && d.variants.length && d.variants.every(v => v && v.label && v.price > 0) ? d.variants : undefined;
+        return {
+          id: d.id, cat: d.cat, name: String(d.name).trim(), name_kn: d.name_kn || undefined,
+          price: d.price || 0, unit: unit || d.unit || "1 unit", img: d.img_url || "",
+          variants: unit ? sizeOptions(unit, d.price || 0, d.variants) : own,
+          in_stock: d.in_stock !== false, stock_qty: d.stock_qty ?? 100, market_price: d.market_price ?? null, created_at: d.created_at,
+        };
+      });
     return [...fromCode, ...addedInAdmin];
   }, [dbProducts]);
 
@@ -1818,6 +1889,7 @@ const verifyOtp = async () => {
         if (error) throw error;
         if (data && data.length > 0) {
           setDbProducts(data);
+          Storage.set("gd360_products", JSON.stringify(data));
         } else if (attempt < 3) {
           // Retry up to 3 times if empty (mobile network delay)
           setTimeout(() => loadProductsFromDB(attempt + 1), 1500 * attempt);
@@ -2773,16 +2845,16 @@ const verifyOtp = async () => {
                 <div style={{backgroundColor:"white",margin:"8px 0",padding:"14px"}}>
                   <div style={{fontSize:12,fontWeight:700,color:ink,marginBottom:10}}>🛍️ {lang==="kn"?"ನಿಮಗಾಗಿ ಸ್ಪೆಷಲ್ ಆಫರ್":"Special offers for you"}</div>
                   <div style={{display:"flex",gap:8,overflowX:"auto",scrollbarWidth:"none"}}>
-                    {LIVE_PRODUCTS.filter(p=>p.price<=30&&!cart[p.id]).slice(0,8).map(p=>(
+                    {LIVE_PRODUCTS.filter(p=>p.price<=30&&p.in_stock!==false&&!cart[p.id]).slice(0,8).map(p=>{ const u = unitOf(p, selectedVariant); return (
                       <div key={p.id} style={{flexShrink:0,width:80,borderRadius:10,overflow:"hidden",backgroundColor:"#fafafa",border:`1px solid ${line}`}}>
                         <div style={{height:64,backgroundColor:"#fafafa",overflow:"hidden"}}><ProductImage p={p}/></div>
                         <div style={{padding:"4px 6px 6px"}}>
                           <div style={{fontSize:9,fontWeight:600,color:ink,lineHeight:1.2}}>{p.name.split(" ").slice(0,2).join(" ")}</div>
-                          <div style={{fontSize:10,fontWeight:800,color:basil,marginTop:2}}>₹{p.price}</div>
+                          <div style={{fontSize:10,fontWeight:800,color:basil,marginTop:2,whiteSpace:"nowrap"}}>{rs(u.price)}<span style={{fontWeight:600,color:soil}}>/{u.label}</span></div>
                           <button onClick={()=>addToCart(p.id)} style={{width:"100%",marginTop:4,padding:"3px 0",borderRadius:6,backgroundColor:mango,color:"white",border:"none",cursor:"pointer",fontSize:10,fontWeight:700}}>+ Add</button>
                         </div>
                       </div>
-                    ))}
+                    );})}
                   </div>
                 </div>
 
