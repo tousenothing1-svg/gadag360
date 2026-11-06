@@ -449,7 +449,7 @@ function ProductImage({ p }) {
 // Real warehouse location
 const WAREHOUSE_POS = [15.426861, 75.614917];
 // The shop's WhatsApp: new orders and "Get help" messages go here
-const SHOP_WHATSAPP = "919886888924";
+const SHOP_WHATSAPP = "919035068924";
 // We deliver within this distance of the warehouse (covers Gadag, Betageri and the district towns in the service list)
 const SERVICE_RADIUS_KM = 50;
 
@@ -2142,7 +2142,7 @@ const verifyOtp = async () => {
                           <div class="header">
                             <div class="logo">Royal Harvest</div>
                             <div class="subtitle">Fresh Groceries · Gadag-Betageri, Karnataka 582101</div>
-                            <div class="subtitle">FSSAI: (Registration Pending) · Ph: +91 98765 43210</div>
+                            <div class="subtitle">FSSAI: (Registration Pending) · Ph: +91 90350 68924</div>
                           </div>
                           <div style="text-align:center;font-size:14px;font-weight:bold;margin-bottom:12px;letter-spacing:1px">TAX INVOICE / BILL OF SUPPLY</div>
                           <div class="meta">
@@ -2181,7 +2181,7 @@ const verifyOtp = async () => {
                           <div class="footer">
                             <div style="font-size:12px;font-weight:700;color:#1A6B3C;margin-bottom:4px">Thank you for shopping with Royal Harvest!</div>
                             <div>Fresh groceries delivered to your door in 2 hours</div>
-                            <div style="margin-top:4px">For support: +91 98765 43210 · ${window.location.host}</div>
+                            <div style="margin-top:4px">For support: +91 90350 68924 · ${window.location.host}</div>
                           </div>
                           </body></html>`;
                           const win = window.open("","_blank");
@@ -2304,7 +2304,7 @@ const verifyOtp = async () => {
 
           {/* GENERAL INFO */}
           {profileSection==="info" && <div className="space-y-3">
-            {[{title:"About Royal Harvest",body:"Royal Harvest delivers fresh fruits, vegetables and daily essentials straight from our own warehouse in Gadag to your doorstep in under 2 hours."},{title:"Service Areas",body:"Gadag · Betageri · Laxmeshwar · Shirahatti · Naragund · Ron · Mundaragi"},{title:"Delivery Hours",body:"7:00 AM – 9:00 PM, all days including Sundays"},{title:"Contact",body:"📞 +91 98765 43210\n📍 Gadag-Betageri, Karnataka 582101"}].map((s,i)=>(
+            {[{title:"About Royal Harvest",body:"Royal Harvest delivers fresh fruits, vegetables and daily essentials straight from our own warehouse in Gadag to your doorstep in under 2 hours."},{title:"Service Areas",body:"Gadag · Betageri · Laxmeshwar · Shirahatti · Naragund · Ron · Mundaragi"},{title:"Delivery Hours",body:"7:00 AM – 9:00 PM, all days including Sundays"},{title:"Contact",body:"📞 +91 90350 68924\n📍 Gadag-Betageri, Karnataka 582101"}].map((s,i)=>(
               <div key={i} className="rounded-2xl p-4" style={{backgroundColor:panel,border:`1px solid ${line}`}}>
                 <div className="font-semibold text-sm mb-1">{s.title}</div>
                 <div className="text-xs whitespace-pre-line" style={{color:soil}}>{s.body}</div>
@@ -2871,7 +2871,7 @@ const verifyOtp = async () => {
           const msg = encodeURIComponent(
             `✅ *Royal Harvest - Order Confirmed!*\n\n🆔 Order ID: *#${o.id || "—"}*\n📅 Date: ${o.date || ""}\n⏰ Delivery Slot: ${o.slot || ""}\n\n` +
             `🛒 *Items Ordered:*\n${itemList}\n\n💰 *Total: ₹${o.total || 0}*\n💳 Payment: ${o.payment === "online" ? "Online" : "Cash/UPI on Delivery"}\n\n` +
-            `📍 Deliver to: ${o.address || ""}\n\nThank you for ordering from Royal Harvest! 🙏\nFor help: +91 98868 88924`);
+            `📍 Deliver to: ${o.address || ""}\n\nThank you for ordering from Royal Harvest! 🙏\nFor help: +91 90350 68924`);
           window.open(`https://wa.me/?text=${msg}`, "_blank");
         };
         return <>
