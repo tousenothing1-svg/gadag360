@@ -60,6 +60,45 @@ input[type=password],input[type=text],input[type=number],select,textarea{width:1
 .ph-big{width:100%;aspect-ratio:4/3;border-radius:12px;border:1.5px dashed #c9d3c4;background:#f7f8f5;display:flex;align-items:center;justify-content:center;overflow:hidden;color:#6B716A;font-size:13px;font-weight:600}
 .ph-big img{width:100%;height:100%;object-fit:contain}
 input.qty-in{width:72px;padding:4px 6px;border:1.5px solid #ddd;border-radius:6px;font-size:13px}
+
+/* ── PHONES: menu across the top, every table row as a card ── */
+@media (max-width:760px){
+  .header{padding:10px 12px;flex-wrap:wrap;gap:8px}
+  .header h1{font-size:16px}
+  .layout{flex-direction:column;min-height:0}
+  .sidebar{width:auto;display:flex;gap:6px;overflow-x:auto;padding:8px 10px;border-right:0;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:90;scrollbar-width:none}
+  .sidebar::-webkit-scrollbar{display:none}
+  .nav-section{display:none}
+  .nav-item{flex-shrink:0;white-space:nowrap;padding:8px 12px;border-left:0;border-radius:999px;background:#f3f5f1;font-size:13px}
+  .nav-item.active{border-left:0;background:var(--green);color:#fff}
+  .main{padding:14px 12px}
+  .card{padding:12px}
+  .stat-value{font-size:22px}
+  .form-grid{grid-template-columns:1fr}
+  .modal{padding:18px}
+  .toast{left:12px;right:12px;bottom:12px;text-align:center}
+  .table-wrap table thead{display:none}
+  .table-wrap table,.table-wrap tbody{display:block}
+  .table-wrap tr{display:block;padding:10px 0;border-bottom:1px solid var(--line)}
+  .table-wrap td{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:4px 0;border:0;text-align:right;max-width:none!important;white-space:normal!important}
+  .table-wrap td::before{content:attr(data-label);font-size:11px;font-weight:700;color:#999;text-transform:uppercase;text-align:left;flex-shrink:0}
+  tr:hover td{background:none}
+  /* products: photo on the left, then name, price, stock left, status, buttons */
+  #page-products .table-wrap tr{display:grid;grid-template-columns:96px 1fr 1fr;grid-template-areas:"photo name name" "photo price qty" "photo unit status" "act act act";gap:6px 10px;align-items:center}
+  #page-products .table-wrap td{padding:0}
+  #page-products .table-wrap td:nth-child(1),#page-products .table-wrap td:nth-child(4){display:none}
+  #page-products .table-wrap td:nth-child(2){grid-area:photo}
+  #page-products .table-wrap td:nth-child(3){grid-area:name;justify-content:flex-start;text-align:left;font-size:14px}
+  #page-products .table-wrap td:nth-child(5){grid-area:price;flex-direction:column;align-items:flex-start;gap:2px}
+  #page-products .table-wrap td:nth-child(6){grid-area:unit;justify-content:flex-start;color:#777;font-size:12px}
+  #page-products .table-wrap td:nth-child(7){grid-area:qty;flex-direction:column;align-items:flex-start;gap:2px}
+  #page-products .table-wrap td:nth-child(8){grid-area:status;justify-content:flex-start}
+  #page-products .table-wrap td:nth-child(9){grid-area:act;justify-content:flex-end}
+  #page-products .table-wrap td:nth-child(2)::before,#page-products .table-wrap td:nth-child(3)::before,#page-products .table-wrap td:nth-child(6)::before,#page-products .table-wrap td:nth-child(8)::before,#page-products .table-wrap td:nth-child(9)::before{content:none}
+  #page-products .ph{width:96px;height:72px}
+  .table-wrap td[colspan],#page-products .table-wrap td[colspan]{display:flex;grid-column:1/-1;justify-content:center}
+  .table-wrap td[colspan]::before{content:none}
+}
 </style>
 </head>
 <body>
@@ -355,6 +394,18 @@ input.qty-in{width:72px;padding:4px 6px;border:1.5px solid #ddd;border-radius:6p
   </div>
 </div>
 
+<!-- Confirm on the page itself: some phone browsers silently block pop-up questions -->
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal" style="max-width:380px" role="alertdialog" aria-labelledby="confirmText">
+    <div id="confirmText" style="font-size:16px;font-weight:800;margin-bottom:6px"></div>
+    <div id="confirmSub" style="font-size:13px;color:#666;margin-bottom:18px;line-height:1.45"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn btn-gray" id="confirmNo">Cancel</button>
+      <button class="btn btn-red" id="confirmYes">Delete</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast" class="toast" style="display:none"></div>
 
 <script>
@@ -508,6 +559,30 @@ async function showPage(p,el){
   if(p==="vendors")loadVendors();
   if(p==="customers")loadCustomers();
   if(p==="delivery"){loadDeliveryBoys();loadUnassignedOrders();}
+}
+
+// On phones each table row shows as a card; give every cell its column name to show beside it
+function labelTables(){
+  document.querySelectorAll(".table-wrap table").forEach(t => {
+    const heads = [...t.querySelectorAll("thead th")].map(th => th.textContent.trim());
+    t.querySelectorAll("tbody tr").forEach(tr => [...tr.children].forEach((td, i) => {
+      if (!td.hasAttribute("colspan") && td.dataset.label !== heads[i]) td.dataset.label = heads[i] || "";
+    }));
+  });
+}
+new MutationObserver(labelTables).observe(document.getElementById("mainApp"), {childList: true, subtree: true});
+
+function askConfirm(text, sub, yesLabel){
+  return new Promise(resolve => {
+    const m = document.getElementById("confirmModal"), y = document.getElementById("confirmYes"), n = document.getElementById("confirmNo");
+    document.getElementById("confirmText").textContent = text;
+    document.getElementById("confirmSub").textContent = sub || "";
+    y.textContent = yesLabel || "Delete";
+    const done = v => { m.classList.remove("open"); y.onclick = n.onclick = null; resolve(v); };
+    y.onclick = () => done(true); n.onclick = () => done(false);
+    m.classList.add("open");
+    y.focus();
+  });
 }
 
 function toast(msg,color="#1A6B3C"){
@@ -683,7 +758,8 @@ async function toggleStock(id,cur){
 }
 
 async function delProduct(id){
-  if(!confirm("Delete this product?"))return;
+  const p = allProducts.find(x => x.id === id) || {};
+  if(!(await askConfirm(`Delete ${p.name || "this product"}?`, "It disappears from the shop. You can add it again later.")))return;
   try{
     await send("DELETE", `products?id=eq.${q(id)}&select=id`);
     toast("🗑️ Deleted","#E53935");
@@ -963,7 +1039,8 @@ async function viewHistory(userId){
 function closeHistoryModal(){document.getElementById("historyModal").classList.remove("open");}
 
 async function delCustomer(id){
-  if(!confirm("Delete this customer account? This cannot be undone."))return;
+  const c = allCustomers.find(x => x.id === id) || {};
+  if(!(await askConfirm(`Delete ${c.name || c.phone || "this customer"}'s account?`, "Their account, coins and sign-ins are removed for good. Their past orders stay in Orders.")))return;
   try{
     await send("DELETE", `users?id=eq.${q(id)}&select=id`);
     toast("🗑️ Customer deleted","#E53935");loadCustomers();

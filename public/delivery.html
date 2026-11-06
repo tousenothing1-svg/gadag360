@@ -4,6 +4,14 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Royal Harvest – Delivery Panel</title>
+  <!-- installs on riders' phones as its own app (separate from the customer app) -->
+  <link rel="manifest" href="/delivery-manifest.json"/>
+  <meta name="theme-color" content="#1a7c4a"/>
+  <link rel="icon" type="image/png" href="/rider-192.png"/>
+  <link rel="apple-touch-icon" href="/rider-180.png"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-title" content="RH Delivery"/>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f4f6f8; min-height: 100vh; }
@@ -151,6 +159,21 @@
     }
     .stat-num { font-size: 24px; font-weight: 800; color: #1a7c4a; }
     .stat-label { font-size: 11px; color: #888; margin-top: 2px; font-weight: 600; }
+
+    /* ── INSTALL BAR + LIVE LOCATION STRIP ── */
+    .install-bar { display: none; position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 50;
+      align-items: center; gap: 10px; background: #fff8e6; border: 1.5px solid #f2b53a; color: #5a4300;
+      border-radius: 14px; padding: 10px 10px 10px 12px; font-size: 13px; box-shadow: 0 6px 24px rgba(0,0,0,.15);
+      max-width: 480px; margin: 0 auto; }
+    .install-bar.show { display: flex; }
+    .install-bar img { width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0; }
+    .install-bar .txt { flex: 1; line-height: 1.35; }
+    .install-bar .go { background: #1a7c4a; color: #fff; border: 0; border-radius: 9px; padding: 9px 14px;
+      font-size: 13px; font-weight: 700; cursor: pointer; }
+    .install-bar .x { background: none; border: 0; color: #8a7a50; padding: 6px 8px; font-size: 16px; cursor: pointer; }
+    .live-strip { display: none; background: #e8f5ee; color: #1a7c4a; font-size: 12.5px; font-weight: 600;
+      padding: 8px 14px; text-align: center; border-bottom: 1px solid #cfe9da; }
+    .live-strip.show { display: block; }
   </style>
 </head>
 <body>
@@ -185,6 +208,7 @@
     </div>
     <button class="logout-btn" onclick="doLogout()">Logout</button>
   </div>
+  <div class="live-strip" id="liveStrip" role="status">📍 Sharing your live location with the customer. Keep this app open on your screen.</div>
 
   <div class="tabs">
     <div class="tab active" id="tab-active" onclick="switchTab('active')">
@@ -211,6 +235,14 @@
     </div>
     <div id="doneOrders"><div class="loading">Loading…</div></div>
   </div>
+</div>
+
+<!-- INSTALL AS AN APP -->
+<div class="install-bar" id="installBar" role="region" aria-label="Install the delivery app">
+  <img src="/rider-192.png" alt=""/>
+  <div class="txt" id="installTxt"><b>Install the delivery app</b><br>Opens full screen from your home screen.</div>
+  <button class="go" id="installBtn" onclick="installApp()">Install</button>
+  <button class="x" onclick="hideInstall(true)" aria-label="Not now">✕</button>
 </div>
 
 <script>
@@ -323,6 +355,11 @@ async function loadOrders() {
     document.getElementById("activeBadge").style.display = "none";
   }
 
+  // Share location for every order on the way, also after the app was closed and opened again
+  const enRoute = active.filter(o => o.status === "pickedup" || o.status === "picked_up").map(o => o.id);
+  enRoute.forEach(id => startRiderTracking(id));
+  [...trackingIds].forEach(id => { if (!enRoute.includes(id)) stopRiderTracking(id); });
+
   renderOrders("activeOrders", active, true);
   renderOrders("doneOrders",   delivered, false);
 }
@@ -405,34 +442,52 @@ function orderCard(o, isActive) {
 }
 
 // ── LIVE GPS TRACKING ──
-let riderWatchId = null;
-let riderTrackingOrderId = null;
+// While an order is picked up, its customer sees the rider's position, sent every 5 seconds.
+// A web app can only do this while it's open on screen, so the screen is kept on during deliveries.
+const trackingIds = new Set();
+let trackTimer = null, wakeLock = null;
+
+function pushLocation() {
+  if (!currentDeliveryBoy || !trackingIds.size || !navigator.geolocation) return;
+  navigator.geolocation.getCurrentPosition(pos => {
+    const { latitude: lat, longitude: lon } = pos.coords;
+    trackingIds.forEach(id => call("rider_set_location", { p_id: id, p_lat: lat, p_lon: lon }).catch(() => {}));
+  }, null, { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 });
+}
+
+async function keepScreenOn(on) {
+  try {
+    if (on && !wakeLock && "wakeLock" in navigator && document.visibilityState === "visible") {
+      wakeLock = await navigator.wakeLock.request("screen");
+      wakeLock.addEventListener("release", () => { wakeLock = null; });
+    } else if (!on && wakeLock) {
+      await wakeLock.release(); wakeLock = null;
+    }
+  } catch (e) {}
+}
 
 function startRiderTracking(orderId) {
-  if (!navigator.geolocation) return;
-  riderTrackingOrderId = orderId;
-
-  // Share the rider's position with this order's customer: now, then every 5s until delivered
-  const pushLocation = () => {
-    navigator.geolocation.getCurrentPosition(async (pos) => {
-      if (!currentDeliveryBoy) return;
-      const { latitude: lat, longitude: lon } = pos.coords;
-      try { await call("rider_set_location", { p_id: orderId, p_lat: lat, p_lon: lon }); } catch (e) {}
-    }, null, { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 });
-  };
-
-  pushLocation(); // push immediately on pickup
-  riderWatchId = setInterval(pushLocation, 5000); // then every 5s
+  if (!navigator.geolocation || trackingIds.has(orderId)) return;
+  trackingIds.add(orderId);
+  pushLocation();
+  if (!trackTimer) trackTimer = setInterval(pushLocation, 5000);
+  keepScreenOn(true);
+  document.getElementById("liveStrip").classList.add("show");
 }
 
-function stopRiderTracking() {
-  if (riderWatchId !== null) {
-    clearInterval(riderWatchId);
-    riderWatchId = null;
-  }
+function stopRiderTracking(orderId) {
+  if (orderId) trackingIds.delete(orderId); else trackingIds.clear();
+  if (trackingIds.size) return;
+  clearInterval(trackTimer); trackTimer = null;
+  keepScreenOn(false);
   // The last position stays saved; the customer's map stops showing it once the order is delivered
-  riderTrackingOrderId = null;
+  document.getElementById("liveStrip").classList.remove("show");
 }
+
+// Back in the app (for example after Google Maps): send the position at once and keep the screen on again
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && trackingIds.size) { pushLocation(); keepScreenOn(true); }
+});
 
 async function updateStatus(orderId, newStatus) {
   let r = null;
@@ -442,13 +497,9 @@ async function updateStatus(orderId, newStatus) {
     await loadOrders();
     return;
   }
-  // Start GPS sharing when picked up, stop when delivered
-  if (newStatus === "pickedup") {
-    stopRiderTracking();
-    startRiderTracking(orderId);
-  } else if (newStatus === "delivered") {
-    stopRiderTracking();
-  }
+  // Start sharing location when picked up, stop when delivered
+  if (newStatus === "pickedup") startRiderTracking(orderId);
+  else if (newStatus === "delivered") stopRiderTracking(orderId);
   await loadOrders();
 }
 
@@ -458,6 +509,33 @@ function switchTab(tab) {
   document.getElementById("tab-" + tab).classList.add("active");
   document.getElementById("section-" + tab).classList.add("active");
 }
+
+// ── INSTALL AS AN APP ──
+const isStandalone = () => window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+let installPrompt = null;
+function showInstall(ios) {
+  if (isStandalone()) return;
+  try { if (localStorage.getItem("rh_install_hidden") === "1") return; } catch (e) {}
+  document.getElementById("installBtn").style.display = ios ? "none" : "";
+  if (ios) document.getElementById("installTxt").innerHTML = "<b>Install the delivery app</b><br>Tap Share <span aria-hidden='true'>⬆️</span>, then “Add to Home Screen”.";
+  document.getElementById("installBar").classList.add("show");
+}
+function hideInstall(forGood) {
+  document.getElementById("installBar").classList.remove("show");
+  if (forGood) try { localStorage.setItem("rh_install_hidden", "1"); } catch (e) {}
+}
+async function installApp() {
+  if (!installPrompt) return;
+  installPrompt.prompt();
+  try { await installPrompt.userChoice; } catch (e) {}
+  installPrompt = null;
+  hideInstall(false);
+}
+window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); installPrompt = e; showInstall(false); }); // Android
+window.addEventListener("appinstalled", () => hideInstall(true));
+if (isIOS && !isStandalone()) showInstall(true); // iPhone has no install button: show how
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("/delivery-sw.js", { scope: "/delivery" }).catch(() => {});
 
 // ── RESTORE SESSION ──
 window.onload = async () => {

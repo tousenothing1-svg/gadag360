@@ -1,0 +1,18 @@
+{
+  "id": "/delivery.html",
+  "name": "Royal Harvest Delivery",
+  "short_name": "RH Delivery",
+  "description": "Orders, maps and live location for Royal Harvest delivery partners.",
+  "start_url": "/delivery.html",
+  "scope": "/delivery",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#1a7c4a",
+  "background_color": "#f4f6f8",
+  "icons": [
+    { "src": "/rider-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/rider-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/rider-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/rider-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
