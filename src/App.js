@@ -6,6 +6,7 @@ import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
 import { Onboarding, WelcomeOffer, CoachTip, AreaNotice } from "./FirstOpen";
+import { AlertsCard, AlertsRow, alertsState, alertsText, refreshAlerts, registerAlertsWorker, turnOffAlerts, turnOnAlerts } from "./Alerts";
 
 // ── DETECT IF RUNNING IN CAPACITOR (native Android/iOS) ──
 const isNative = () => {
@@ -61,6 +62,7 @@ const Storage = {
 const SUPABASE_URL = "https://lykhjuizzvurklywxflz.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx5a2hqdWl6enZ1cmtseXd4Zmx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEzODg3OTMsImV4cCI6MjEwNjk2NDc5M30.2gO3aK030mJ0pYTeMd95B7uZF-dHnFzDOSaPwt9hZ6Q";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+const PUSH_FN = `${SUPABASE_URL}/functions/v1/send-push`; // sends alerts; also hands out the public push key
 
 // ── SECURE CALLS ──
 // Customer data (accounts, orders, addresses) is locked in the database. The app reaches it only through
@@ -1241,6 +1243,13 @@ export default function Gadag360() {
   const [showTip, setShowTip] = useState(false);
   const [userLoc, setUserLoc] = useState(() => readJSON("gd360_loc", null));
   const [areaNoticeClosed, setAreaNoticeClosed] = useState(false);
+  // Alerts (push notifications) for fresh arrivals, price drops and offers — see Alerts.js
+  const [alerts, setAlerts] = useState("unknown"); // on | off | blocked | ios-install | no
+  const [alertsBusy, setAlertsBusy] = useState(false);
+  const [alertsNote, setAlertsNote] = useState(null); // {ok, text} shown in the card
+  const [alertsCardClosed, setAlertsCardClosed] = useState(() => {
+    try { return Date.now() - Number(localStorage.getItem("rh_alerts_card_closed") || 0) < 14 * 864e5; } catch (e) { return false; }
+  });
   const outsideArea = !!(userLoc && typeof userLoc.lat === "number" && kmBetween([userLoc.lat, userLoc.lon], WAREHOUSE_POS) > SERVICE_RADIUS_KM);
   // The running "Use GPS" watch, so a second tap (or placing the order) stops the old one
   const gpsWatchRef = useRef(null);
@@ -1333,6 +1342,63 @@ export default function Gadag360() {
       });
     return [...fromCode, ...addedInAdmin];
   }, [dbProducts]);
+
+  // ── ALERTS ──
+  useEffect(() => { registerAlertsWorker(); alertsState().then(setAlerts); }, []);
+  // keep the saved push address in step with the language and who is logged in
+  useEffect(() => { refreshAlerts({ rpc, device: deviceId(), token: ctokenRef.current, lang }); }, [lang, isLoggedIn]);
+  // from the home card the result shows in the card; from the account page only problems pop up
+  const turnAlertsOn = async (from = "card") => {
+    const t = alertsText(lang);
+    setAlertsBusy(true); setAlertsNote(null);
+    let note = null;
+    try {
+      const s = await turnOnAlerts({ rpc, fnUrl: PUSH_FN, device: deviceId(), token: ctokenRef.current, lang });
+      setAlerts(s);
+      if (s === "on") note = { ok: true, text: t.done };
+      else if (s === "blocked") note = { ok: false, text: t.blocked };
+    } catch (e) {
+      note = { ok: false, text: t.failed };
+      alertsState().then(setAlerts);
+    }
+    setAlertsBusy(false);
+    if (from !== "card") { if (note && !note.ok) alert(note.text); return; }
+    setAlertsNote(note);
+    if (note && note.ok) setTimeout(() => setAlertsNote(null), 6000);
+  };
+  const toggleAlerts = async () => {
+    const t = alertsText(lang);
+    if (alerts === "blocked") { alert(t.blocked); return; }
+    if (alerts === "ios-install") { alert(`${t.iosText}\n\n${t.iosSteps.map((s, i) => `${i + 1}. ${s}`).join("\n")}`); return; }
+    if (alerts === "on") { setAlertsBusy(true); setAlerts(await turnOffAlerts({ rpc, device: deviceId() })); setAlertsBusy(false); return; }
+    await turnAlertsOn("account");
+  };
+  const closeAlertsCard = () => {
+    setAlertsCardClosed(true); setAlertsNote(null);
+    try { localStorage.setItem("rh_alerts_card_closed", String(Date.now())); } catch (e) {}
+  };
+  const showAlertsCard = !alertsCardClosed && (alerts === "off" || alerts === "ios-install" || !!alertsNote);
+
+  // Opened from an alert: show that product. The link is /?p=<product id>; when the app is already open, the alert
+  // worker (public/sw.js) sends the link here instead.
+  const [alertProduct, setAlertProduct] = useState(() => { try { return new URLSearchParams(window.location.search).get("p"); } catch (e) { return null; } });
+  useEffect(() => {
+    try { if (new URLSearchParams(window.location.search).get("p")) window.history.replaceState(null, "", window.location.pathname); } catch (e) {}
+    if (!("serviceWorker" in navigator)) return;
+    const onMsg = e => {
+      if (!e.data || e.data.type !== "rh-open") return;
+      setActiveTab("home"); setScreen("home"); setProfileSection(null);
+      try { const p = new URL(e.data.url, window.location.origin).searchParams.get("p"); if (p) setAlertProduct(p); } catch (err) {}
+    };
+    navigator.serviceWorker.addEventListener("message", onMsg);
+    return () => navigator.serviceWorker.removeEventListener("message", onMsg);
+  }, []);
+  useEffect(() => {
+    if (!alertProduct || !dbProducts.length) return; // wait for the live list
+    const p = LIVE_PRODUCTS.find(x => x.id === alertProduct) || LIVE_PRODUCTS.find(x => { const d = findDbProduct(x); return d && d.id === alertProduct; });
+    if (p) { setQuery(p.name); try { window.scrollTo(0, 0); } catch (e) {} }
+    setAlertProduct(null);
+  }, [alertProduct, LIVE_PRODUCTS]);
 
   // ── STATIC DATA ──
   const SLOTS = ["Morning 7–10am","Afternoon 12–3pm","Evening 5–8pm"];
@@ -2041,6 +2107,7 @@ const verifyOtp = async () => {
 
               {/* Rest of menu items */}
               <div style={{backgroundColor:"white",margin:"8px 0",padding:"8px 16px"}}>
+                <AlertsRow lang={lang} state={alerts} busy={alertsBusy} onToggle={toggleAlerts}/>
                 {[
                   {icon:<Heart size={16}/>,   label:lang==="kn"?"ವಿಶ್‌ಲಿಸ್ಟ್":"Wishlist",        id:"wishlist"},
                   {icon:<RefreshCcw size={16}/>,label:lang==="kn"?"ರಿಫಂಡ್":"Refunds",            id:"refunds"},
@@ -2421,6 +2488,10 @@ const verifyOtp = async () => {
 
         {outsideArea && !areaNoticeClosed && (
           <AreaNotice lang={lang} loc={userLoc} shopWhatsApp={SHOP_WHATSAPP} onClose={() => setAreaNoticeClosed(true)}/>
+        )}
+
+        {showAlertsCard && (
+          <AlertsCard lang={lang} state={alerts} busy={alertsBusy} note={alertsNote} onTurnOn={() => turnAlertsOn("card")} onClose={closeAlertsCard}/>
         )}
 
         {/* ── SHELVES: tap a pill to see just those products ── */}

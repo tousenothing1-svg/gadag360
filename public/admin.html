@@ -82,6 +82,44 @@ input.qty-in,input.mkt-in{width:72px;padding:4px 6px;border:1.5px solid #ddd;bor
 .page-note{font-size:13px;color:#666;margin:-8px 0 16px;line-height:1.5;max-width:720px}
 .btn-back{white-space:nowrap}
 .btn:disabled{opacity:.6;cursor:default}
+/* notifications: write, preview and send alerts to customers' phones */
+.push-wrap{max-width:720px}
+#page-alerts textarea{font-family:inherit;line-height:1.4;resize:vertical}
+.push-count{font-size:13px;font-weight:700;color:var(--green);background:#e8f5e9;border-radius:999px;padding:6px 12px}
+.push-step{font-size:14px;font-weight:800;color:#222;margin:20px 0 8px}
+.push-step:first-child{margin-top:0}
+.push-step small{font-weight:500;color:#888}
+.kind-chips{display:flex;flex-wrap:wrap;gap:8px}
+.kind-chips button{padding:8px 14px;border-radius:999px;border:1.5px solid var(--line);background:#fff;font-size:13px;font-weight:600;cursor:pointer;color:#333}
+.kind-chips button.on{background:var(--green);border-color:var(--green);color:#fff}
+.push-n{float:right;font-size:11px;color:#999;font-weight:500}
+.push-n.full{color:#E53935}
+.push-kn{margin-top:12px;border:1px dashed #cfd6ca;border-radius:10px;padding:2px 12px 12px}
+.push-kn summary{cursor:pointer;font-size:13px;font-weight:700;color:#555;padding:9px 0 2px}
+.check-row{display:flex;align-items:center;gap:8px;font-weight:500;color:#444;margin-top:14px;font-size:13px}
+.check-row input{width:16px;height:16px;margin:0}
+.notif-preview{background:linear-gradient(160deg,#dfe7da,#eef0ec);border-radius:16px;padding:14px}
+.np-card{background:rgba(255,255,255,0.94);border-radius:14px;padding:10px 12px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.np-head{display:flex;align-items:center;gap:6px;font-size:11px;color:#777}
+.np-head img{width:16px;height:16px;border-radius:4px}
+.np-time{margin-left:auto}
+.np-body{display:flex;gap:10px;margin-top:6px;align-items:flex-start}
+.np-text{flex:1;min-width:0}
+.np-title{font-size:14px;font-weight:700;color:#111;line-height:1.3;word-wrap:break-word}
+.np-msg{font-size:13px;color:#333;line-height:1.35;margin-top:2px;white-space:pre-line;word-wrap:break-word;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.np-img{width:48px;height:48px;border-radius:8px;object-fit:cover;flex-shrink:0;background:#f4f4f4}
+.np-langs{display:flex;gap:6px;margin-top:8px}
+.np-langs button{padding:4px 10px;border-radius:999px;border:1.5px solid var(--line);background:#fff;font-size:12px;font-weight:600;cursor:pointer;color:#555}
+.np-langs button.on{border-color:var(--green);color:var(--green)}
+.test-row{display:flex;gap:8px;flex-wrap:wrap}
+.test-row input{flex:1;min-width:160px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;font-size:13px;outline:none}
+.btn-line{background:#fff;color:var(--green);border:1.5px solid var(--green)}
+.btn-big{width:100%;padding:13px;font-size:15px;margin-top:16px;border-radius:10px}
+.push-progress{margin-top:12px;font-size:13px;font-weight:600;color:#333;background:#f7f8f5;border-radius:10px;padding:10px 12px;line-height:1.45}
+.push-progress.bad{color:#C62828;background:#ffebee}
+.push-progress.good{color:var(--green);background:#e8f5e9}
+.push-bar{height:6px;border-radius:3px;background:#e4e8e0;overflow:hidden;margin-top:8px}
+.push-bar span{display:block;height:100%;background:var(--green);transition:width .3s}
 
 /* ── PHONES: menu across the top, every table row as a card ── */
 @media (max-width:760px){
@@ -193,6 +231,7 @@ input.qty-in,input.mkt-in{width:72px;padding:4px 6px;border:1.5px solid #ddd;bor
       <div class="nav-item" onclick="showPage('vendors',this)">🏪 Suppliers</div>
       <div class="nav-section">Customers</div>
       <div class="nav-item" onclick="showPage('customers',this)">👥 Customers</div>
+      <div class="nav-item" onclick="showPage('alerts',this)">🔔 Notifications</div>
       <div class="nav-section">Delivery</div>
       <div class="nav-item" onclick="showPage('delivery',this)">🛵 Delivery Boys</div>
       <div class="nav-section">Links</div>
@@ -268,6 +307,74 @@ input.qty-in,input.mkt-in{width:72px;padding:4px 6px;border:1.5px solid #ddd;bor
           <thead><tr><th>Photo</th><th>Name</th><th>Category</th><th>Price</th><th>Stock left</th><th>Deleted on</th><th>Action</th></tr></thead>
           <tbody id="deletedBody"><tr><td colspan="7" style="text-align:center;padding:20px"><span class="spinner"></span>Loading...</td></tr></tbody>
         </table></div></div>
+      </div>
+
+      <div class="page" id="page-alerts">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:20px">
+          <div style="font-size:22px;font-weight:800">🔔 Notifications</div>
+          <span class="push-count" id="pushCount">…</span>
+        </div>
+        <div class="page-note">Send a message to the phones of customers who turned on alerts in the app. It shows on their lock screen like other apps' notifications, and tapping it opens the app on the product.</div>
+        <div class="push-wrap">
+          <div class="card">
+            <div class="push-step">1. What is it about?</div>
+            <div class="kind-chips" id="pushKinds">
+              <button type="button" data-kind="fresh" class="on" onclick="pickKind('fresh')">🥬 Fresh arrival</button>
+              <button type="button" data-kind="price" onclick="pickKind('price')">📉 Price drop</button>
+              <button type="button" data-kind="offer" onclick="pickKind('offer')">🎁 Offer</button>
+              <button type="button" data-kind="other" onclick="pickKind('other')">✏️ Something else</button>
+            </div>
+            <div class="push-step">2. Which product? <small>(optional)</small></div>
+            <input type="text" id="pushProduct" list="pushProductList" placeholder="Type to search, for example Mango" autocomplete="off" oninput="pickProduct()" aria-label="Product"/>
+            <datalist id="pushProductList"></datalist>
+            <div class="hint" id="pushProductHint">Pick one and the message fills in with its price. Tapping the notification opens it in the app.</div>
+            <div class="push-step">3. The message <small>(change anything you like)</small></div>
+            <label for="pushTitle" style="margin-top:0">Title <span class="push-n" id="pushTitleN"></span></label>
+            <input type="text" id="pushTitle" maxlength="80" oninput="pushPreview()"/>
+            <label for="pushBody">Message <span class="push-n" id="pushBodyN"></span></label>
+            <textarea id="pushBody" maxlength="240" rows="3" oninput="pushPreview()"></textarea>
+            <details class="push-kn" open>
+              <summary>ಕನ್ನಡ: for customers using the app in Kannada</summary>
+              <label for="pushTitleKn">Title in Kannada</label>
+              <input type="text" id="pushTitleKn" maxlength="80" oninput="pushPreview()"/>
+              <label for="pushBodyKn">Message in Kannada</label>
+              <textarea id="pushBodyKn" maxlength="240" rows="3" oninput="pushPreview()"></textarea>
+              <div class="hint">Leave these empty and Kannada customers get the English one.</div>
+            </details>
+            <label class="check-row"><input type="checkbox" id="pushPhoto" checked onchange="pushPreview()"/> Show the product photo (Android phones)</label>
+            <div class="push-step">Preview</div>
+            <div class="notif-preview">
+              <div class="np-card">
+                <div class="np-head"><img src="/logo192.png" alt=""/><span>Royal Harvest</span><span class="np-time">now</span></div>
+                <div class="np-body">
+                  <div class="np-text"><div class="np-title" id="pvTitle"></div><div class="np-msg" id="pvBody"></div></div>
+                  <img class="np-img" id="pvImg" alt="" style="display:none"/>
+                </div>
+              </div>
+            </div>
+            <div class="np-langs" id="pvLangs">
+              <button type="button" class="on" data-pv="en" onclick="previewLang('en')">English</button>
+              <button type="button" data-pv="kn" onclick="previewLang('kn')">ಕನ್ನಡ</button>
+            </div>
+            <div class="push-step">4. Send</div>
+            <label for="pushTestPhone" style="margin-top:0">Try it on your phone first</label>
+            <div class="test-row">
+              <input type="tel" id="pushTestPhone" inputmode="tel" maxlength="20" placeholder="10-digit phone number"/>
+              <button type="button" class="btn btn-line" id="pushTestBtn" onclick="sendPush('test')">📱 Send test</button>
+            </div>
+            <div class="hint">Only that phone gets it. On that phone, log in to the app with this number and tap Turn on alerts first.</div>
+            <button type="button" class="btn btn-green btn-big" id="pushAllBtn" onclick="sendPush('all')">📣 Send to all customers</button>
+            <div class="push-progress" id="pushProgress" role="status" style="display:none"></div>
+          </div>
+          <div class="card">
+            <div style="font-weight:800;font-size:15px;margin-bottom:10px">Sent notifications</div>
+            <div class="table-wrap"><table>
+              <thead><tr><th>Sent</th><th>Notification</th><th>To</th><th>Delivered</th><th>Not delivered</th></tr></thead>
+              <tbody id="pushHistory"><tr><td colspan="5" style="text-align:center;padding:20px"><span class="spinner"></span>Loading...</td></tr></tbody>
+            </table></div>
+            <div class="hint">"Not delivered": the phone's browser refused it, or alerts are no longer on there (those phones are taken off the list).</div>
+          </div>
+        </div>
       </div>
 
       <div class="page" id="page-vendors">
@@ -616,6 +723,7 @@ async function showPage(p,el){
   if(p==="dashboard")loadDashboard();
   if(p==="orders")loadOrders();
   if(p==="products"||p==="deleted")loadProducts();
+  if(p==="alerts")loadAlertsPage();
   if(p==="vendors")loadVendors();
   if(p==="customers")loadCustomers();
   if(p==="delivery"){loadDeliveryBoys();loadUnassignedOrders();}
@@ -632,12 +740,13 @@ function labelTables(){
 }
 new MutationObserver(labelTables).observe(document.getElementById("mainApp"), {childList: true, subtree: true});
 
-function askConfirm(text, sub, yesLabel){
+function askConfirm(text, sub, yesLabel, tone){
   return new Promise(resolve => {
     const m = document.getElementById("confirmModal"), y = document.getElementById("confirmYes"), n = document.getElementById("confirmNo");
     document.getElementById("confirmText").textContent = text;
     document.getElementById("confirmSub").textContent = sub || "";
     y.textContent = yesLabel || "Delete";
+    y.className = "btn " + (tone === "green" ? "btn-green" : "btn-red"); // green for good things, red for deleting
     const done = v => { m.classList.remove("open"); y.onclick = n.onclick = null; resolve(v); };
     y.onclick = () => done(true); n.onclick = () => done(false);
     m.classList.add("open");
@@ -848,11 +957,200 @@ function renderDeleted(){
       </tr>`;}).join("");
 }
 
+// ── NOTIFICATIONS: alerts to customers' phones (sent by supabase/functions/send-push) ──
+const PUSH_FN = "https://lykhjuizzvurklywxflz.supabase.co/functions/v1/send-push";
+let pushKind = "fresh", pvLang = "en", pushPick = null, pushProducts = [], pushPhones = null, pushSending = false;
+const KIND_LABEL = {fresh:"Fresh arrival", price:"Price drop", offer:"Offer", other:"Something else"};
+const pushMoney = p => `₹${p.price}/${cleanSize(p.unit) || p.unit || "unit"}`;
+const knName = p => String(p.name_kn || "").trim() || p.name;
+const marketUp = p => Number(p.market_price) > Number(p.price);
+// ready-made texts: [title, message], with or without a product
+const PUSH_TPL = {
+  fresh: {
+    en: p => p ? [`🥬 Fresh ${p.name} just arrived!`, `Fresh stock in today at ${pushMoney(p)}. Order now, delivered in 2 hours.`]
+               : ["🥬 Fresh stock just arrived!", "Fresh fruits and vegetables are in today. Order now, delivered in 2 hours."],
+    kn: p => p ? [`🥬 ತಾಜಾ ${knName(p)} ಬಂದಿದೆ!`, `ಇಂದು ತಾಜಾ ಸ್ಟಾಕ್ ಬಂದಿದೆ, ${pushMoney(p)}. ಈಗಲೇ ಆರ್ಡರ್ ಮಾಡಿ, 2 ಗಂಟೆಯಲ್ಲಿ ಡೆಲಿವರಿ.`]
+               : ["🥬 ತಾಜಾ ಸ್ಟಾಕ್ ಬಂದಿದೆ!", "ಇಂದು ತಾಜಾ ಹಣ್ಣು, ತರಕಾರಿ ಬಂದಿವೆ. ಈಗಲೇ ಆರ್ಡರ್ ಮಾಡಿ, 2 ಗಂಟೆಯಲ್ಲಿ ಡೆಲಿವರಿ."],
+  },
+  price: {
+    en: p => p ? [`📉 Price drop: ${p.name}`, `Now only ${pushMoney(p)}${marketUp(p) ? ` (market price ₹${p.market_price})` : ""}. Order before it runs out!`]
+               : ["📉 Prices dropped today", "Fresh picks at lower prices today. Tap to see them."],
+    kn: p => p ? [`📉 ಬೆಲೆ ಇಳಿಕೆ: ${knName(p)}`, `ಈಗ ಕೇವಲ ${pushMoney(p)}${marketUp(p) ? ` (ಮಾರುಕಟ್ಟೆ ಬೆಲೆ ₹${p.market_price})` : ""}. ಸ್ಟಾಕ್ ಮುಗಿಯುವ ಮುನ್ನ ಆರ್ಡರ್ ಮಾಡಿ!`]
+               : ["📉 ಇಂದು ಬೆಲೆ ಇಳಿಕೆ", "ಇಂದು ಕಡಿಮೆ ಬೆಲೆಯಲ್ಲಿ ತಾಜಾ ವಸ್ತುಗಳು. ನೋಡಲು ಟ್ಯಾಪ್ ಮಾಡಿ."],
+  },
+  offer: {
+    en: p => p ? [`🎁 Special offer: ${p.name}`, `${pushMoney(p)} for a limited time. Tap to order.`]
+               : ["🎁 Special offer at Royal Harvest", "Tap to see today's offer."],
+    kn: p => p ? [`🎁 ವಿಶೇಷ ಆಫರ್: ${knName(p)}`, `ಸೀಮಿತ ಅವಧಿಗೆ ${pushMoney(p)}. ಆರ್ಡರ್ ಮಾಡಲು ಟ್ಯಾಪ್ ಮಾಡಿ.`]
+               : ["🎁 ರಾಯಲ್ ಹಾರ್ವೆಸ್ಟ್‌ನಲ್ಲಿ ವಿಶೇಷ ಆಫರ್", "ಇಂದಿನ ಆಫರ್ ನೋಡಲು ಟ್ಯಾಪ್ ಮಾಡಿ."],
+  },
+};
+const PUSH_ERR = {
+  empty: "Write a title and a message first.",
+  phone: "Enter a 10-digit phone number for the test.",
+  no_customer: "No customer has this phone number yet. Open the app on that phone and log in with it first.",
+  no_alerts_on_phone: "That customer hasn't turned on alerts yet. On that phone, open the app and tap Turn on alerts.",
+  no_phones: "No customer has turned on alerts yet. When customers tap Turn on alerts in the app, they'll get your notifications.",
+  login: "Your login ran out. Please log out and log in again.",
+  server: "Something went wrong while sending. Please try again.",
+  not_set_up: "Sending isn't set up yet.",
+};
+const $ = id => document.getElementById(id);
+// "98765 43210", "+91 98765 43210" or "098765 43210" -> "9876543210"; anything else -> ""
+const tenDigits = v => { const d = String(v || "").replace(/\D/g, ""); return d.length === 10 ? d : d.length === 12 && d.startsWith("91") ? d.slice(2) : d.length === 11 && d.startsWith("0") ? d.slice(1) : ""; };
+
+async function loadAlertsPage(){
+  fetch(PUSH_FN).catch(() => {}); // makes the shop's push keys the first time, so customers can turn alerts on
+  loadPushStats();
+  loadPushHistory();
+  try {
+    const rows = await db("products",{filter:"select=id,name,name_kn,price,unit,market_price,img_url,in_stock,deleted_at&order=name.asc"});
+    pushProducts = rows.filter(p => !p.deleted_at);
+    $("pushProductList").innerHTML = pushProducts.map(p => `<option value="${esc(p.name)}">${esc(pushMoney(p))}${p.in_stock === false ? " · out of stock" : ""}</option>`).join("");
+  } catch(e) { pushProducts = []; }
+  if (!$("pushTitle").value) fillPush();
+  pushPreview();
+}
+
+async function loadPushStats(){
+  try {
+    const res = await fetch(`${URL}/rpc/push_stats`, {method:"POST", headers:H, body:"{}"});
+    const s = res.ok ? await res.json() : null;
+    if (!s || !s.ok) throw new Error();
+    pushPhones = s.phones;
+    $("pushCount").textContent = s.phones ? `📱 ${s.phones} phone${s.phones === 1 ? "" : "s"} get alerts${s.kn ? ` (${s.kn} in Kannada)` : ""}` : "📱 No phones have alerts on yet";
+    $("pushAllBtn").textContent = s.phones ? `📣 Send to all ${s.phones} phone${s.phones === 1 ? "" : "s"}` : "📣 Send to all customers";
+  } catch(e) { $("pushCount").textContent = "📱 —"; }
+}
+
+async function loadPushHistory(){
+  const body = $("pushHistory");
+  try {
+    const rows = await db("push_messages",{filter:"select=id,created_at,kind,title,target,test_phone,total,sent,failed,removed,finished_at&order=id.desc&limit=30"});
+    body.innerHTML = rows.length === 0
+      ? "<tr><td colspan='5' style='text-align:center;color:#aaa;padding:20px'>Nothing sent yet.</td></tr>"
+      : rows.map(m => `<tr>
+          <td>${esc(fmtWhen(m.created_at))}</td>
+          <td>${esc(m.title)}<div class="hint">${esc(KIND_LABEL[m.kind] || "")}</div></td>
+          <td>${m.target === "test" ? `Test: ${esc(m.test_phone || "")}` : `All (${esc(m.total)})`}</td>
+          <td><b style="color:var(--green)">${esc(m.sent)}</b>${m.finished_at ? "" : " <span class='hint'>(stopped)</span>"}</td>
+          <td>${esc((m.failed || 0) + (m.removed || 0))}</td>
+        </tr>`).join("");
+  } catch(e) { body.innerHTML = errRow(5, e); }
+}
+
+function pickKind(k){
+  pushKind = k;
+  document.querySelectorAll("#pushKinds button").forEach(b => b.classList.toggle("on", b.dataset.kind === k));
+  if (k !== "other") fillPush(); // "Something else": keep what's written
+  pushPreview();
+}
+
+function pickProduct(){
+  const v = $("pushProduct").value.trim();
+  const p = v ? pushProducts.find(x => sameName(x.name, v)) : null;
+  if (v && !p) { $("pushProductHint").textContent = "Pick a product from the list (or clear the box for a message about the whole shop)."; return; }
+  pushPick = p;
+  $("pushProductHint").textContent = p ? `Tapping the notification opens ${p.name} in the app.` : "Pick one and the message fills in with its price. Tapping the notification opens it in the app.";
+  if (pushKind !== "other") fillPush();
+  pushPreview();
+}
+
+function fillPush(){
+  const t = PUSH_TPL[pushKind]; if (!t) return;
+  const [ti, bo] = t.en(pushPick), [tk, bk] = t.kn(pushPick);
+  $("pushTitle").value = ti; $("pushBody").value = bo; $("pushTitleKn").value = tk; $("pushBodyKn").value = bk;
+}
+
+function previewLang(l){
+  pvLang = l;
+  document.querySelectorAll("#pvLangs button").forEach(b => b.classList.toggle("on", b.dataset.pv === l));
+  pushPreview();
+}
+
+function pushImage(){ return pushPick && $("pushPhoto").checked ? photoOf(pushPick) : ""; }
+
+function pushPreview(){
+  const ti = $("pushTitle").value, bo = $("pushBody").value;
+  const kn = pvLang === "kn";
+  $("pvTitle").textContent = (kn && $("pushTitleKn").value.trim()) || ti || "Title";
+  $("pvBody").textContent = (kn && $("pushBodyKn").value.trim()) || bo || "Your message";
+  const n = (el, max) => { el.textContent = `${max === 80 ? ti.length : bo.length}/${max}`; el.classList.toggle("full", (max === 80 ? ti.length : bo.length) >= max); };
+  n($("pushTitleN"), 80); n($("pushBodyN"), 240);
+  const img = pushImage(), pv = $("pvImg");
+  if (img) { pv.src = img; pv.style.display = ""; } else { pv.removeAttribute("src"); pv.style.display = "none"; }
+}
+
+function pushProgress(text, kind, pct){
+  const el = $("pushProgress");
+  el.style.display = "block";
+  el.className = "push-progress" + (kind ? " " + kind : "");
+  el.innerHTML = esc(text) + (pct == null ? "" : `<div class="push-bar"><span style="width:${Math.max(3, Math.min(100, pct))}%"></span></div>`);
+}
+
+async function pushCall(body){
+  let last;
+  for (let i = 0; i < 3; i++) { // a weak signal: try again
+    try {
+      const res = await fetch(PUSH_FN, {method:"POST", headers:{"Content-Type":"application/json","x-staff-token":TOKEN || ""}, body:JSON.stringify(body)});
+      const j = await res.json().catch(() => ({}));
+      if (res.status === 401) return {ok:false, error:"login"};
+      if (j && (j.ok || j.error)) return j;
+      last = new Error("Sending failed (" + res.status + ")");
+    } catch(e) { last = e; }
+    await new Promise(r => setTimeout(r, 1500 * (i + 1)));
+  }
+  throw last;
+}
+
+async function sendPush(target){
+  if (pushSending) return;
+  const msg = {
+    kind: pushKind, title: $("pushTitle").value.trim(), body: $("pushBody").value.trim(),
+    title_kn: $("pushTitleKn").value.trim(), body_kn: $("pushBodyKn").value.trim(),
+    url: pushPick ? `/?p=${encodeURIComponent(pushPick.id)}` : "/", image: pushImage() || null,
+    product_id: pushPick ? pushPick.id : null, target,
+  };
+  if (!msg.title || !msg.body) { toast(PUSH_ERR.empty, "#E53935"); return; }
+  if (target === "test") {
+    msg.phone = tenDigits($("pushTestPhone").value);
+    if (!msg.phone) { toast(PUSH_ERR.phone, "#E53935"); $("pushTestPhone").focus(); return; }
+  } else if (!(await askConfirm(pushPhones ? `Send to all ${pushPhones} phone${pushPhones === 1 ? "" : "s"}?` : "Send to all customers?",
+      "Everyone with alerts on gets it right away. A sent notification can't be taken back.", "Send", "green"))) return;
+  pushSending = true;
+  $("pushAllBtn").disabled = $("pushTestBtn").disabled = true;
+  pushProgress(target === "test" ? "Sending the test…" : "Sending…", "", 0);
+  let r = null;
+  try {
+    r = await pushCall({action:"start", ...msg});
+    while (r.ok && !r.done) {
+      pushProgress(`Sending… ${r.sent + r.failed + r.removed} of ${r.total}`, "", 100 * (r.sent + r.failed + r.removed) / (r.total || 1));
+      r = await pushCall({action:"next", id:r.id, after:r.after});
+    }
+    if (!r.ok) throw new Error(PUSH_ERR[r.error] || r.error || "Sending failed");
+    const missed = (r.failed || 0) + (r.removed || 0);
+    const done = target === "test"
+      ? (r.sent ? `✅ Test sent. Check the phone ${msg.phone}.`
+        : r.removed ? "The test didn't go through: alerts are off on that phone now. Turn them on again in the app."
+        : "The test didn't go through: the phone's notification service refused it. Try again in a minute.")
+      : `✅ Sent to ${r.sent} phone${r.sent === 1 ? "" : "s"}.`;
+    pushProgress(done + (missed && target !== "test" ? ` ${missed} couldn't get it (alerts off there now).` : ""), r.sent ? "good" : "bad", null);
+    toast(r.sent ? (target === "test" ? "📱 Test sent" : "📣 Notification sent") : "Not delivered", r.sent ? undefined : "#E53935");
+  } catch(e) {
+    const part = r && r.ok && r.sent ? ` It reached ${r.sent} phone${r.sent === 1 ? "" : "s"} before it stopped.` : "";
+    pushProgress((e.message || "Sending failed") + part, "bad", null);
+    toast("Error: " + (e.message || "Sending failed"), "#E53935");
+  }
+  pushSending = false;
+  $("pushAllBtn").disabled = $("pushTestBtn").disabled = false;
+  loadPushHistory(); loadPushStats();
+}
+
 async function restoreProduct(id, btn){
   const p = deletedProducts.find(x => x.id === id) || {};
   // Someone may have added the same product again meanwhile: customers would then see it twice
   if (allProducts.some(x => sameName(x.name, p.name))
-      && !(await askConfirm(`${p.name} is already in Products`, "Bring this one back too? Customers would see two products with the same name.", "Bring back"))) return;
+      && !(await askConfirm(`${p.name} is already in Products`, "Bring this one back too? Customers would see two products with the same name.", "Bring back", "green"))) return;
   if (btn) { btn.disabled = true; btn.textContent = "Bringing back…"; }
   try{
     await send("PATCH", `products?id=eq.${q(id)}&select=id`, {deleted_at:null});
