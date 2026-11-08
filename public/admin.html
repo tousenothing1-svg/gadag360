@@ -73,6 +73,15 @@ input.qty-in,input.mkt-in{width:72px;padding:4px 6px;border:1.5px solid #ddd;bor
 .size-preview{font-size:12.5px;color:var(--green);font-weight:700;margin-top:8px;min-height:17px}
 .size-preview.bad{color:#E53935}
 .hint{font-size:11px;color:#888;margin-top:3px}
+/* deleted products: they wait in their own section until brought back */
+.nav-item{position:relative}
+.nav-count{position:absolute;right:8px;top:50%;transform:translateY(-50%);min-width:20px;text-align:center;background:#ffebee;color:var(--red);font-size:11px;font-weight:700;border-radius:999px;padding:1px 7px}
+.nav-count:empty{display:none}
+.ph.ph-static{cursor:default}
+.ph.ph-static:hover{border-color:#c9d3c4}
+.page-note{font-size:13px;color:#666;margin:-8px 0 16px;line-height:1.5;max-width:720px}
+.btn-back{white-space:nowrap}
+.btn:disabled{opacity:.6;cursor:default}
 
 /* ── PHONES: menu across the top, every table row as a card ── */
 @media (max-width:760px){
@@ -113,7 +122,20 @@ input.qty-in,input.mkt-in{width:72px;padding:4px 6px;border:1.5px solid #ddd;bor
   #page-products .unit-cell{text-align:left}
   #page-products .unit-cell .sizes{display:inline;margin-left:8px;white-space:normal}
   #page-products .ph{width:96px;height:72px}
-  .table-wrap td[colspan],#page-products .table-wrap td[colspan]{display:flex;grid-column:1/-1;justify-content:center}
+  /* deleted products: photo on the left, then name, price and when it was deleted, the button across the bottom */
+  .nav-count{position:static;transform:none;margin-left:2px}
+  #page-deleted .table-wrap tr{display:grid;grid-template-columns:72px 1fr;grid-template-areas:"photo name" "photo price" "photo when" "act act";gap:4px 10px;align-items:center}
+  #page-deleted .table-wrap td{padding:0}
+  #page-deleted .table-wrap td:nth-child(1){grid-area:photo;align-self:start}
+  #page-deleted .table-wrap td:nth-child(2){grid-area:name;justify-content:flex-start;text-align:left;font-size:14px}
+  #page-deleted .table-wrap td:nth-child(3),#page-deleted .table-wrap td:nth-child(5){display:none}
+  #page-deleted .table-wrap td:nth-child(4){grid-area:price;justify-content:flex-start;text-align:left;color:#555}
+  #page-deleted .table-wrap td:nth-child(6){grid-area:when;justify-content:flex-start;text-align:left;color:#777;font-size:12px}
+  #page-deleted .table-wrap td:nth-child(7){grid-area:act;margin-top:6px}
+  #page-deleted .table-wrap td:nth-child(1)::before,#page-deleted .table-wrap td:nth-child(2)::before,#page-deleted .table-wrap td:nth-child(4)::before,#page-deleted .table-wrap td:nth-child(7)::before{content:none}
+  #page-deleted .table-wrap td:nth-child(7) .btn{width:100%;min-height:44px;padding:11px;font-size:14px}
+  #page-deleted .ph{width:72px;height:54px}
+  .table-wrap td[colspan],#page-products .table-wrap td[colspan],#page-deleted .table-wrap td[colspan]{display:flex;grid-area:auto;grid-column:1/-1;justify-content:center}
   .table-wrap td[colspan]::before{content:none}
 }
 </style>
@@ -167,6 +189,7 @@ input.qty-in,input.mkt-in{width:72px;padding:4px 6px;border:1.5px solid #ddd;bor
       <div class="nav-item" onclick="showPage('orders',this)">📦 Orders</div>
       <div class="nav-section">Catalog</div>
       <div class="nav-item" onclick="showPage('products',this)">🥦 Products</div>
+      <div class="nav-item" onclick="showPage('deleted',this)">🗑️ Deleted Products<span class="nav-count" id="deletedCount" title="Deleted products waiting here"></span></div>
       <div class="nav-item" onclick="showPage('vendors',this)">🏪 Suppliers</div>
       <div class="nav-section">Customers</div>
       <div class="nav-item" onclick="showPage('customers',this)">👥 Customers</div>
@@ -231,8 +254,20 @@ input.qty-in,input.mkt-in{width:72px;padding:4px 6px;border:1.5px solid #ddd;bor
           <thead><tr><th>#</th><th>Photo</th><th>Name</th><th>Category</th><th>Price (₹)</th><th>Market price (₹)</th><th>Unit · sizes</th><th>Stock left</th><th>Status</th><th>Action</th></tr></thead>
           <tbody id="productsBody"><tr><td colspan="10" style="text-align:center;padding:20px"><span class="spinner"></span>Loading...</td></tr></tbody>
         </table></div></div>
-        <div style="font-size:12px;color:#888;margin-top:10px">Tap a photo to take or choose a new one. The price is for the unit (for example ₹40 for 1kg); other sizes are worked out from it. "Stock left" counts units: 20 × 500g is 10kg. Selling 1kg of it takes 2 off, 250g takes 0.5, and at 0 the product shows as out of stock by itself.</div>
+        <div style="font-size:12px;color:#888;margin-top:10px">Tap a photo to take or choose a new one. The price is for the unit (for example ₹40 for 1kg); other sizes are worked out from it. "Stock left" counts units: 20 × 500g is 10kg. Selling 1kg of it takes 2 off, 250g takes 0.5, and at 0 the product shows as out of stock by itself. Deleted products wait in 🗑️ Deleted Products, where you can bring them back.</div>
         <input type="file" id="photoPicker" accept="image/*" style="display:none" onchange="photoPicked(this)"/>
+      </div>
+
+      <div class="page" id="page-deleted">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:20px">
+          <div style="font-size:22px;font-weight:800">🗑️ Deleted Products</div>
+          <button class="btn btn-green" onclick="loadProducts()">🔄 Refresh</button>
+        </div>
+        <div class="page-note">Products you delete wait here. Customers can't see or order them. Tap <b>↩️ Back to application</b> to put one back in Products and in the shop, with the same price, sizes, stock and photo.</div>
+        <div class="card"><div class="table-wrap"><table>
+          <thead><tr><th>Photo</th><th>Name</th><th>Category</th><th>Price</th><th>Stock left</th><th>Deleted on</th><th>Action</th></tr></thead>
+          <tbody id="deletedBody"><tr><td colspan="7" style="text-align:center;padding:20px"><span class="spinner"></span>Loading...</td></tr></tbody>
+        </table></div></div>
       </div>
 
       <div class="page" id="page-vendors">
@@ -580,7 +615,7 @@ async function showPage(p,el){
   if (!(await ensureSession())) return;
   if(p==="dashboard")loadDashboard();
   if(p==="orders")loadOrders();
-  if(p==="products")loadProducts();
+  if(p==="products"||p==="deleted")loadProducts();
   if(p==="vendors")loadVendors();
   if(p==="customers")loadCustomers();
   if(p==="delivery"){loadDeliveryBoys();loadUnassignedOrders();}
@@ -622,8 +657,9 @@ const errRow = (cols, e) => `<tr><td colspan='${cols}' style='color:red;text-ali
 async function loadDashboard(){
   try {
     const [orders,customers,products] = await Promise.all([
-      db("orders",{filter:"select=id,total,payment,status,created_at"}).catch(()=>[]),db("users",{filter:"select=id"}).catch(()=>[]),db("products",{filter:"select=id"}).catch(()=>[])
+      db("orders",{filter:"select=id,total,payment,status,created_at"}).catch(()=>[]),db("users",{filter:"select=id"}).catch(()=>[]),db("products",{filter:"select=id,deleted_at"}).catch(()=>null)
     ]);
+    if (products) showDeletedCount(products.filter(p => p.deleted_at).length);
     const rev = (orders||[]).filter(o=>o.status!=="cancelled").reduce((s,o)=>s+(o.total||0),0);
     const cancelled = (orders||[]).filter(o=>o.status==="cancelled");
     const lost = cancelled.reduce((s,o)=>s+(o.total||0),0);
@@ -632,7 +668,7 @@ async function loadDashboard(){
     document.getElementById("statCancelled").textContent=cancelled.length;
     document.getElementById("statCancelledLabel").textContent="Cancelled orders"+(lost?` · ₹${lost.toLocaleString("en-IN")}`:"");
     document.getElementById("statCustomers").textContent=(customers||[]).length;
-    document.getElementById("statProducts").textContent=(products||[]).length;
+    document.getElementById("statProducts").textContent=(products||[]).filter(p => !p.deleted_at).length; // on the app, not deleted
     const recent=(orders||[]).sort((a,b)=>(toDate(b.created_at)||0)-(toDate(a.created_at)||0)).slice(0,10);
     document.getElementById("recentOrdersBody").innerHTML=recent.length===0
       ? "<tr><td colspan='5' style='text-align:center;color:#aaa;padding:20px'>No orders yet</td></tr>"
@@ -773,12 +809,59 @@ function unitCell(p){
 }
 const fmtQty = n => String(Math.round(Number(n) * 1000) / 1000);
 
+// Deleting only stamps deleted_at: the product leaves the shop and waits in Deleted Products until brought back
+let deletedProducts = [];
+const sameName = (a, b) => { const k = s => String(s ?? "").replace(/\s+/g, " ").trim().toLowerCase(); return k(a) === k(b); };
+const fmtWhen = s => { const d = toDate(s); return d ? d.toLocaleString("en-IN", {day:"numeric", month:"short", year:"numeric", hour:"numeric", minute:"2-digit"}) : "—"; };
+function showDeletedCount(n){ const el = document.getElementById("deletedCount"); if (el) el.textContent = n > 0 ? String(n) : ""; }
+
 async function loadProducts(){
-  document.getElementById("productsBody").innerHTML="<tr><td colspan='10' style='text-align:center;padding:20px'><span class='spinner'></span>Loading...</td></tr>";
+  const wait = cols => `<tr><td colspan='${cols}' style='text-align:center;padding:20px'><span class='spinner'></span>Loading...</td></tr>`;
+  document.getElementById("productsBody").innerHTML = wait(10);
+  document.getElementById("deletedBody").innerHTML = wait(7);
   try {
-    allProducts = await db("products",{filter:"order=cat.asc"});
+    const rows = await db("products",{filter:"order=cat.asc"});
+    allProducts = rows.filter(p => !p.deleted_at);
+    deletedProducts = rows.filter(p => p.deleted_at).sort((a, b) => (toDate(b.deleted_at) || 0) - (toDate(a.deleted_at) || 0)); // newest first
     filterProducts();
-  } catch(e){document.getElementById("productsBody").innerHTML=errRow(10,e);}
+    renderDeleted();
+    showDeletedCount(deletedProducts.length);
+  } catch(e){
+    document.getElementById("productsBody").innerHTML = errRow(10,e);
+    document.getElementById("deletedBody").innerHTML = errRow(7,e);
+  }
+}
+
+function renderDeleted(){
+  document.getElementById("deletedBody").innerHTML = deletedProducts.length === 0
+    ? "<tr><td colspan='7' style='text-align:center;color:#aaa;padding:20px'>Nothing here. When you delete a product, it waits here so you can bring it back.</td></tr>"
+    : deletedProducts.map(p => {
+        const ph = photoOf(p), unit = cleanSize(p.unit);
+        return `<tr>
+        <td><div class="ph ph-static">${ph ? `<img src="${esc(ph)}" alt="" loading="lazy" onerror="this.remove()"/>` : "No photo"}</div></td>
+        <td><b>${esc(p.name)}</b></td>
+        <td><span class="badge badge-green">${esc(p.cat)}</span></td>
+        <td>₹${esc(p.price)}${unit || p.unit ? " · " + esc(unit || p.unit) : ""}</td>
+        <td>${p.stock_qty == null ? "—" : esc(fmtQty(p.stock_qty)) + (unit ? " × " + esc(unit) : "")}</td>
+        <td>${esc(fmtWhen(p.deleted_at))}</td>
+        <td><button class="btn btn-green btn-sm btn-back" data-id="${esc(p.id)}" onclick="restoreProduct(this.dataset.id, this)" title="Put it back in Products and in the shop">↩️ Back to application</button></td>
+      </tr>`;}).join("");
+}
+
+async function restoreProduct(id, btn){
+  const p = deletedProducts.find(x => x.id === id) || {};
+  // Someone may have added the same product again meanwhile: customers would then see it twice
+  if (allProducts.some(x => sameName(x.name, p.name))
+      && !(await askConfirm(`${p.name} is already in Products`, "Bring this one back too? Customers would see two products with the same name.", "Bring back"))) return;
+  if (btn) { btn.disabled = true; btn.textContent = "Bringing back…"; }
+  try{
+    await send("PATCH", `products?id=eq.${q(id)}&select=id`, {deleted_at:null});
+    toast(`↩️ ${p.name || "The product"} is back in Products and in the app`);
+    loadProducts();
+  }catch(e){
+    if (btn) { btn.disabled = false; btn.textContent = "↩️ Back to application"; }
+    toast("Error: "+e.message,"#E53935");
+  }
 }
 
 function renderProducts(products){
@@ -873,10 +956,10 @@ async function toggleStock(id,cur){
 
 async function delProduct(id){
   const p = allProducts.find(x => x.id === id) || {};
-  if(!(await askConfirm(`Delete ${p.name || "this product"}?`, "It disappears from the shop. You can add it again later.")))return;
+  if(!(await askConfirm(`Delete ${p.name || "this product"}?`, "It disappears from the shop and waits in 🗑️ Deleted Products. You can bring it back from there any time.")))return;
   try{
-    await send("DELETE", `products?id=eq.${q(id)}&select=id`);
-    toast("🗑️ Deleted","#E53935");
+    await send("PATCH", `products?id=eq.${q(id)}&select=id`, {deleted_at:new Date().toISOString()});
+    toast("🗑️ Moved to Deleted Products. You can bring it back from there.","#E53935");
     loadProducts();
   }catch(e){toast("Error: "+e.message,"#E53935");}
 }

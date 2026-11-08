@@ -1228,6 +1228,7 @@ export default function Gadag360() {
   const [suggestSent, setSuggestSent] = useState(false);
   const [selectedVariant, setSelectedVariant] = useState(() => readJSON("gd360_sizes", {}));
   const ctokenRef = useRef(null); // this phone's sign-in session (see signIn)
+  const productsReloadRef = useRef(null), productsLoadedAt = useRef(0); // fetch the product list again (see the startup effect)
   const [tip, setTip] = useState(0);
   // Last product list seen (prices, units, stock), so the shop opens with them instead of the built-in ones
   const [dbProducts, setDbProducts] = useState(() => { const v = readJSON("gd360_products", null); return Array.isArray(v) ? v : []; });
@@ -1578,6 +1579,18 @@ export default function Gadag360() {
     setActiveOrders(v => v.filter(x => x.id !== orderId));
     setOrderHistory(h => h.filter(x => x.id !== orderId));
     setCart(cartBefore); setScreen("cart");
+    if (res && res.error === "unavailable") {
+      // Deleted in the admin panel while this app still showed it: drop it from the list (the cart follows) and fetch
+      // the list again
+      const goneIds = Array.isArray(res.items) ? res.items : [], goneDb = Array.isArray(res.db_ids) ? res.db_ids : [];
+      const names = cartItems.filter(i => goneIds.includes(i.id)).map(i => (lang === "kn" ? (KN_NAMES[i.name] || i.name_kn || i.name) : i.name));
+      setDbProducts(list => list.filter(d => !goneDb.includes(d.id)));
+      if (productsReloadRef.current) productsReloadRef.current();
+      alert(lang === "kn"
+        ? `ಕ್ಷಮಿಸಿ, ${names.length ? names.join(", ") : "ನಿಮ್ಮ ಕಾರ್ಟ್‌ನ ಒಂದು ವಸ್ತು"} ಈಗ ಲಭ್ಯವಿಲ್ಲ. ನಿಮ್ಮ ಕಾರ್ಟ್ ಅಪ್‌ಡೇಟ್ ಆಗಿದೆ: ಪರಿಶೀಲಿಸಿ ಮತ್ತೆ ಆರ್ಡರ್ ಮಾಡಿ. WhatsApp ತೆರೆದಿದ್ದರೆ ಆ ಸಂದೇಶವನ್ನು ಕಳುಹಿಸಬೇಡಿ.`
+        : `Sorry, ${names.length ? names.join(", ") : "an item in your cart"} ${names.length > 1 ? "are" : "is"} no longer available. We've updated your cart: please check it and place the order again. If WhatsApp opened, please don't send that message.`);
+      return;
+    }
     alert(res && res.error === "slow_down"
       ? (lang === "kn" ? "ಸ್ವಲ್ಪ ಸಮಯದಲ್ಲಿ ತುಂಬಾ ಆರ್ಡರ್‌ಗಳು. ಸ್ವಲ್ಪ ಹೊತ್ತು ಬಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ." : "That's a lot of orders in a short time. Please wait a little and try again.")
       : (lang === "kn" ? "ಕ್ಷಮಿಸಿ, ನಿಮ್ಮ ಆರ್ಡರ್ ತಲುಪಲಿಲ್ಲ. ಇಂಟರ್ನೆಟ್ ಪರಿಶೀಲಿಸಿ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ. WhatsApp ತೆರೆದಿದ್ದರೆ ಆ ಸಂದೇಶವನ್ನು ಕಳುಹಿಸಬೇಡಿ." : "Sorry, your order didn't go through. Please check your internet and try again. If WhatsApp opened, please don't send that message."));
@@ -1831,13 +1844,15 @@ const verifyOtp = async () => {
     };
     restoreSession();
 
-    // Load products from Supabase (overrides hardcoded prices)
+    // Load products from Supabase (overrides hardcoded prices). Deleted ones stay out: they wait in the admin
+    // panel's Deleted Products until brought back.
     const loadProductsFromDB = async (attempt = 1) => {
       try {
-        const { data, error } = await supabase.from("products").select("id, name, name_kn, cat, price, unit, in_stock, stock_qty, variants, img_url, created_at, market_price");
+        const { data, error } = await supabase.from("products").select("id, name, name_kn, cat, price, unit, in_stock, stock_qty, variants, img_url, created_at, market_price").is("deleted_at", null);
         if (error) throw error;
         if (data && data.length > 0) {
           setDbProducts(data);
+          productsLoadedAt.current = Date.now();
           Storage.set("gd360_products", JSON.stringify(data));
         } else if (attempt < 3) {
           // Retry up to 3 times if empty (mobile network delay)
@@ -1848,6 +1863,7 @@ const verifyOtp = async () => {
       }
     };
     loadProductsFromDB();
+    productsReloadRef.current = () => loadProductsFromDB(3); // one try, no retries
 
     // 2. Status bar — only on native Android
     const setupStatusBar = async () => {
@@ -1884,6 +1900,16 @@ const verifyOtp = async () => {
     };
     setupBackButton();
   }, []); // Run once on mount
+
+  // Back in the app after a while (phones keep it open in the background for days): fetch the products again, so
+  // ones deleted or brought back in the admin panel, and new prices, show without a full reload
+  useEffect(() => {
+    const onShow = () => {
+      if (document.visibilityState === "visible" && Date.now() - productsLoadedAt.current > 60000 && productsReloadRef.current) productsReloadRef.current();
+    };
+    document.addEventListener("visibilitychange", onShow);
+    return () => document.removeEventListener("visibilitychange", onShow);
+  }, []);
 
   // ── ORDER STATUS + RIDER GPS POLL ──
   // While an order is live: every 3s on the tracking screen, every 15s elsewhere (keeps the home banner current).
