@@ -6,7 +6,7 @@ import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
 import { Onboarding, WelcomeOffer, CoachTip, AreaNotice } from "./FirstOpen";
-import { AlertsCard, AlertsRow, alertsState, alertsText, refreshAlerts, registerAlertsWorker, turnOffAlerts, turnOnAlerts } from "./Alerts";
+import { AlertsCard, AlertsRow, AlertsSheet, alertsState, alertsText, refreshAlerts, registerAlertsWorker, turnOffAlerts, turnOnAlerts } from "./Alerts";
 
 // ── DETECT IF RUNNING IN CAPACITOR (native Android/iOS) ──
 const isNative = () => {
@@ -1347,10 +1347,11 @@ export default function Gadag360() {
   useEffect(() => { registerAlertsWorker(); alertsState().then(setAlerts); }, []);
   // keep the saved push address in step with the language and who is logged in
   useEffect(() => { refreshAlerts({ rpc, device: deviceId(), token: ctokenRef.current, lang }); }, [lang, isLoggedIn]);
-  // from the home card the result shows in the card; from the account page only problems pop up
-  const turnAlertsOn = async (from = "card") => {
+  // Turn alerts on (call straight from a tap). Returns what to tell the customer: {ok, text} or null.
+  // Asked from: the welcome flow, the home card, the account switch, and the sheet after the first order.
+  const turnAlertsOn = async () => {
     const t = alertsText(lang);
-    setAlertsBusy(true); setAlertsNote(null);
+    setAlertsBusy(true);
     let note = null;
     try {
       const s = await turnOnAlerts({ rpc, fnUrl: PUSH_FN, device: deviceId(), token: ctokenRef.current, lang });
@@ -1362,7 +1363,11 @@ export default function Gadag360() {
       alertsState().then(setAlerts);
     }
     setAlertsBusy(false);
-    if (from !== "card") { if (note && !note.ok) alert(note.text); return; }
+    return note;
+  };
+  const turnOnFromCard = async () => {
+    setAlertsNote(null);
+    const note = await turnAlertsOn();
     setAlertsNote(note);
     if (note && note.ok) setTimeout(() => setAlertsNote(null), 6000);
   };
@@ -1371,8 +1376,19 @@ export default function Gadag360() {
     if (alerts === "blocked") { alert(t.blocked); return; }
     if (alerts === "ios-install") { alert(`${t.iosText}\n\n${t.iosSteps.map((s, i) => `${i + 1}. ${s}`).join("\n")}`); return; }
     if (alerts === "on") { setAlertsBusy(true); setAlerts(await turnOffAlerts({ rpc, device: deviceId() })); setAlertsBusy(false); return; }
-    await turnAlertsOn("account");
+    const note = await turnAlertsOn();
+    if (note && !note.ok) alert(note.text); // in the account page only problems pop up
   };
+  // After the first order on this phone: a sheet asks once (whether or not the home card was closed)
+  const [alertsAsk, setAlertsAsk] = useState(false);
+  const [sheetNote, setSheetNote] = useState(null);
+  const askAlertsAfterFirstOrder = () => {
+    if (alerts !== "off" && alerts !== "ios-install") return;
+    try { if (localStorage.getItem("rh_alerts_after_order")) return; localStorage.setItem("rh_alerts_after_order", "1"); } catch (e) { return; }
+    setTimeout(() => { setSheetNote(null); setAlertsAsk(true); }, 2500);
+  };
+  const turnOnFromSheet = async () => { setSheetNote(await turnAlertsOn()); };
+  const closeAlertsSheet = () => { setAlertsAsk(false); setSheetNote(null); };
   const closeAlertsCard = () => {
     setAlertsCardClosed(true); setAlertsNote(null);
     try { localStorage.setItem("rh_alerts_card_closed", String(Date.now())); } catch (e) {}
@@ -1639,6 +1655,7 @@ export default function Gadag360() {
       try { res = await rpc("place_order", { p_token: ctokenRef.current, p_device: deviceId(), p_order: payload }); } catch (e) {}
     }
     if (res && res.ok) {
+      askAlertsAfterFirstOrder();
       return; // status now advances only when the rider updates it in delivery.html (see the poll below)
     }
     // Not saved: undo, so nobody waits for an order the shop never got
@@ -2491,7 +2508,7 @@ const verifyOtp = async () => {
         )}
 
         {showAlertsCard && (
-          <AlertsCard lang={lang} state={alerts} busy={alertsBusy} note={alertsNote} onTurnOn={() => turnAlertsOn("card")} onClose={closeAlertsCard}/>
+          <AlertsCard lang={lang} state={alerts} busy={alertsBusy} note={alertsNote} onTurnOn={turnOnFromCard} onClose={closeAlertsCard}/>
         )}
 
         {/* ── SHELVES: tap a pill to see just those products ── */}
@@ -3099,7 +3116,11 @@ const verifyOtp = async () => {
 
       {/* First open: welcome → sign-in → questions → brand promise; then the welcome offer and a tip */}
       {showOnboarding && (
-        <Onboarding lang={lang} setLang={setLang} onSignIn={signIn} onSavePrefs={savePrefs} onLocation={saveLocation} onDone={finishOnboarding}/>
+        <Onboarding lang={lang} setLang={setLang} onSignIn={signIn} onSavePrefs={savePrefs} onLocation={saveLocation} onDone={finishOnboarding}
+          alertsReady={alerts === "off"} onAlerts={turnAlertsOn} onAlertsLater={closeAlertsCard}/>
+      )}
+      {alertsAsk && !showOnboarding && (
+        <AlertsSheet lang={lang} state={alerts} busy={alertsBusy} note={sheetNote} onTurnOn={turnOnFromSheet} onClose={closeAlertsSheet}/>
       )}
       {showWelcomeOffer && !showOnboarding && <WelcomeOffer lang={lang} name={userProfile.name} onClose={closeWelcomeOffer}/>}
       {showTip && !showWelcomeOffer && screen === "home" && activeTab === "home" && <CoachTip lang={lang} onClose={closeTip}/>}

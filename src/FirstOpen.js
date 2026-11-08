@@ -5,7 +5,7 @@
 // offer sheet, a one-time tip on the category tab, and a notice when the customer
 // is outside the delivery area.
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Check, MapPin, Truck, X, Globe } from "lucide-react";
+import { ArrowLeft, Bell, Check, MapPin, Tag, Truck, X, Globe } from "lucide-react";
 
 const C = {
   basil: "#1A6B3C", basilDark: "#124D2A", haldi: "#F2B53A", gold: "#946500", ink: "#1E2B22",
@@ -48,6 +48,10 @@ const TXT = {
     b1t: "Delivery to your exact door", b1d: "Your location helps our rider reach you without phone calls.",
     b2t: "Know if we deliver to you", b2d: "We'll check that Royal Harvest serves your area.",
     allowLoc: "Allow location", finding: "Finding you…", notNow: "Not now",
+    alertTitle: "Hear it first when it's fresh",
+    a1t: "Fresh stock alerts", a1d: "We'll tell you the moment fresh fruits and vegetables arrive.",
+    a2t: "Price drops and offers", a2d: "Be the first to know when prices fall or there's an offer.",
+    allowAlerts: "Turn on alerts", turningOn: "Turning on…", alertsLater: "You can turn them off any time in your account.",
     step: (i, n) => `Question ${i} of ${n}`,
     q1: "Who do you shop for?", q1s: "So we can suggest the right quantities.",
     q2: "What do you eat?", q2s: "Choose all that apply.",
@@ -78,6 +82,10 @@ const TXT = {
     b1t: "ನಿಖರವಾಗಿ ನಿಮ್ಮ ಮನೆ ಬಾಗಿಲಿಗೆ", b1d: "ನಿಮ್ಮ ಸ್ಥಳದಿಂದ ನಮ್ಮ ರೈಡರ್ ಕರೆ ಮಾಡದೆ ನಿಮ್ಮನ್ನು ತಲುಪುತ್ತಾರೆ.",
     b2t: "ನಿಮ್ಮ ಪ್ರದೇಶಕ್ಕೆ ಡೆಲಿವರಿ ಇದೆಯೇ?", b2d: "ನಿಮ್ಮ ಪ್ರದೇಶಕ್ಕೆ ನಾವು ಡೆಲಿವರಿ ಮಾಡುತ್ತೇವೆಯೇ ಎಂದು ಪರಿಶೀಲಿಸುತ್ತೇವೆ.",
     allowLoc: "ಸ್ಥಳಕ್ಕೆ ಅನುಮತಿ ನೀಡಿ", finding: "ಹುಡುಕುತ್ತಿದ್ದೇವೆ…", notNow: "ಈಗ ಬೇಡ",
+    alertTitle: "ತಾಜಾ ಬಂದಾಗ ಮೊದಲು ತಿಳಿಯಿರಿ",
+    a1t: "ತಾಜಾ ಸ್ಟಾಕ್ ಅಲರ್ಟ್", a1d: "ತಾಜಾ ಹಣ್ಣು, ತರಕಾರಿ ಬಂದ ಕೂಡಲೇ ನಿಮಗೆ ತಿಳಿಸುತ್ತೇವೆ.",
+    a2t: "ಬೆಲೆ ಇಳಿಕೆ ಮತ್ತು ಆಫರ್", a2d: "ಬೆಲೆ ಇಳಿದಾಗ ಅಥವಾ ಆಫರ್ ಇದ್ದಾಗ ಮೊದಲು ತಿಳಿಯಿರಿ.",
+    allowAlerts: "ಅಲರ್ಟ್ ಆನ್ ಮಾಡಿ", turningOn: "ಆನ್ ಆಗುತ್ತಿದೆ…", alertsLater: "ಯಾವಾಗ ಬೇಕಾದರೂ ನಿಮ್ಮ ಖಾತೆಯಲ್ಲಿ ಆಫ್ ಮಾಡಬಹುದು.",
     step: (i, n) => `ಪ್ರಶ್ನೆ ${i} / ${n}`,
     q1: "ನೀವು ಯಾರಿಗಾಗಿ ಖರೀದಿಸುತ್ತೀರಿ?", q1s: "ಸರಿಯಾದ ಪ್ರಮಾಣ ಸೂಚಿಸಲು ಇದು ಸಹಾಯ ಮಾಡುತ್ತದೆ.",
     q2: "ನಿಮ್ಮ ಆಹಾರ ಪದ್ಧತಿ ಏನು?", q2s: "ಅನ್ವಯಿಸುವ ಎಲ್ಲವನ್ನೂ ಆರಿಸಿ.",
@@ -202,6 +210,32 @@ function LocationArt() {
   );
 }
 
+// A phone with a fresh-stock alert on it and a bell
+function AlertsArt() {
+  return (
+    <svg viewBox="0 0 240 180" width="240" height="180" role="img" aria-hidden="true" style={{ display: "block", margin: "8px auto 0" }}>
+      <circle cx="120" cy="92" r="84" fill="#E5F1E8"/>
+      <rect x="74" y="26" width="92" height="150" rx="18" fill="#fff" stroke="#CFE3D4" strokeWidth="2"/>
+      <rect x="104" y="34" width="32" height="6" rx="3" fill="#E4E8E0"/>
+      <g transform="translate(0 4)">
+        <rect x="82" y="50" width="76" height="34" rx="9" fill={C.mint} stroke="#CFE3D4"/>
+        <circle cx="95" cy="67" r="7" fill={C.basil}/>
+        <rect x="107" y="60" width="42" height="5" rx="2.5" fill={C.basil}/>
+        <rect x="107" y="70" width="30" height="4" rx="2" fill="#A9C4B0"/>
+        <rect x="82" y="90" width="76" height="30" rx="9" fill="#F5F7F2"/>
+        <circle cx="95" cy="105" r="6" fill="#D9DED3"/>
+        <rect x="107" y="99" width="36" height="5" rx="2.5" fill="#D9DED3"/>
+        <rect x="107" y="108" width="24" height="4" rx="2" fill="#E4E8E0"/>
+      </g>
+      <g transform="translate(164 40)">
+        <circle r="24" fill={C.haldi} stroke="#fff" strokeWidth="4"/>
+        <path d="M0 -12c-6.5 0-10.5 4.8-10.5 11v6l-3.5 4.5h28l-3.5-4.5v-6c0-6.2-4-11-10.5-11z" fill="#fff"/>
+        <circle cy="12.5" r="3.4" fill="#fff"/>
+      </g>
+    </svg>
+  );
+}
+
 function Collage() {
   return (
     <div aria-hidden="true" className="g-ob-collage" style={{ position: "relative", aspectRatio: "1.15", margin: "14px auto 6px" }}>
@@ -217,7 +251,7 @@ function Collage() {
   );
 }
 
-export function Onboarding({ lang, setLang, onSignIn, onSavePrefs, onLocation, onDone }) {
+export function Onboarding({ lang, setLang, onSignIn, onSavePrefs, onLocation, onDone, alertsReady, onAlerts, onAlertsLater }) {
   const t = TXT[lang] || TXT.en;
   const [step, setStep] = useState("welcome");
   const [phone, setPhone] = useState("");
@@ -244,19 +278,28 @@ export function Onboarding({ lang, setLang, onSignIn, onSavePrefs, onLocation, o
     setBusy(false);
     setStep("location");
   };
+  // after the location: ask about alerts too, when this phone can get them here (not on an iPhone in Safari)
+  const afterLocation = () => setStep(alertsReady && onAlerts ? "alerts" : "q1");
   const askLocation = () => {
-    if (!navigator.geolocation) { setStep("q1"); return; }
+    if (!navigator.geolocation) { afterLocation(); return; }
     setBusy(true);
     navigator.geolocation.getCurrentPosition(
       pos => {
         setBusy(false);
         onLocation({ lat: pos.coords.latitude, lon: pos.coords.longitude, accuracy: Math.round(pos.coords.accuracy), at: Date.now() });
-        setStep("q1");
+        afterLocation();
       },
-      () => { setBusy(false); setStep("q1"); },
+      () => { setBusy(false); afterLocation(); },
       { enableHighAccuracy: false, timeout: 12000, maximumAge: 300000 }
     );
   };
+  const askAlerts = async () => { // straight from the tap: phones only ask for permission right after one
+    setBusy(true);
+    try { await onAlerts(); } catch (e) {}
+    setBusy(false);
+    setStep("q1");
+  };
+  const alertsLater = () => { if (onAlertsLater) onAlertsLater(); setStep("q1"); }; // the home card won't ask again straight away
   const finishQuestions = () => {
     if (household || diet.length || values.length) onSavePrefs({ household, diet, values, at: new Date().toISOString() }, userIdRef.current);
     setStep("promise");
@@ -344,7 +387,7 @@ export function Onboarding({ lang, setLang, onSignIn, onSavePrefs, onLocation, o
   } else if (step === "location") {
     content = (
       <>
-        <TopBar t={t} onSkip={() => setStep("q1")} skipLabel={t.notNow}/>
+        <TopBar t={t} onSkip={afterLocation} skipLabel={t.notNow}/>
         <div className="g-in">
           <LocationArt/>
           <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1.2, color: C.gold, marginTop: 14 }}>{t.almost}</div>
@@ -354,8 +397,26 @@ export function Onboarding({ lang, setLang, onSignIn, onSavePrefs, onLocation, o
         </div>
         <div style={{ flex: 1, minHeight: 24 }}/>
         <PrimaryButton busy={busy} onClick={askLocation}>{busy ? t.finding : t.allowLoc}</PrimaryButton>
-        <button className="g-reset" onClick={() => setStep("q1")}
+        <button className="g-reset" onClick={afterLocation}
           style={{ width: "100%", padding: "14px 0 2px", fontSize: 15, fontWeight: 700, color: C.soil, textAlign: "center" }}>{t.notNow}</button>
+      </>
+    );
+  } else if (step === "alerts") {
+    content = (
+      <>
+        <TopBar t={t} onSkip={alertsLater} skipLabel={t.notNow}/>
+        <div className="g-in">
+          <AlertsArt/>
+          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1.2, color: C.gold, marginTop: 14 }}>{t.almost}</div>
+          <h1 style={{ ...h1, marginTop: 4 }}>{t.alertTitle}</h1>
+          <Benefit Icon={Bell} title={t.a1t} text={t.a1d}/>
+          <Benefit Icon={Tag} title={t.a2t} text={t.a2d}/>
+        </div>
+        <div style={{ flex: 1, minHeight: 24 }}/>
+        <PrimaryButton busy={busy} onClick={askAlerts}>{busy ? t.turningOn : t.allowAlerts}</PrimaryButton>
+        <button className="g-reset" onClick={alertsLater}
+          style={{ width: "100%", padding: "14px 0 2px", fontSize: 15, fontWeight: 700, color: C.soil, textAlign: "center" }}>{t.notNow}</button>
+        <div style={{ fontSize: 12.5, color: C.soil, textAlign: "center", marginTop: 8 }}>{t.alertsLater}</div>
       </>
     );
   } else if (step === "q1" || step === "q2" || step === "q3") {
