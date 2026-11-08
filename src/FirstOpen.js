@@ -450,14 +450,14 @@ const OFFER = {
     hi: name => (name ? `Welcome, ${name}!` : "Welcome to Royal Harvest!"),
     eyebrow: "YOU'RE ALL SET",
     sub: "Here's what you get on every order:",
-    rows: [["🚚", "Free delivery on orders above ₹250"], ["🏷️", "₹20 off when you shop for ₹299 or more"], ["💵", "Pay by cash or UPI when it arrives"]],
+    rows: [["🚚", "Free delivery on orders above ₹250"], ["🕒", "Pick a delivery time that suits you"], ["💵", "Pay by cash or UPI when it arrives"]],
     go: "Got it, let's shop", close: "Close",
   },
   kn: {
     hi: name => (name ? `ಸ್ವಾಗತ, ${name}!` : "ರಾಯಲ್ ಹಾರ್ವೆಸ್ಟ್‌ಗೆ ಸ್ವಾಗತ!"),
     eyebrow: "ಎಲ್ಲವೂ ಸಿದ್ಧ",
     sub: "ಪ್ರತಿ ಆರ್ಡರ್‌ನಲ್ಲೂ ನಿಮಗೆ ಸಿಗುವುದು:",
-    rows: [["🚚", "₹250 ಮೇಲಿನ ಆರ್ಡರ್‌ಗೆ ಉಚಿತ ಡೆಲಿವರಿ"], ["🏷️", "₹299 ಅಥವಾ ಹೆಚ್ಚಿನ ಖರೀದಿಗೆ ₹20 ರಿಯಾಯಿತಿ"], ["💵", "ಡೆಲಿವರಿ ವೇಳೆ ನಗದು ಅಥವಾ UPI ಮೂಲಕ ಪಾವತಿಸಿ"]],
+    rows: [["🚚", "₹250 ಮೇಲಿನ ಆರ್ಡರ್‌ಗೆ ಉಚಿತ ಡೆಲಿವರಿ"], ["🕒", "ನಿಮಗೆ ಅನುಕೂಲವಾದ ಡೆಲಿವರಿ ಸಮಯ ಆಯ್ಕೆಮಾಡಿ"], ["💵", "ಡೆಲಿವರಿ ವೇಳೆ ನಗದು ಅಥವಾ UPI ಮೂಲಕ ಪಾವತಿಸಿ"]],
     go: "ಸರಿ, ಶಾಪಿಂಗ್ ಮಾಡೋಣ", close: "ಮುಚ್ಚಿ",
   },
 };

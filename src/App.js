@@ -110,7 +110,7 @@ const newOrderId = () => {
   window.crypto.getRandomValues(b);
   return "RH" + Array.from(b, x => A[x % 32]).join("");
 };
-import { MapPin, Search, ShoppingCart, Plus, Minus, ArrowLeft, Check, Store, X, Globe, Bike, Star, Gift, Clock, Package, Copy, Tag, Zap, Users, ThumbsUp, History, Bell, ChevronRight, Award, Repeat, RotateCcw, User, Heart, CreditCard, HelpCircle, RefreshCcw, Home, LogOut, Phone, Mail, Edit3, Lightbulb, Info, Mic, ChevronDown, Menu, ShoppingBasket, Sparkles, Sunrise, Leaf, Truck, LocateFixed } from "lucide-react";
+import { MapPin, Search, ShoppingCart, Plus, Minus, ArrowLeft, Check, Store, X, Globe, Bike, Star, Gift, Clock, Package, Copy, Tag, Zap, Users, ThumbsUp, History, Bell, ChevronRight, Repeat, RotateCcw, User, Heart, CreditCard, HelpCircle, RefreshCcw, Home, LogOut, Phone, Mail, Edit3, Lightbulb, Info, Mic, ChevronDown, Menu, ShoppingBasket, Sparkles, Sunrise, Leaf, Truck, LocateFixed } from "lucide-react";
 
 // ── DESIGN TOKENS ──
 // Basil green: actions and selection. Haldi (turmeric): category pills and highlights. Sage: the shelf behind the cards.
@@ -1199,20 +1199,14 @@ export default function Gadag360() {
   const [lang, setLang] = useState(() => { try { return localStorage.getItem("gd360_lang") === "kn" ? "kn" : "en"; } catch (e) { return "en"; } });
 
   // ── ALL 16 FEATURES STATE ──
-  const [coins, setCoins] = useState(120);                 // F2 loyalty coins
   const [orderHistory, setOrderHistory] = useState([]);     // F3 order history
   const [deliverySlot, setDeliverySlot] = useState("");     // F5 slot booking
   const [userArea, setUserArea] = useState("Gadag");        // F12 hyperlocal
-  const [referralCopied, setReferralCopied] = useState(false); // F15 referral
   const [hoverRating, setHoverRating] = useState(0);
   const [lastRating, setLastRating] = useState(0);          // F16 rating
   const [showRating, setShowRating] = useState(false);
-  const [showBundles, setShowBundles] = useState(false);    // F7 bundles
-  const [showFestival, setShowFestival] = useState(false);  // F8 festival
   const [showHistory, setShowHistory] = useState(false);    // F3 history
-  const [showReferral, setShowReferral] = useState(false);  // F15 referral
   const [showAreaPicker, setShowAreaPicker] = useState(false); // F12 area
-  const [flashDismissed, setFlashDismissed] = useState(false); // F1 flash
   const [voiceActive, setVoiceActive] = useState(false);    // F13 voice search
   const [voiceError, setVoiceError] = useState("");
   const [bulkMode, setBulkMode] = useState(false);          // F14 bulk mode
@@ -1340,22 +1334,9 @@ export default function Gadag360() {
   }, [dbProducts]);
 
   // ── STATIC DATA ──
-  const BUNDLES = [
-    {id:"b1", icon:"🥬", name:"Weekly Sabzi Pack",   nameKn:"ವಾರದ ತರಕಾರಿ ಪ್ಯಾಕ್",  items:"Onion · Tomato · Potato · Coriander", price:89,  orig:105},
-    {id:"b2", icon:"🥗", name:"Salad Combo",         nameKn:"ಸಲಾಡ್ ಕಾಂಬೊ",          items:"Cucumber · Carrot · Tomato · Lemon",   price:69,  orig:82},
-    {id:"b3", icon:"🍳", name:"Breakfast Box",       nameKn:"ಬ್ರೇಕ್‌ಫಾಸ್ಟ್ ಬಾಕ್ಸ್",items:"Banana · Paneer · Butter · Tomato",    price:99,  orig:120},
-    {id:"b4", icon:"🫕", name:"Dal-Sabzi Kit",       nameKn:"ದಾಲ್-ತರಕಾರಿ ಕಿಟ್",     items:"Onion · Tomato · Garlic · Ginger",    price:79,  orig:95},
-  ];
-  const FESTIVAL_PACKS = [
-    {id:"f1", icon:"🪔", name:"Diwali Pooja Kit",    nameKn:"ದೀಪಾವಳಿ ಪೂಜಾ ಕಿಟ್",   items:"Marigold + Coconut + Banana + Rose",          price:149},
-    {id:"f2", icon:"🌺", name:"Ugadi Special",       nameKn:"ಉಗಾದಿ ಸ್ಪೆಷಲ್",         items:"Raw Mango + Neem + Coconut + Jaggery",        price:129},
-    {id:"f3", icon:"🐘", name:"Ganesh Chaturthi",    nameKn:"ಗಣೇಶ ಚತುರ್ಥಿ",           items:"Banana + Coconut + Marigold + Tulsi Garland", price:179},
-    {id:"f4", icon:"🎋", name:"Sankranti Kit",       nameKn:"ಸಂಕ್ರಾಂತಿ ಕಿಟ್",         items:"Sugarcane + Sesame + Coconut + Pongal",       price:199},
-  ];
   const SLOTS = ["Morning 7–10am","Afternoon 12–3pm","Evening 5–8pm"];
   const SLOTS_KN = ["ಬೆಳಿಗ್ಗೆ 7–10","ಮಧ್ಯಾಹ್ನ 12–3","ಸಂಜೆ 5–8"];
   const AREAS = ["Gadag","Betageri","Laxmeshwar","Shirahatti","Naragund","Ron","Mundaragi"];
-  const FLASH = {name:"Fresh Tomatoes", nameKn:"ತಾಜಾ ಟೊಮ್ಯಾಟೊ", discount:10, icon:"🍅", ends:"Tonight 10pm"};
 
   const T = {
     en: {
@@ -1463,11 +1444,8 @@ export default function Gadag360() {
     setCart(c => ({...c, [id]: (c[id]||0)+1}));
   };
   const removeFromCart = (id) => setCart(c => ({...c, [id]: Math.max(0,(c[id]||0)-1)}));
-  // ── DISCOUNT: ₹20 off if order ≥ ₹299 (F6) ──
-  const minOrderDiscount = subtotal >= 299 ? 20 : 0;
-  const finalTotal = total - minOrderDiscount + tip; // what the customer pays and the rider collects (tip included)
-  // Coins earned this order (F2), on the goods only, not the tip
-  const coinsEarned = Math.floor((total - minOrderDiscount) / 10);
+  // No discounts or coins: the customer pays the items, the delivery fee and any tip
+  const finalTotal = total + tip; // what the customer pays and the rider collects (tip included)
 
   // ── HOME: shelves, search results, category drawer ──
   const shelves = useMemo(() => {
@@ -1532,7 +1510,7 @@ export default function Gadag360() {
   };
 
   // Cancel for real: the database marks the order cancelled (the delivery app hides it), puts the items back
-  // in stock and takes back the coins. Only before the rider picks it up, and only from the phone that placed it.
+  // in stock. Only before the rider picks it up, and only from the phone that placed it.
   const cancelOrder = async () => {
     const o = activeOrders[0];
     setShowCancelConfirm(false);
@@ -1549,43 +1527,25 @@ export default function Gadag360() {
         : (lang === "kn" ? "ಈ ಆರ್ಡರ್ ಅನ್ನು ಆ್ಯಪ್‌ನಿಂದ ರದ್ದು ಮಾಡಲು ಆಗುವುದಿಲ್ಲ. ದಯವಿಟ್ಟು ನಮಗೆ WhatsApp ಮಾಡಿ." : "This order can't be cancelled from the app. Please WhatsApp us and we'll sort it out."));
       return;
     }
-    revokeCoins(o);
     setActiveOrders(v => v.filter(x => x.id !== o.id));
     setOrderHistory(h => h.map(x => (x.id === o.id ? { ...x, status: "cancelled" } : x)));
     setScreen("home");
     alert(lang === "kn" ? "ಆರ್ಡರ್ ರದ್ದು ಮಾಡಲಾಗಿದೆ" : "Order cancelled");
   };
 
-  // A cancelled order doesn't earn coins: take them back, once per order (the database does the same for the account)
-  const coinsRevokedRef = useRef(new Set());
-  const revokeCoins = (o) => {
-    if (!o || !o.coins || coinsRevokedRef.current.has(o.id)) return;
-    coinsRevokedRef.current.add(o.id);
-    setCoins(c => {
-      const n = Math.max(0, c - o.coins);
-      Storage.set("gd360_coins", String(n));
-      return n;
-    });
-  };
-
   const placeOrder = async () => {
     stopGpsWatch();
     const orderId = newOrderId();
     const cartBefore = cart;
-    const newOrder = {id:orderId, status:"placed", placedAt:Date.now(), items:cartItems, total:finalTotal, coins:coinsEarned, address, gps_lat: gpsCoords?.lat || null, gps_lon: gpsCoords?.lon || null, payment, slot:deliverySlot, date: new Date().toLocaleDateString("en-IN"), customer_phone: userProfile.phone, customer_name: userProfile.name};
+    const newOrder = {id:orderId, status:"placed", placedAt:Date.now(), items:cartItems, total:finalTotal, address, gps_lat: gpsCoords?.lat || null, gps_lon: gpsCoords?.lon || null, payment, slot:deliverySlot, date: new Date().toLocaleDateString("en-IN"), customer_phone: userProfile.phone, customer_name: userProfile.name};
     setActiveOrders(v => [newOrder, ...v]);
     sendOwnerNotification(newOrder); // keep before any await: phones only open WhatsApp straight from the tap
     setOrderHistory(h => [newOrder, ...h]);
-    setCoins(c => {
-      const newCoins = c + coinsEarned;
-      Storage.set("gd360_coins", String(newCoins));
-      return newCoins;
-    });
     setOrderStatusIdx(0); setRiderPos(null); setScreen("checkout"); setCart({});
     setShowRating(false); setLastRating(0); setDeliverySlot("");
     setTimeout(() => setNotifShown(true), 2000);
 
-    // ── SAVE: one secure call works out the bill, saves the order and its items, and updates stock and coins ──
+    // ── SAVE: one secure call works out the bill, saves the order and its items, and updates stock ──
     const payload = {
       id: orderId, address, payment, tip,
       gps_lat: gpsCoords ? gpsCoords.lat : null,
@@ -1612,13 +1572,11 @@ export default function Gadag360() {
       try { res = await rpc("place_order", { p_token: ctokenRef.current, p_device: deviceId(), p_order: payload }); } catch (e) {}
     }
     if (res && res.ok) {
-      if (typeof res.coins === "number") { setCoins(res.coins); Storage.set("gd360_coins", String(res.coins)); }
       return; // status now advances only when the rider updates it in delivery.html (see the poll below)
     }
     // Not saved: undo, so nobody waits for an order the shop never got
     setActiveOrders(v => v.filter(x => x.id !== orderId));
     setOrderHistory(h => h.filter(x => x.id !== orderId));
-    setCoins(c => { const n = Math.max(0, c - coinsEarned); Storage.set("gd360_coins", String(n)); return n; });
     setCart(cartBefore); setScreen("cart");
     alert(res && res.error === "slow_down"
       ? (lang === "kn" ? "ಸ್ವಲ್ಪ ಸಮಯದಲ್ಲಿ ತುಂಬಾ ಆರ್ಡರ್‌ಗಳು. ಸ್ವಲ್ಪ ಹೊತ್ತು ಬಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ." : "That's a lot of orders in a short time. Please wait a little and try again.")
@@ -1732,7 +1690,6 @@ const sendOtp = async () => {
 // Orders from the database, in the shape the screens use
 const mapOrders = (list) => (Array.isArray(list) ? list : []).map(o => ({
   id: o.id, total: o.total, address: o.address, payment: o.payment, slot: o.delivery_slot, status: o.status,
-  coins: o.coins_earned || 0,
   date: o.created_at ? new Date(o.created_at).toLocaleDateString("en-IN") : "",
   items: (o.items || []).map(i => ({ id: i.product_id, name: i.product_name, qty: i.quantity, price: i.price })),
 }));
@@ -1743,7 +1700,6 @@ const saveToken = (t) => {
 const loadMyOrders = async (token) => {
   try { const r = await rpc("customer_orders", { p_token: token }); if (r && r.ok) setOrderHistory(mapOrders(r.orders)); } catch (e) {}
 };
-const setServerCoins = (n) => { if (typeof n === "number") { setCoins(n); Storage.set("gd360_coins", String(n)); } };
 
 // Find or create the customer by phone, then keep them signed in on this phone. Returns the session token.
 // Until OTP, the database shows a phone the account's saved details only if this phone created the account
@@ -1756,7 +1712,6 @@ const signIn = async (phone, name, legacyId) => {
   } catch (e) {}
   if (s) {
     saveToken(s.token);
-    setServerCoins(s.coins);
     loadMyOrders(s.token);
   }
   // Always sign in on this phone, even if the network failed (the next app start tries again)
@@ -1808,7 +1763,6 @@ const verifyOtp = async () => {
         // Try Capacitor Preferences first
         let loggedIn = null;
         let profileStr = null;
-        let savedCoins = null;
         let savedUserId = null;
 
         if (isNative()) {
@@ -1818,10 +1772,8 @@ const verifyOtp = async () => {
             loggedIn = r1.value;
             if (loggedIn === "true") {
               const r2 = await Preferences.get({ key: "gd360_profile" });
-              const r3 = await Preferences.get({ key: "gd360_coins" });
               const r4 = await Preferences.get({ key: "gd360_userId" });
               profileStr = r2.value;
-              savedCoins = r3.value;
               savedUserId = r4.value;
             }
           } catch(e) {}
@@ -1831,7 +1783,6 @@ const verifyOtp = async () => {
         if (!loggedIn) {
           loggedIn = localStorage.getItem("gd360_loggedIn");
           profileStr = localStorage.getItem("gd360_profile");
-          savedCoins = localStorage.getItem("gd360_coins");
           savedUserId = localStorage.getItem("gd360_userId");
         }
         let savedToken = null;
@@ -1855,7 +1806,6 @@ const verifyOtp = async () => {
               setEditProfile(profile);
             } catch(e) {}
           }
-          if (savedCoins) setCoins(parseInt(savedCoins)||120);
           setIsLoggedIn(true);
           let token = savedToken;
           if (token) {
@@ -1863,14 +1813,13 @@ const verifyOtp = async () => {
             try {
               const me = await rpc("customer_session", { p_token: token });
               if (me && me.ok === false) token = null;           // ran out or signed out: get a new one below
-              else if (me && me.trusted) setServerCoins(me.coins);
             } catch (e) {}                                        // offline: keep the session we have
           }
           if (!token && profile && profile.phone) {
             // Signed in before sessions existed (the old account id proves it), or the session ran out
             try {
               const r = await rpc("customer_sign_in", { p_phone: profile.phone, p_name: profile.name || "", p_device: deviceId(), p_legacy_id: savedUserId || null });
-              if (r && r.ok) { token = r.token; saveToken(token); setServerCoins(r.coins); }
+              if (r && r.ok) { token = r.token; saveToken(token); }
             } catch (e) {}
           }
           if (token) {
@@ -1964,7 +1913,7 @@ const verifyOtp = async () => {
         setActiveOrders(v => (v.some(x => x.id === activeOrderId && x.status !== data.status)
           ? v.map(x => (x.id === activeOrderId ? { ...x, status: data.status } : x)) : v));
         if (data.status === "delivered") { deliveredRef.current = true; setShowRating(true); }
-        if (data.status === "cancelled") { deliveredRef.current = true; revokeCoins(activeOrders.find(x => x.id === activeOrderId)); }
+        if (data.status === "cancelled") { deliveredRef.current = true; }
       } catch(e) {}
     };
 
@@ -2068,7 +2017,6 @@ const verifyOtp = async () => {
               <div style={{backgroundColor:"white",margin:"8px 0",padding:"8px 16px"}}>
                 {[
                   {icon:<Heart size={16}/>,   label:lang==="kn"?"ವಿಶ್‌ಲಿಸ್ಟ್":"Wishlist",        id:"wishlist"},
-                  {icon:<Award size={16}/>,   label:lang==="kn"?"ರಿವಾರ್ಡ್ಸ್":"Rewards & Coins",  id:"rewards"},
                   {icon:<RefreshCcw size={16}/>,label:lang==="kn"?"ರಿಫಂಡ್":"Refunds",            id:"refunds"},
                   {icon:<Lightbulb size={16}/>,label:lang==="kn"?"ಸೂಚಿಸಿ":"Suggest Product",     id:"suggest"},
                   {icon:<Info size={16}/>,    label:lang==="kn"?"ಮಾಹಿತಿ":"General Info",         id:"info"},
@@ -2097,7 +2045,7 @@ const verifyOtp = async () => {
             {/* Login form */}
             <div style={{flex:1,padding:"28px 24px",backgroundColor:"white"}}>
               <div style={{fontSize:18,fontWeight:800,color:ink,marginBottom:6}}>{lang==="kn"?"ಲಾಗಿನ್ ಮಾಡಿ":"Login / Sign up"}</div>
-              <div style={{fontSize:13,color:soil,marginBottom:24}}>{lang==="kn"?"ಆರ್ಡರ್ ಟ್ರ್ಯಾಕ್ ಮಾಡಿ, ಕಾಯಿನ್ಸ್ ಗಳಿಸಿ":"Track orders, earn coins & save addresses"}</div>
+              <div style={{fontSize:13,color:soil,marginBottom:24}}>{lang==="kn"?"ಆರ್ಡರ್ ಟ್ರ್ಯಾಕ್ ಮಾಡಿ, ವಿಳಾಸ ಉಳಿಸಿ":"Track orders & save addresses"}</div>
               {loginStep==="phone" ? <>
                 <div style={{fontSize:12,fontWeight:600,color:soil,marginBottom:6}}>{lang==="kn"?"ಮೊಬೈಲ್ ನಂಬರ್":"Mobile Number"}</div>
                 <div style={{display:"flex",borderRadius:12,overflow:"hidden",border:`2px solid ${basil}`,marginBottom:16}}>
@@ -2128,7 +2076,6 @@ const verifyOtp = async () => {
               <div style={{marginTop:32,display:"flex",flexDirection:"column",gap:12}}>
                 {[
                   {icon:"📦",text:lang==="kn"?"ಹಿಂದಿನ ಆರ್ಡರ್ ಟ್ರ್ಯಾಕ್ ಮಾಡಿ":"Track your past orders"},
-                  {icon:"🪙",text:lang==="kn"?"ಪ್ರತಿ ಆರ್ಡರ್‌ನಲ್ಲಿ ಕಾಯಿನ್ಸ್ ಗಳಿಸಿ":"Earn coins on every order"},
                   {icon:"📍",text:lang==="kn"?"ವಿಳಾಸ ಉಳಿಸಿ":"Save delivery addresses"},
                 ].map((b,i)=>(
                   <div key={i} style={{display:"flex",alignItems:"center",gap:12}}>
@@ -2295,7 +2242,7 @@ const verifyOtp = async () => {
 
           {/* PAYMENT MANAGEMENT */}
           {profileSection==="payments" && <div className="space-y-3">
-            {[{icon:"📱",label:"UPI / GPay / PhonePe",sub:"Linked & active"},{icon:"💳",label:lang==="kn"?"ಕ್ರೆಡಿಟ್/ಡೆಬಿಟ್ ಕಾರ್ಡ್":"Credit / Debit Card",sub:lang==="kn"?"ಕಾರ್ಡ್ ಸೇರಿಸಿ":"Add a card"},{icon:"💵",label:"Cash on Delivery",sub:lang==="kn"?"ಡೆಲಿವರಿ ಸಮಯದಲ್ಲಿ ಪಾವತಿ":"Pay when order arrives"},{icon:"🪙",label:lang==="kn"?"ರಾಯಲ್ ಹಾರ್ವೆಸ್ಟ್ ಕಾಯಿನ್ಸ್":"Royal Harvest Coins",sub:`${coins} coins = ₹${Math.floor(coins/10)} off next order`}].map((m,i)=>(
+            {[{icon:"📱",label:"UPI / GPay / PhonePe",sub:"Linked & active"},{icon:"💳",label:lang==="kn"?"ಕ್ರೆಡಿಟ್/ಡೆಬಿಟ್ ಕಾರ್ಡ್":"Credit / Debit Card",sub:lang==="kn"?"ಕಾರ್ಡ್ ಸೇರಿಸಿ":"Add a card"},{icon:"💵",label:"Cash on Delivery",sub:lang==="kn"?"ಡೆಲಿವರಿ ಸಮಯದಲ್ಲಿ ಪಾವತಿ":"Pay when order arrives"}].map((m,i)=>(
               <div key={i} className="flex items-center gap-3 p-4 rounded-2xl" style={{backgroundColor:panel,border:`1px solid ${line}`}}>
                 <span className="text-2xl">{m.icon}</span>
                 <div><div className="font-semibold text-sm">{m.label}</div><div className="text-xs" style={{color:soil}}>{m.sub}</div></div>
@@ -2325,22 +2272,6 @@ const verifyOtp = async () => {
               </div>
             ))}
             <button onClick={()=>{const a=prompt("Enter new address:");if(a)setSavedAddresses(s=>[...s,a]);}} className="w-full py-3 rounded-2xl text-sm font-bold" style={{backgroundColor:basil,color:"white"}}>+ {lang==="kn"?"ಹೊಸ ವಿಳಾಸ ಸೇರಿಸಿ":"Add New Address"}</button>
-          </div>}
-
-          {/* REWARDS */}
-          {profileSection==="rewards" && <div>
-            <div className="rounded-2xl p-5 mb-4 text-center" style={{backgroundColor:"#FFF8E1",border:`2px solid ${mango}`}}>
-              <div className="text-5xl mb-2">🪙</div>
-              <div className="text-3xl font-bold" style={{color:"#8B5E00"}}>{coins}</div>
-              <div className="text-sm font-semibold" style={{color:soil}}>{lang==="kn"?"ಒಟ್ಟು ಕಾಯಿನ್ಸ್":"Total Coins"}</div>
-              <div className="mt-2 text-xs" style={{color:soil}}>{lang==="kn"?`= ₹${Math.floor(coins/10)} ರಿಡೀಮ್ ಮೌಲ್ಯ`:`= ₹${Math.floor(coins/10)} redeemable value`}</div>
-            </div>
-            {[{label:lang==="kn"?"ಹೇಗೆ ಗಳಿಸುವುದು":"How to earn",items:[lang==="kn"?"₹10 ಖರ್ಚಿಗೆ 1 ಕಾಯಿನ್":"1 coin per ₹10 spent",lang==="kn"?"ಸ್ನೇಹಿತರನ್ನು ರೆಫರ್ ಮಾಡಿ → 50 ಕಾಯಿನ್ಸ್":"Refer a friend → 50 coins",lang==="kn"?"ಮೊದಲ ಆರ್ಡರ್ → 30 ಕಾಯಿನ್ಸ್":"First order bonus → 30 coins"]},{label:lang==="kn"?"ಹೇಗೆ ರಿಡೀಮ್ ಮಾಡುವುದು":"How to redeem",items:[lang==="kn"?"10 ಕಾಯಿನ್ಸ್ = ₹1 ರಿಯಾಯಿತಿ":"10 coins = ₹1 discount",lang==="kn"?"ಚೆಕ್‌ಔಟ್‌ನಲ್ಲಿ ಸ್ವಯಂಚಾಲಿತವಾಗಿ ಅನ್ವಯ":"Applied automatically at checkout"]}].map((s,i)=>(
-              <div key={i} className="rounded-2xl p-4 mb-3" style={{backgroundColor:panel,border:`1px solid ${line}`}}>
-                <div className="font-semibold text-sm mb-2">{s.label}</div>
-                {s.items.map((it,j)=><div key={j} className="text-xs flex items-center gap-2 mb-1"><span style={{color:basil}}>✓</span>{it}</div>)}
-              </div>
-            ))}
           </div>}
 
           {/* REFUNDS */}
@@ -2460,7 +2391,6 @@ const verifyOtp = async () => {
               <MapPin size={12} style={{ color:soil }}/>{userArea}<ChevronDown size={13} style={{ color:soil }}/>
             </button>
           </div>
-          {coins > 0 && <span style={{ fontSize:12, fontWeight:700, color:"#7A5A12", whiteSpace:"nowrap" }}>🪙 {coins}</span>}
         </div>
 
         {outsideArea && !areaNoticeClosed && (
@@ -2541,7 +2471,7 @@ const verifyOtp = async () => {
 
         {liveOrder && <div aria-hidden="true" style={{ height: 76, background: sage }}/>}
 
-        {/* ── BOTTOM: live order (tap to track) + cart bar with how far to the ₹20 discount ── */}
+        {/* ── BOTTOM: live order (tap to track) + cart bar ── */}
         {(itemCount > 0 || liveOrder) && (
           <div style={{ position:"fixed", bottom:0, left:COL_LEFT, right:COL_LEFT, zIndex:35, padding:"0 10px calc(env(safe-area-inset-bottom, 0px) + 10px)", pointerEvents:"none" }}>
             {liveOrder && (() => {
@@ -2574,14 +2504,6 @@ const verifyOtp = async () => {
             })()}
             {itemCount > 0 && (
             <div style={{ pointerEvents:"auto", background:"#fff", borderRadius:18, overflow:"hidden", border:`1px solid ${line}`, boxShadow:"0 8px 28px rgba(30,43,34,0.2)" }}>
-              <div style={{ padding:"8px 14px 8px", fontSize:12, fontWeight:600, color: subtotal >= 299 ? basil : ink }}>
-                {subtotal >= 299
-                  ? (lang==="kn" ? "ಈ ಆರ್ಡರ್‌ನಲ್ಲಿ ₹20 ಉಳಿತಾಯ" : "You're saving ₹20 on this order")
-                  : (lang==="kn" ? `${rs(299 - subtotal)} ಹೆಚ್ಚು ಸೇರಿಸಿ, ₹20 ಉಳಿಸಿ` : `Add ${rs(299 - subtotal)} more to save ₹20`)}
-                <div style={{ height:4, borderRadius:2, background:"#E8ECE4", marginTop:6, overflow:"hidden" }}>
-                  <div style={{ width:`${Math.min(100, (subtotal / 299) * 100)}%`, height:"100%", background:basil, borderRadius:2, transition:"width .3s" }}/>
-                </div>
-              </div>
               <button className="g-reset" onClick={() => setScreen("cart")}
                 style={{ width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between", padding:"12px 16px", background:basil, color:"#fff" }}>
                 <span style={{ display:"flex", alignItems:"center", gap:10 }}>
@@ -2596,54 +2518,6 @@ const verifyOtp = async () => {
               </button>
             </div>
             )}
-          </div>
-        )}
-
-        {/* ── F7 BUNDLES MODAL ── */}
-        {showBundles && (
-          <div className="fixed inset-0 z-50 flex flex-col justify-end" style={{backgroundColor:"rgba(0,0,0,0.4)"}}>
-            <div className="rounded-t-3xl pb-8 px-4 pt-4" style={{backgroundColor: bg}}>
-              <div className="flex items-center justify-between mb-3">
-                <div className="font-bold text-base" style={{fontFamily: display}}>📦 {lang==="kn" ? "ಬಂಡಲ್ ಆಫರ್‌ಗಳು" : "Bundle Offers"}</div>
-                <button onClick={() => setShowBundles(false)}><X size={18} style={{color: soil}}/></button>
-              </div>
-              {BUNDLES.map(b => (
-                <div key={b.id} className="rounded-xl p-3 mb-2 flex items-center justify-between" style={{backgroundColor: panel, border:`1px solid ${line}`}}>
-                  <div>
-                    <div className="font-semibold text-sm">{b.icon} {lang==="kn" ? b.nameKn : b.name}</div>
-                    <div className="text-xs mt-0.5" style={{color: soil}}>{b.items}</div>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="font-bold text-sm" style={{color: basil}}>₹{b.price}</span>
-                      <span className="text-xs line-through" style={{color: soil}}>₹{b.orig}</span>
-                      <span className="text-xs font-bold px-1 rounded" style={{backgroundColor:"#E8F5E9", color: basil}}>Save ₹{b.orig-b.price}</span>
-                    </div>
-                  </div>
-                  <button className="text-xs font-bold px-3 py-2 rounded-xl" style={{backgroundColor: mango, color: basilDark}}>+ {lang==="kn" ? "ಸೇರಿಸಿ" : "Add"}</button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ── F8 FESTIVAL MODAL ── */}
-        {showFestival && (
-          <div className="fixed inset-0 z-50 flex flex-col justify-end" style={{backgroundColor:"rgba(0,0,0,0.4)"}}>
-            <div className="rounded-t-3xl pb-8 px-4 pt-4" style={{backgroundColor: bg}}>
-              <div className="flex items-center justify-between mb-3">
-                <div className="font-bold text-base" style={{fontFamily: display}}>🪔 {lang==="kn" ? "ಹಬ್ಬದ ಪ್ಯಾಕ್‌ಗಳು" : "Festival Packs"}</div>
-                <button onClick={() => setShowFestival(false)}><X size={18} style={{color: soil}}/></button>
-              </div>
-              {FESTIVAL_PACKS.map(f => (
-                <div key={f.id} className="rounded-xl p-3 mb-2 flex items-center justify-between" style={{backgroundColor: panel, border:`1px solid ${line}`}}>
-                  <div>
-                    <div className="font-semibold text-sm">{f.icon} {lang==="kn" ? f.nameKn : f.name}</div>
-                    <div className="text-xs mt-0.5" style={{color: soil}}>{f.items}</div>
-                    <span className="font-bold text-sm" style={{color: basil}}>₹{f.price}</span>
-                  </div>
-                  <button className="text-xs font-bold px-3 py-2 rounded-xl" style={{backgroundColor: mango, color: basilDark}}>+ {lang==="kn" ? "ಸೇರಿಸಿ" : "Add"}</button>
-                </div>
-              ))}
-            </div>
           </div>
         )}
 
@@ -2669,33 +2543,6 @@ const verifyOtp = async () => {
                     </div>
                   ))
               }
-            </div>
-          </div>
-        )}
-
-        {/* ── F15 REFERRAL MODAL ── */}
-        {showReferral && (
-          <div className="fixed inset-0 z-50 flex flex-col justify-end" style={{backgroundColor:"rgba(0,0,0,0.4)"}}>
-            <div className="rounded-t-3xl pb-8 px-4 pt-4" style={{backgroundColor: bg}}>
-              <div className="flex items-center justify-between mb-3">
-                <div className="font-bold text-base" style={{fontFamily: display}}>🔗 {lang==="kn" ? "ಸ್ನೇಹಿತರನ್ನು ಕರೆಯಿರಿ" : "Refer a Friend"}</div>
-                <button onClick={() => setShowReferral(false)}><X size={18} style={{color: soil}}/></button>
-              </div>
-              <div className="text-center py-4 rounded-2xl mb-3" style={{backgroundColor: panel}}>
-                <div className="text-4xl mb-2">🎁</div>
-                <div className="font-bold text-base">{lang==="kn" ? "ಇಬ್ಬರಿಗೂ ₹30 ರಿಯಾಯಿತಿ!" : "Both get ₹30 off!"}</div>
-                <div className="text-xs mt-1" style={{color: soil}}>{lang==="kn" ? "ನಿಮ್ಮ ಕೋಡ್ ಶೇರ್ ಮಾಡಿ" : "Share your referral code"}</div>
-                <div className="mt-3 mx-4 flex items-center rounded-xl overflow-hidden" style={{border:`2px solid ${mango}`}}>
-                  <div className="flex-1 py-2 text-center font-bold tracking-widest" style={{color: basil, fontSize:18}}>ROYAL30</div>
-                  <button onClick={() => { navigator.clipboard?.writeText("ROYAL30"); setReferralCopied(true); setTimeout(() => setReferralCopied(false), 2000); }}
-                    className="px-3 py-2 text-xs font-bold" style={{backgroundColor: mango, color: basilDark}}>
-                    {referralCopied ? "✓ Copied!" : <><Copy size={12}/></>}
-                  </button>
-                </div>
-              </div>
-              <button onClick={() => setShowReferral(false)} className="w-full py-3 rounded-2xl font-bold text-sm" style={{backgroundColor: basil, color:"white"}}>
-                📲 {lang==="kn" ? "WhatsApp ನಲ್ಲಿ ಶೇರ್ ಮಾಡಿ" : "Share on WhatsApp"}
-              </button>
             </div>
           </div>
         )}
@@ -2877,8 +2724,6 @@ const verifyOtp = async () => {
                     {label:lang==="kn"?"ಐಟಂ ಒಟ್ಟು":"Item total", val:`₹${subtotal}`},
                     {label:lang==="kn"?"ಡೆಲಿವರಿ ಶುಲ್ಕ":"Delivery fee", val:subtotal>=250?<span style={{color:basil}}>{lang==="kn"?"ಉಚಿತ":"FREE"}</span>:`₹${deliveryFee}`, hint:lang==="kn"?"₹250 ಮೇಲೆ ಉಚಿತ ಡೆಲಿವರಿ":"Free delivery above ₹250"},
                     {label:lang==="kn"?"ಟಿಪ್":"Tip", val:`₹${tip}`},
-                    minOrderDiscount>0&&{label:lang==="kn"?"ರಿಯಾಯಿತಿ":"Discount", val:`−₹${minOrderDiscount}`, green:true},
-                    {label:lang==="kn"?"ಕಾಯಿನ್ಸ್ ಗಳಿಕೆ":"Coins earned", val:`+${coinsEarned}🪙`, green:true},
                   ].filter(Boolean).map((row,i)=>(
                     <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
                       <div>
@@ -3052,16 +2897,6 @@ const verifyOtp = async () => {
               {detailRow(CreditCard, kn ? "ಪಾವತಿ" : "Payment", payLabel, null, true)}
             </div>
 
-            {/* Coins */}
-            {o.coins > 0 && !cancelled && (
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12, padding: "10px 14px", borderRadius: 14, background: "#FBF5E3" }}>
-                <span style={{ fontSize: 20 }}>🪙</span>
-                <span style={{ fontSize: 13, color: "#6B4E0E", fontWeight: 600 }}>
-                  {kn ? `ಈ ಆರ್ಡರ್‌ನಲ್ಲಿ ${o.coins} ಕಾಯಿನ್ಸ್ ಗಳಿಸಿದ್ದೀರಿ. ಒಟ್ಟು: ${coins}` : `You earned ${o.coins} coins on this order. Balance: ${coins}`}
-                </span>
-              </div>
-            )}
-
             {/* Actions */}
             <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
               <button className="g-reset g-tap" onClick={() => window.open(`https://wa.me/${SHOP_WHATSAPP}?text=${encodeURIComponent(kn
@@ -3145,16 +2980,7 @@ const verifyOtp = async () => {
             })}
           </div>
 
-          {/* Coins earned */}
-          <div className="mx-4 mt-4 px-4 py-3 rounded-xl flex items-center gap-3" style={{backgroundColor:"#FFF8E1", border:`1px solid ${mango}`}}>
-            <span className="text-2xl">🪙</span>
-            <div>
-              <div className="font-bold text-sm" style={{color:"#8B5E00"}}>+{coinsEarned} {lang==="kn" ? "ಕಾಯಿನ್ಸ್ ಗಳಿಸಿದ್ದೀರಿ!" : "Coins Earned!"}</div>
-              <div className="text-xs" style={{color: soil}}>{lang==="kn" ? `ಒಟ್ಟು: ${coins} ಕಾಯಿನ್ಸ್` : `Total balance: ${coins} coins`}</div>
-            </div>
-          </div>
-
-          <div className="mx-4 mt-3">
+          <div className="mx-4 mt-4">
             <button onClick={() => setScreen("home")} className="w-full py-3 rounded-2xl font-bold text-sm" style={{backgroundColor: mango, color: basilDark}}>{t.continueShopping}</button>
           </div>
         </div>
