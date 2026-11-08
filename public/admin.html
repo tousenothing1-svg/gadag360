@@ -399,9 +399,10 @@ input.qty-in,input.mkt-in{width:72px;padding:4px 6px;border:1.5px solid #ddd;bor
           <button class="btn btn-green" onclick="showAddDeliveryBoy()">+ Add Delivery Boy</button>
         </div>
         <div class="card"><div class="table-wrap"><table>
-          <thead><tr><th>ID</th><th>Name</th><th>Phone</th><th>Status</th><th>Orders Today</th><th>Action</th></tr></thead>
-          <tbody id="deliveryBody"><tr><td colspan="6" style="text-align:center;padding:20px"><span class="spinner"></span>Loading...</td></tr></tbody>
+          <thead><tr><th>ID</th><th>Name</th><th>Phone</th><th>Status</th><th>Order alerts</th><th>Orders Today</th><th>Action</th></tr></thead>
+          <tbody id="deliveryBody"><tr><td colspan="7" style="text-align:center;padding:20px"><span class="spinner"></span>Loading...</td></tr></tbody>
         </table></div></div>
+        <div class="hint" style="margin-top:-8px">🔔 Order alerts: each delivery boy opens the delivery app on their phone, logs in and taps <b>Turn on</b> next to "Turn on order alerts". From then on they get a notification as soon as you assign them an order, and if the customer cancels it.</div>
 
         <div style="font-size:18px;font-weight:800;margin:24px 0 14px">📦 Assign Delivery Boy to Orders</div>
         <div class="search-bar">
@@ -1588,12 +1589,26 @@ async function delCustomer(id){
 // ── DELIVERY BOYS ────────────────────────────────────────────
 let allDeliveryBoys = [];
 
-async function loadDeliveryBoys(){
-  document.getElementById("deliveryBody").innerHTML="<tr><td colspan='6' style='text-align:center;padding:20px'><span class='spinner'></span>Loading...</td></tr>";
+// Which delivery boys have order alerts on (they turn them on in the delivery app; supabase/9_rider_alerts.sql)
+let riderAlertsOn = {};
+async function loadRiderAlerts(){
   try {
-    allDeliveryBoys = await db("delivery_boys", {filter:"select=id,name,phone,active,created_at&order=created_at.desc"});
+    const res = await fetch(`${URL}/rpc/rider_alert_phones`, {method:"POST", headers:H, body:"{}"});
+    const r = res.ok ? await res.json() : null;
+    riderAlertsOn = r && r.ok ? (r.riders || {}) : {};
+  } catch(e) { riderAlertsOn = {}; }
+  return riderAlertsOn;
+}
+const alertsBadge = id => riderAlertsOn[id]
+  ? "<span class='badge badge-green' title='Gets a notification when you assign an order'>🔔 On</span>"
+  : "<span class='badge badge-red' title='Ask them to tap Turn on order alerts in the delivery app'>🔕 Off</span>";
+
+async function loadDeliveryBoys(){
+  document.getElementById("deliveryBody").innerHTML="<tr><td colspan='7' style='text-align:center;padding:20px'><span class='spinner'></span>Loading...</td></tr>";
+  try {
+    [allDeliveryBoys] = await Promise.all([db("delivery_boys", {filter:"select=id,name,phone,active,created_at&order=created_at.desc"}), loadRiderAlerts()]);
     if(!allDeliveryBoys || allDeliveryBoys.length===0){
-      document.getElementById("deliveryBody").innerHTML="<tr><td colspan='6' style='text-align:center;color:#aaa;padding:20px'>No delivery boys added yet</td></tr>";
+      document.getElementById("deliveryBody").innerHTML="<tr><td colspan='7' style='text-align:center;color:#aaa;padding:20px'>No delivery boys added yet</td></tr>";
       return;
     }
     // get today's order counts
@@ -1606,14 +1621,15 @@ async function loadDeliveryBoys(){
         <td>${esc(b.name)}</td>
         <td>${esc(b.phone||"—")}</td>
         <td><span class="badge ${b.active?"badge-green":"badge-red"}">${b.active?"Active":"Inactive"}</span></td>
+        <td>${alertsBadge(b.id)}</td>
         <td>${cnt} delivered</td>
-        <td style="display:flex;gap:4px">
+        <td><div style="display:flex;gap:4px">
           <button class="btn btn-gray btn-sm" data-id="${esc(b.id)}" onclick="editDeliveryBoy(this.dataset.id)">Edit</button>
           <button class="btn btn-sm ${b.active?"btn-red":"btn-green"}" data-id="${esc(b.id)}" data-on="${b.active?1:0}" onclick="toggleDeliveryBoy(this.dataset.id,this.dataset.on==='1')">${b.active?"Deactivate":"Activate"}</button>
-        </td>
+        </div></td>
       </tr>`;
     }).join("");
-  } catch(e){ document.getElementById("deliveryBody").innerHTML=errRow(6,e); }
+  } catch(e){ document.getElementById("deliveryBody").innerHTML=errRow(7,e); }
 }
 
 function showAddDeliveryBoy(){
@@ -1705,7 +1721,7 @@ function openAssignModal(orderId){
   document.getElementById("assignOrderId").textContent = "#"+orderId;
   const boys = allDeliveryBoys.filter(b=>b.active);
   if(boys.length===0){ toast("No active delivery boys. Add one first.","#E53935"); return; }
-  document.getElementById("assignSelect").innerHTML = boys.map(b=>`<option value="${esc(b.id)}" data-name="${esc(b.name)}">${esc(b.name)} (${esc(b.id)})</option>`).join("");
+  document.getElementById("assignSelect").innerHTML = boys.map(b=>`<option value="${esc(b.id)}" data-name="${esc(b.name)}">${esc(b.name)} (${esc(b.id)}) ${riderAlertsOn[b.id] ? "· 🔔 alerts on" : "· 🔕 alerts off"}</option>`).join("");
   document.getElementById("assignModal").classList.add("open");
 }
 
@@ -1718,7 +1734,9 @@ async function confirmAssign(){
   const boyName = sel.options[sel.selectedIndex].dataset.name;
   try {
     await send("PATCH", `orders?id=eq.${q(assigningOrderId)}&select=id`, {delivery_boy_id:boyId, delivery_boy_name:boyName, status:"confirmed"});
-    toast(`✅ Assigned to ${boyName}!`);
+    // the database sends the rider's alert by itself (supabase/9_rider_alerts.sql)
+    if (riderAlertsOn[boyId]) toast(`✅ Assigned to ${boyName}. 🔔 A notification is on its way to their phone.`);
+    else toast(`✅ Assigned to ${boyName}. Their order alerts are off, so call them to tell them.`, "#E65100");
     closeAssignModal(); loadUnassignedOrders();
   } catch(e){ toast("Error: "+e.message,"#E53935"); }
 }

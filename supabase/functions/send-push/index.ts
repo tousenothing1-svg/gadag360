@@ -5,6 +5,8 @@
 //   POST {action:"next", id, after}     -> keep calling while "done" is false; each call sends one batch
 //   Header x-staff-token: the admin's login. Anyone else gets 401.
 //   GET                                 -> {publicKey}: the app's public push key (made on first use)
+//   POST {action:"rider", order_id}     -> order alerts for delivery boys, called by the database when an order is
+//                                          assigned or cancelled; sends only what rider_alert_claim says is due (once)
 //
 // The VAPID key pair is made here once with Web Crypto and kept in the database (private half in Vault), so it never
 // leaves Supabase. Push addresses live in push_subscriptions; each send is kept in push_messages with its counts.
@@ -76,6 +78,37 @@ async function keys() {
   return { signer, publicKey };
 }
 
+// Delivery boys: "New delivery for you" when an order is assigned to them, "Order cancelled" if it's called off.
+// No login needed: the database decides what is due and hands it out only once, so calling again sends nothing.
+const NO_ADDRESS = /^GPS (location pinned|ಸ್ಥಳ ಪಿನ್)/;
+async function riderAlert(a) {
+  const orderId = String(a.order_id ?? "");
+  if (!/^RH[A-Z0-9]{8}$/.test(orderId)) return { ok: false, error: "order" };
+  const { rows: due } = await db("rpc/rider_alert_claim", { method: "POST", body: { p_order: orderId } });
+  if (!due || !due.ok || !due.kind) return { ok: true, sent: 0 };
+  const o = due.order || {}, phones = due.phones || [];
+  if (!phones.length) return { ok: true, kind: due.kind, sent: 0 };
+  const items = Number(o.items) || 0;
+  const pay = o.payment === "cod" ? "cash" : "paid";
+  const where = o.address && !NO_ADDRESS.test(o.address) ? `\n📍 ${oneLine(o.address, 120)}` : "";
+  const payload = JSON.stringify(due.kind === "assigned"
+    ? { title: "📦 New delivery for you",
+        body: `#${o.id} · ${items} item${items === 1 ? "" : "s"} · ₹${o.total} ${pay}${o.slot && o.slot !== "Standard" ? ` · ${oneLine(o.slot, 30)}` : ""}${where}`,
+        tag: `rh-order-${o.id}` }
+    : { title: "❌ Order cancelled", body: `#${o.id} was cancelled by the customer. Don't deliver it.`, tag: `rh-order-${o.id}` });
+  const { signer: sign } = await keys();
+  let sent = 0;
+  const gone = [];
+  await eachLimited(phones, PARALLEL, async s => {
+    const r = await sendPush(s, payload, sign, { urgency: "high", ttl: 4 * 3600 });
+    if (r.ok) sent++;
+    else if (r.gone) gone.push(s.id);
+  });
+  if (gone.length) await db(`rider_push?id=in.(${gone.join(",")})`, { method: "DELETE" });
+  await db(`rider_alerts?order_id=eq.${o.id}&rider_id=eq.${encodeURIComponent(due.rider_id)}&kind=eq.${due.kind}`, { method: "PATCH", body: { phones: sent } });
+  return { ok: true, kind: due.kind, sent };
+}
+
 async function start(a, me) {
   const m = {
     kind: ["fresh", "price", "offer", "other"].includes(a.kind) ? a.kind : "other",
@@ -140,11 +173,12 @@ Deno.serve(async req => {
   try {
     if (!SB_URL || !SERVICE) return reply(500, { ok: false, error: "not_set_up" });
     if (req.method === "GET") return reply(200, { ok: true, publicKey: (await keys()).publicKey });
+    const a = (await req.json().catch(() => null)) || {};
+    if (a.action === "rider") return reply(200, await riderAlert(a));
     const token = req.headers.get("x-staff-token") || "";
     if (!token) return reply(401, { ok: false, error: "login" });
     const { rows: me } = await db("rpc/staff_me", { method: "POST", body: { p_token: token } });
     if (!me || !me.ok || me.kind !== "admin") return reply(401, { ok: false, error: "login" });
-    const a = await req.json().catch(() => ({}));
     if (a.action === "start") return reply(200, await start(a, me));
     if (a.action === "next") return reply(200, await next(a));
     return reply(400, { ok: false, error: "action" });

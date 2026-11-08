@@ -174,6 +174,16 @@
     .live-strip { display: none; background: #e8f5ee; color: #1a7c4a; font-size: 12.5px; font-weight: 600;
       padding: 8px 14px; text-align: center; border-bottom: 1px solid #cfe9da; }
     .live-strip.show { display: block; }
+    /* ── ORDER ALERTS ── */
+    .alert-strip { display: none; align-items: center; gap: 10px; background: #fff8e6; color: #5a4300; font-size: 13px;
+      padding: 10px 14px; border-bottom: 1px solid #f2dca0; line-height: 1.4; }
+    .alert-strip.show { display: flex; }
+    .alert-strip.on { background: #e8f5ee; color: #1a7c4a; border-bottom-color: #cfe9da; font-weight: 600; font-size: 12.5px;
+      padding: 7px 14px; justify-content: center; text-align: center; }
+    .alert-strip .txt { flex: 1; }
+    .alert-strip button { background: #1a7c4a; color: #fff; border: 0; border-radius: 9px; padding: 10px 14px; font-size: 13px;
+      font-weight: 700; cursor: pointer; white-space: nowrap; }
+    .alert-strip button:disabled { opacity: .7; cursor: default; }
   </style>
 </head>
 <body>
@@ -209,6 +219,10 @@
     <button class="logout-btn" onclick="doLogout()">Logout</button>
   </div>
   <div class="live-strip" id="liveStrip" role="status">📍 Sharing your live location with the customer. Keep this app open on your screen.</div>
+  <div class="alert-strip" id="alertStrip" role="region" aria-label="Order alerts">
+    <div class="txt" id="alertTxt"></div>
+    <button id="alertBtn" onclick="turnOnOrderAlerts()">Turn on</button>
+  </div>
 
   <div class="tabs">
     <div class="tab active" id="tab-active" onclick="switchTab('active')">
@@ -303,7 +317,8 @@ async function doLogin() {
 
 function doLogout(msg) {
   const t = currentDeliveryBoy && currentDeliveryBoy.token;
-  if (t && typeof msg !== "string") rpc("staff_logout", { p_token: t }).catch(() => {});
+  // logging out: this phone stops getting that rider's order alerts, then the login ends
+  if (t && typeof msg !== "string") stopOrderAlerts(t).finally(() => rpc("staff_logout", { p_token: t }).catch(() => {}));
   try { localStorage.removeItem("rh_rider"); } catch (e) {}
   currentDeliveryBoy = null;
   stopRiderTracking();
@@ -318,6 +333,8 @@ function showPanel() {
   document.getElementById("mainPanel").style.display = "block";
   document.getElementById("headerName").textContent = "🛵 " + currentDeliveryBoy.name;
   loadOrders();
+  showAlertStrip();
+  refreshOrderAlerts();
   // Auto-refresh every 60 seconds
   clearInterval(refreshTimer);
   refreshTimer = setInterval(loadOrders, 60000);
@@ -536,6 +553,91 @@ window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); instal
 window.addEventListener("appinstalled", () => hideInstall(true));
 if (isIOS && !isStandalone()) showInstall(true); // iPhone has no install button: show how
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("/delivery-sw.js", { scope: "/delivery" }).catch(() => {});
+
+// ── ORDER ALERTS ──
+// A notification the moment an order is assigned to this rider (or cancelled), even with the app closed.
+// The database sends it (see supabase/9_rider_alerts.sql); delivery-sw.js shows it. iPhone: Home Screen app only.
+const PUSH_FN = SUPABASE_URL + "/functions/v1/send-push";
+const keyBytes = b64 => { const s = String(b64).replace(/-/g, "+").replace(/_/g, "/"); const bin = atob(s + "===".slice((s.length + 3) % 4)); return Uint8Array.from(bin, ch => ch.charCodeAt(0)); };
+const sameKey = (buf, bytes) => { if (!buf) return false; const a = new Uint8Array(buf); return a.length === bytes.length && a.every((x, i) => x === bytes[i]); };
+
+function alertsSupport() {
+  if (isIOS) {
+    const m = /OS (\d+)_(\d+)/.exec(navigator.userAgent);
+    if (m && (+m[1] < 16 || (+m[1] === 16 && +m[2] < 4))) return "no";
+    if (!isStandalone()) return "ios-install";
+  }
+  return window.isSecureContext && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window ? "yes" : "no";
+}
+async function currentRiderSub() {
+  const reg = await navigator.serviceWorker.getRegistration("/delivery");
+  return reg ? reg.pushManager.getSubscription() : null;
+}
+async function alertState() { // on | off | blocked | ios-install | no
+  const s = alertsSupport();
+  if (s !== "yes") return s;
+  let p = "default";
+  try { p = Notification.permission; } catch (e) {}
+  if (p === "denied") return "blocked";
+  if (p !== "granted") return "off";
+  try { return (await currentRiderSub()) ? "on" : "off"; } catch (e) { return "off"; }
+}
+async function showAlertStrip() {
+  const st = await alertState();
+  const strip = document.getElementById("alertStrip");
+  strip.className = "alert-strip" + (st === "no" ? "" : " show") + (st === "on" ? " on" : "");
+  document.getElementById("alertBtn").style.display = st === "off" ? "" : "none";
+  document.getElementById("alertTxt").innerHTML = {
+    off: "<b>🔔 Turn on order alerts</b><br>Get a notification the moment an order is assigned to you.",
+    on: "🔔 Order alerts are on. You'll get a notification for every new order.",
+    blocked: "<b>🔕 Order alerts are blocked</b><br>Allow notifications for this app in your phone settings to get new orders.",
+    "ios-install": "<b>🔔 Order alerts on iPhone</b><br>Add this app to your Home Screen first (Share ⬆️ → Add to Home Screen), then open it from there.",
+  }[st] || "";
+  return st;
+}
+async function turnOnOrderAlerts() {
+  const btn = document.getElementById("alertBtn");
+  btn.disabled = true; btn.textContent = "Turning on…";
+  try {
+    const p = await Notification.requestPermission(); // straight from the tap: phones only ask right after one
+    if (p === "granted") {
+      await navigator.serviceWorker.register("/delivery-sw.js", { scope: "/delivery" });
+      const reg = await navigator.serviceWorker.ready;
+      let key = await rpc("push_public_key", {}).catch(() => null);
+      if (!key) key = (await fetch(PUSH_FN).then(r => r.json()).catch(() => ({}))).publicKey;
+      if (!key) throw new Error("no key");
+      const bytes = keyBytes(key);
+      let sub = await reg.pushManager.getSubscription();
+      if (sub && !sameKey(sub.options && sub.options.applicationServerKey, bytes)) { await sub.unsubscribe().catch(() => {}); sub = null; }
+      if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: bytes });
+      const r = await call("rider_push_subscribe", { p_sub: sub.toJSON() });
+      if (!r || !r.ok) throw new Error((r && r.error) || "not saved");
+    }
+  } catch (e) {
+    if (e.message !== "session") alert("Couldn't turn on order alerts. Check your internet and try again.");
+  }
+  btn.disabled = false; btn.textContent = "Turn on";
+  showAlertStrip();
+}
+// already on: keep this phone linked to whoever is logged in
+async function refreshOrderAlerts() {
+  try {
+    if (alertsSupport() !== "yes" || Notification.permission !== "granted") return;
+    const sub = await currentRiderSub();
+    if (sub) await call("rider_push_subscribe", { p_sub: sub.toJSON() });
+  } catch (e) {}
+}
+async function stopOrderAlerts(token) {
+  try {
+    const sub = await currentRiderSub();
+    if (!sub) return;
+    const endpoint = sub.endpoint;
+    await sub.unsubscribe().catch(() => {});
+    await rpc("rider_push_unsubscribe", { p_token: token, p_endpoint: endpoint }).catch(() => {});
+  } catch (e) {}
+}
+// an alert arrived or was tapped: show the latest orders now
+if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", e => { if (e.data && e.data.type === "rh-refresh") loadOrders(); });
 
 // ── RESTORE SESSION ──
 window.onload = async () => {
