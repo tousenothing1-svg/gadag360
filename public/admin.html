@@ -108,6 +108,27 @@ td.num,th.num{text-align:right;white-space:nowrap}
 .pb-row.pb-total.loss b{color:var(--red)}
 .pf-sub{display:block;font-size:11px;color:#888;font-weight:500;margin-top:2px;white-space:nowrap}
 .card-note{font-size:12px;color:#777;margin:-6px 0 10px;line-height:1.45}
+/* by order: each row opens the order's breakdown */
+.pf-when{display:block;font-size:11px;color:#888;font-weight:500;margin-top:2px;white-space:nowrap}
+tr.row-link{cursor:pointer}
+tr.row-link:hover td,tr.row-link:focus-visible td{background:#f6fbf7}
+tr.row-link:focus-visible{outline:2px solid var(--green);outline-offset:-2px}
+.op-meta{font-size:12.5px;color:#777;margin-bottom:4px}
+.op-who{font-size:14px;font-weight:700;color:#222;margin-bottom:12px;overflow-wrap:anywhere}
+.op-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:14px}
+.op-stats>div{background:#f6f7f5;border-radius:10px;padding:9px 10px;min-width:0}
+.op-stats span{display:block;font-size:10.5px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.03em}
+.op-stats b{display:block;font-size:18px;color:#222;margin-top:2px;white-space:nowrap}
+.op-stats small{display:block;font-size:11px;color:#9a6200;font-weight:600;margin-top:2px}
+.op-stats .ok b{color:var(--green)}
+.op-stats .bad b{color:var(--red)}
+.op-lines{border-top:1px solid #eee}
+.op-line{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;padding:9px 0;border-bottom:1px solid #f0f0f0;font-size:13.5px}
+.op-name{color:#333;overflow-wrap:anywhere}
+.op-amt{font-weight:700;color:#222;text-align:right;white-space:nowrap}
+.op-sub{grid-column:1/-1;font-size:12px;color:#666}
+.op-sub .loss{color:var(--red);font-weight:700}
+.op-sub .nocost{color:#9a6200;font-weight:600}
 .more-row{margin-top:10px;text-align:center}
 .more-row:empty{display:none}
 /* unit and the sizes customers can pick */
@@ -239,6 +260,14 @@ td.num,th.num{text-align:right;white-space:nowrap}
   #pfProductsBody td:nth-child(3){grid-area:sales}
   #pfProductsBody td:nth-child(4){grid-area:cost}
   #pfProductsBody td:nth-child(5){grid-area:profit}
+  #pfOrdersBody tr{grid-template-areas:"order order" "cust paid" "cost profit"}
+  #pfOrdersBody td:nth-child(1){grid-area:order;justify-content:flex-start;text-align:left;font-size:14px}
+  #pfOrdersBody td:nth-child(2){grid-area:cust}
+  #pfOrdersBody td:nth-child(3){grid-area:paid}
+  #pfOrdersBody td:nth-child(4){grid-area:cost}
+  #pfOrdersBody td:nth-child(5){grid-area:profit}
+  #pfOrdersBody td:nth-child(1)::before{content:none}
+  #pfOrdersBody .pf-when{margin:0 0 0 8px;align-self:center}
   #pfDaysBody tr{grid-template-areas:"day orders" "sales profit"}
   #pfDaysBody td:nth-child(1){grid-area:day;justify-content:flex-start;font-weight:700}
   #pfDaysBody td:nth-child(2){grid-area:orders}
@@ -348,8 +377,15 @@ td.num,th.num{text-align:right;white-space:nowrap}
           <div class="pc" id="pcMonth"><div class="pc-when">This month</div><div class="pc-value none">…</div></div>
         </div>
         <div class="card">
+          <div class="card-title" id="pfOrdersTitle">By order</div>
+          <div class="card-note" id="pfOrdersNote">Tap an order to see each item, what it cost you and your profit on it.</div>
+          <div class="table-wrap"><table><thead><tr><th>Order</th><th>Customer</th><th class="num">Customer paid</th><th class="num">Your cost</th><th class="num">Profit</th></tr></thead>
+          <tbody id="pfOrdersBody"><tr><td colspan="5" style="text-align:center;padding:20px"><span class="spinner"></span>Loading...</td></tr></tbody></table></div>
+          <div class="more-row" id="pfOrdersMore"></div>
+        </div>
+        <div class="card">
           <div class="card-title" id="pfProductsTitle">By product</div>
-          <div class="card-note">Profit on the products alone. Delivery charges are added in the totals above.</div>
+          <div class="card-note" id="pfProductsNote">Profit on the products alone. Delivery charges are added in the totals above.</div>
           <div class="table-wrap"><table><thead><tr><th>Product</th><th class="num">Sold</th><th class="num">Sales</th><th class="num">Your cost</th><th class="num">Profit</th></tr></thead>
           <tbody id="pfProductsBody"><tr><td colspan="5" style="text-align:center;padding:20px"><span class="spinner"></span>Loading...</td></tr></tbody></table></div>
           <div class="more-row" id="pfMore"></div>
@@ -583,6 +619,17 @@ td.num,th.num{text-align:right;white-space:nowrap}
       <button class="btn btn-gray" onclick="closeSupplierModal()">Cancel</button>
       <button class="btn btn-green" onclick="saveSupplier()">Save</button>
     </div>
+  </div>
+</div>
+
+<!-- One order's profit (Profit page → By order) -->
+<div class="modal-overlay" id="orderProfitModal" onclick="if(event.target===this)closeOrderProfit()">
+  <div class="modal" style="max-width:560px" role="dialog" aria-modal="true" aria-labelledby="opTitle">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px">
+      <div style="font-size:17px;font-weight:800;overflow-wrap:anywhere" id="opTitle">Order</div>
+      <button class="btn btn-gray btn-sm" type="button" id="opClose" onclick="closeOrderProfit()">✕ Close</button>
+    </div>
+    <div id="opBody"></div>
   </div>
 </div>
 
@@ -956,24 +1003,26 @@ function openNoCost(){
   showPage("products", document.querySelector(".nav-item[onclick*=\"'products'\"]"));
 }
 
+// A bill line (label on the left, amount on the right) and an amount with its minus sign
+const billRow = (label, amount, cls = "") => `<div class="pb-row${cls}"><span>${label}</span><b>${amount}</b></div>`;
+const signedMoney = x => (x < 0 ? "−" : "") + money(x);
+
 // Profit page: one card for today, one for the month, each a short bill that adds up to the profit
 function profitCard(when, s, emptyText){
   const n = k => Number(s[k]) || 0;
   const orders = n("orders"), prof = n("profit"), noCost = n("items_no_cost");
   const head = `<div class="pc-when">${esc(when)}</div>`;
   if (!orders) return `${head}<div class="pc-value none">₹0</div><div class="pc-line">${esc(emptyText)}</div>`;
-  const signed = x => (x < 0 ? "−" : "") + money(x);
   const paidIs = [`products ${money(n("sales"))}`, `delivery charges ${money(n("delivery_fees"))}`, `tips ${money(n("tips"))}`];
   if (n("discounts")) paidIs.push(`discounts −${money(n("discounts"))}`);
-  if (n("other")) paidIs.push(`other (older orders) ${signed(n("other"))}`);
-  const row = (label, amount, cls = "") => `<div class="pb-row${cls}"><span>${label}</span><b>${amount}</b></div>`;
+  if (n("other")) paidIs.push(`other (older orders) ${signedMoney(n("other"))}`);
   const bill = [
-    row(`Customers paid · ${plural(orders, "order")}`, money(n("paid")), " pb-in"),
+    billRow(`Customers paid · ${plural(orders, "order")}`, money(n("paid")), " pb-in"),
     `<div class="pb-sub">${paidIs.join(" · ")}</div>`,
-    row("− Your cost of the products", money(n("cost"))),
-    n("tips") ? row("− Tips, for your delivery boys", money(n("tips"))) : "",
-    n("not_counted") ? row("− Not counted: products with no cost", money(n("not_counted"))) : "",
-    row("= Profit", signed(prof), prof < 0 ? " pb-total loss" : " pb-total"),
+    billRow("− Your cost of the products", money(n("cost"))),
+    n("tips") ? billRow("− Tips, for your delivery boys", money(n("tips"))) : "",
+    n("not_counted") ? billRow("− Not counted: products with no cost", money(n("not_counted"))) : "",
+    billRow("= Profit", signedMoney(prof), prof < 0 ? " pb-total loss" : " pb-total"),
   ].join("");
   const warn = noCost
     ? `<div class="pc-warn">⚠️ ${noCost} of ${plural(n("items"), "item")} had no cost when ordered, so the money for ${noCost === 1 ? "it" : "them"} isn't counted in the profit. <button type="button" onclick="openNoCost()">Products without a cost</button></div>`
@@ -1012,6 +1061,109 @@ function renderProfitProducts(){
     ? `<button class="btn btn-gray btn-sm" type="button" onclick="profitShowAll=!profitShowAll;renderProfitProducts()">${profitShowAll ? `Show the top ${TOP}` : `Show all ${rows.length} products`}</button>`
     : "";
 }
+// By order: newest first, who ordered it, what they paid, what it cost you, your profit. Tap one for its breakdown.
+let profitOrdersAll = false;
+const timeLabel = s => { const d = toDate(s); return d ? d.toLocaleString("en-IN", {day:"numeric", month:"short", hour:"numeric", minute:"2-digit", hour12:true, timeZone:"Asia/Kolkata"}) : "—"; };
+function orderCostCell(cost, items, noCost){
+  if (items && noCost === items) return `<span class="pf pf-zero">Not typed</span>`;
+  return money(cost) + (noCost ? `<span class="pf-note">+ ${plural(noCost, "item")} without a cost</span>` : "");
+}
+function renderProfitOrders(){
+  const rows = profitData.orders || [], body = document.getElementById("pfOrdersBody"), more = document.getElementById("pfOrdersMore");
+  if (!rows.length) {
+    body.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#aaa;padding:20px">No orders in ${esc(monthLabel(profitData.month))} yet</td></tr>`;
+    more.innerHTML = "";
+    return;
+  }
+  const TOP = 20, list = profitOrdersAll ? rows : rows.slice(0, TOP);
+  body.innerHTML = list.map(o => {
+    const n = k => Number(o[k]) || 0, noCost = n("items_no_cost");
+    const extra = [n("delivery_fee") ? `${money(n("delivery_fee"))} delivery` : "", n("tips") ? `${money(n("tips"))} tip` : ""].filter(Boolean).join(" · ");
+    const paid = money(n("paid")) + (extra ? `<span class="pf-sub">incl. ${extra}</span>` : "");
+    const who = o.customer ? esc(o.customer) : `<span style="color:#999">Guest</span>`;
+    return `<tr class="row-link" tabindex="0" role="button" data-id="${esc(o.id)}" aria-label="Order ${esc(o.id)}: see what it cost you and your profit"`
+      + ` onclick="openOrderProfit(this.dataset.id,this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openOrderProfit(this.dataset.id,this)}">`
+      + `<td><b>#${esc(o.id)}</b><span class="pf-when">${esc(timeLabel(o.at))}</span></td><td>${who}</td><td class="num">${paid}</td>`
+      + `<td class="num">${orderCostCell(n("cost"), n("items"), noCost)}</td><td class="num">${dayProfitTag(n("profit"), noCost)}</td></tr>`;
+  }).join("");
+  more.innerHTML = rows.length > TOP
+    ? `<button class="btn btn-gray btn-sm" type="button" onclick="profitOrdersAll=!profitOrdersAll;renderProfitOrders()">${profitOrdersAll ? `Show the latest ${TOP}` : `Show all ${rows.length} orders`}</button>`
+    : "";
+}
+
+// One order's breakdown in a pop-up: what the customer paid, what it cost you, your profit, then each item and the bill
+let opTicket = 0, opOpener = null;
+const statusName = s => (STATUS_OPTS.find(([v]) => v === s || (v === "pickedup" && s === "picked_up")) || [s, s || "Placed"])[1];
+const payName = p => p === "upi" ? "UPI" : p === "online" ? "Paid online" : "Cash on delivery";
+async function openOrderProfit(id, opener){
+  const m = document.getElementById("orderProfitModal"), body = document.getElementById("opBody"), ticket = ++opTicket;
+  opOpener = opener || null;
+  document.getElementById("opTitle").textContent = `Order #${id}`;
+  body.innerHTML = `<div style="text-align:center;padding:24px"><span class="spinner"></span>Loading...</div>`;
+  m.classList.add("open");
+  document.getElementById("opClose").focus();
+  let html;
+  try {
+    const res = await fetch(`${URL}/rpc/admin_order_profit`, {method:"POST", headers:H, body:JSON.stringify({p_order:id})});
+    if (!res.ok) throw new Error((await res.text()) || res.statusText);
+    const o = await res.json();
+    if (!o || o.ok !== true) throw new Error(o && o.error === "login" ? "Your login has ended. Please log in again."
+      : o && o.error === "not_found" ? "This order isn't there any more." : "Couldn't load this order");
+    html = orderProfitHtml(o);
+  } catch(e) {
+    html = `<div class="pc-warn" style="background:#ffebee;color:#C62828">${esc(e.message)}</div>`;
+  }
+  if (ticket === opTicket && m.classList.contains("open")) body.innerHTML = html; // not if closed, or another order opened since
+}
+function closeOrderProfit(){
+  opTicket++;
+  document.getElementById("orderProfitModal").classList.remove("open");
+  if (opOpener && document.body.contains(opOpener)) opOpener.focus();
+  opOpener = null;
+}
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && document.getElementById("orderProfitModal").classList.contains("open")) closeOrderProfit();
+});
+function orderProfitHtml(o){
+  const n = k => Number(o[k]) || 0, prof = n("profit"), items = n("items"), noCost = n("items_no_cost");
+  const who = o.customer ? esc(o.customer) : "Guest";
+  const head = `<div class="op-meta">${esc(timeLabel(o.at))} · ${esc(payName(o.payment))} · ${esc(statusName(o.status))}</div>`
+    + `<div class="op-who">👤 ${who}${o.phone ? ` · ${esc(o.phone)}` : ""}</div>`;
+  const costBox = items && noCost === items
+    ? `<b>—</b><small>not typed</small>`
+    : `<b>${money(n("cost"))}</b>${noCost ? `<small>+ ${plural(noCost, "item")} not typed</small>` : ""}`;
+  const stats = `<div class="op-stats">`
+    + `<div><span>Customer paid</span><b>${money(n("paid"))}</b></div>`
+    + `<div><span>Your cost</span>${costBox}</div>`
+    + `<div class="${prof < 0 ? "bad" : "ok"}"><span>Your profit</span><b>${signedMoney(prof)}</b></div></div>`;
+  const cancelled = o.status === "cancelled"
+    ? `<div class="pc-warn" style="margin:0 0 12px">This order was cancelled, so it isn't counted in your profit.</div>` : "";
+  const lines = (o.lines || []).map(l => {
+    const has = l.cost != null, lp = Number(l.profit) || 0;
+    const sub = has
+      ? `your cost ${money(l.cost)} · ${lp < 0 ? `<span class="loss">${money(lp)} loss</span>` : lp === 0 ? "no profit" : `profit ${money(lp)}`}`
+      : `<span class="nocost">no cost typed when ordered</span>`;
+    return `<div class="op-line"><div class="op-name"><b>${esc(l.name)}</b>${l.variant ? ` · ${esc(l.variant)}` : ""} × ${esc(l.quantity)}</div>`
+      + `<div class="op-amt">${money(l.sales)}</div><div class="op-sub">${sub}</div></div>`;
+  }).join("");
+  const paidIs = [`products ${money(n("sales"))}`, `delivery charge ${money(n("delivery_fee"))}`, `tip ${money(n("tips"))}`];
+  if (n("discounts")) paidIs.push(`discount −${money(n("discounts"))}`);
+  if (n("other")) paidIs.push(`other ${signedMoney(n("other"))}`);
+  const bill = [
+    billRow("Customer paid", money(n("paid")), " pb-in"),
+    `<div class="pb-sub">${paidIs.join(" · ")}</div>`,
+    billRow("− Your cost of the products", money(n("cost"))),
+    n("tips") ? billRow("− Tip, for your delivery boy", money(n("tips"))) : "",
+    n("not_counted") ? billRow("− Not counted: products with no cost", money(n("not_counted"))) : "",
+    billRow("= Profit", signedMoney(prof), prof < 0 ? " pb-total loss" : " pb-total"),
+  ].join("");
+  const warn = noCost
+    ? `<div class="pc-warn">⚠️ ${noCost} of ${plural(items, "item")} had no cost when ordered, so the money for ${noCost === 1 ? "it" : "them"} isn't counted in the profit. <button type="button" onclick="closeOrderProfit();openNoCost()">Products without a cost</button></div>`
+    : "";
+  return head + stats + cancelled + `<div class="op-lines">${lines || `<div class="op-line"><div class="op-name" style="color:#999">No items saved with this order</div></div>`}</div>`
+    + `<div class="pc-bill">${bill}</div>${warn}`;
+}
+
 function renderProfitDays(){
   const rows = profitData.days || [], body = document.getElementById("pfDaysBody");
   body.innerHTML = !rows.length
@@ -1032,21 +1184,27 @@ function fillProfitMonths(){
 async function loadProfit(){
   const month = document.getElementById("profitMonth").value || null;
   const wait = n => `<tr><td colspan="${n}" style="text-align:center;padding:20px"><span class="spinner"></span>Loading...</td></tr>`;
+  document.getElementById("pfOrdersBody").innerHTML = wait(5);
   document.getElementById("pfProductsBody").innerHTML = wait(5);
   document.getElementById("pfDaysBody").innerHTML = wait(4);
+  document.getElementById("pfOrdersMore").innerHTML = "";
   document.getElementById("pfMore").innerHTML = "";
   try {
     profitData = await fetchProfit(month);
     profitShowAll = false;
+    profitOrdersAll = false;
     fillProfitMonths();
     const thisMonth = String(profitData.today).slice(0, 7) + "-01", isThis = profitData.month === thisMonth, mLabel = monthLabel(profitData.month);
     document.getElementById("pcToday").innerHTML = profitCard(`Today · ${dayLabel(profitData.today)}`, profitData.today_sum, "No orders yet today.");
     document.getElementById("pcMonth").innerHTML = profitCard(isThis ? `This month · ${mLabel}` : mLabel, profitData.month_sum, `No orders in ${mLabel}.`);
+    document.getElementById("pfOrdersTitle").textContent = `By order · ${mLabel}`;
     document.getElementById("pfProductsTitle").textContent = `By product · ${mLabel}`;
     document.getElementById("pfDaysTitle").textContent = `By day · ${mLabel}`;
+    renderProfitOrders();
     renderProfitProducts();
     renderProfitDays();
   } catch(e) {
+    document.getElementById("pfOrdersBody").innerHTML = errRow(5, e);
     document.getElementById("pfProductsBody").innerHTML = errRow(5, e);
     document.getElementById("pfDaysBody").innerHTML = errRow(4, e);
     ["pcToday", "pcMonth"].forEach(id => { document.getElementById(id).innerHTML = `<div class="pc-when">${id === "pcToday" ? "Today" : "Month"}</div><div class="pc-value none">—</div><div class="pc-line">${esc(e.message)}</div>`; });
