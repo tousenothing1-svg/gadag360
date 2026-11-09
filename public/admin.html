@@ -97,6 +97,17 @@ input.cost-in:disabled{background:#f4f4f4}
 .pf-note{display:block;font-size:11px;color:#9a6200;font-weight:600;margin-top:3px}
 td.num,th.num{text-align:right;white-space:nowrap}
 #page-profit .pf{margin-left:0}
+/* the today and month cards: a short bill that adds up to the profit */
+.pc-bill{margin-top:10px;padding-top:8px;border-top:1px dashed #e2e2e2}
+.pb-row{display:flex;justify-content:space-between;align-items:baseline;gap:12px;font-size:13px;color:#555;line-height:1.7}
+.pb-row b{color:#222;white-space:nowrap}
+.pb-row.pb-in,.pb-row.pb-in b{color:#222;font-weight:700}
+.pb-sub{font-size:11.5px;color:#888;line-height:1.45;margin:-2px 0 6px}
+.pb-row.pb-total{margin-top:6px;padding-top:6px;border-top:1px solid #e6e6e6;color:#222;font-weight:800}
+.pb-row.pb-total b{color:var(--green)}
+.pb-row.pb-total.loss b{color:var(--red)}
+.pf-sub{display:block;font-size:11px;color:#888;font-weight:500;margin-top:2px;white-space:nowrap}
+.card-note{font-size:12px;color:#777;margin:-6px 0 10px;line-height:1.45}
 .more-row{margin-top:10px;text-align:center}
 .more-row:empty{display:none}
 /* unit and the sizes customers can pick */
@@ -234,7 +245,7 @@ td.num,th.num{text-align:right;white-space:nowrap}
   #pfDaysBody td:nth-child(3){grid-area:sales}
   #pfDaysBody td:nth-child(4){grid-area:profit}
   #pfProductsBody td:nth-child(1)::before,#pfDaysBody td:nth-child(1)::before{content:none}
-  #page-profit .pf-note{flex-basis:100%;text-align:right}
+  #page-profit .pf-note,#page-profit .pf-sub{flex-basis:100%;text-align:right}
   #page-profit .table-wrap td[colspan]{grid-area:auto;grid-column:1/-1}
   .head-tools{width:100%}
   .head-tools select{flex:1}
@@ -331,20 +342,21 @@ td.num,th.num{text-align:right;white-space:nowrap}
             <button class="btn btn-green" onclick="loadProfit()">🔄 Refresh</button>
           </div>
         </div>
-        <div class="page-note">Profit is what customers paid for the products minus your cost for them, using "Your cost" from Products as it was when each order came in. Cancelled orders don't count. Delivery fees and tips aren't part of the profit.</div>
+        <div class="page-note">Profit = everything customers paid (products, delivery charges and tips) − your cost of the products − the tips, which are for your delivery boys. "Your cost" comes from Products as it was when each order came in; money for products that had no cost then isn't counted. Cancelled orders don't count.</div>
         <div class="pc-grid">
           <div class="pc" id="pcToday"><div class="pc-when">Today</div><div class="pc-value none">…</div></div>
           <div class="pc" id="pcMonth"><div class="pc-when">This month</div><div class="pc-value none">…</div></div>
         </div>
         <div class="card">
           <div class="card-title" id="pfProductsTitle">By product</div>
+          <div class="card-note">Profit on the products alone. Delivery charges are added in the totals above.</div>
           <div class="table-wrap"><table><thead><tr><th>Product</th><th class="num">Sold</th><th class="num">Sales</th><th class="num">Your cost</th><th class="num">Profit</th></tr></thead>
           <tbody id="pfProductsBody"><tr><td colspan="5" style="text-align:center;padding:20px"><span class="spinner"></span>Loading...</td></tr></tbody></table></div>
           <div class="more-row" id="pfMore"></div>
         </div>
         <div class="card">
           <div class="card-title" id="pfDaysTitle">By day</div>
-          <div class="table-wrap"><table><thead><tr><th>Day</th><th class="num">Orders</th><th class="num">Sales</th><th class="num">Profit</th></tr></thead>
+          <div class="table-wrap"><table><thead><tr><th>Day</th><th class="num">Orders</th><th class="num">Customers paid</th><th class="num">Profit</th></tr></thead>
           <tbody id="pfDaysBody"><tr><td colspan="4" style="text-align:center;padding:20px"><span class="spinner"></span>Loading...</td></tr></tbody></table></div>
         </div>
       </div>
@@ -891,9 +903,10 @@ async function loadDashboard(){
 }
 
 // ── PROFIT ───────────────────────────────────────────────────
-// The database works it out (admin_profit): what customers paid for the products minus your cost for them, each
-// item's cost as it was when the order came in. Items of products that had no cost then are counted apart as
-// "without a cost", never guessed. Days and months are India time.
+// The database works it out (admin_profit) from each order's money: what the customer paid (products, delivery
+// charge and tip, less any discount) − your cost of the products, as it was when the order came in − the tip, which
+// is for the delivery boy. Money for products that had no cost when ordered isn't counted, never guessed.
+// Days and months are India time.
 let profitData = null, profitShowAll = false;
 const money = n => { const v = Math.round(Math.abs(Number(n) || 0) * 100) / 100; return "₹" + (v >= 100 || Number.isInteger(v) ? Math.round(v).toLocaleString("en-IN") : v.toFixed(2)); };
 const pctOf = (profit, base) => base > 0 ? Math.round(profit / base * 100) : null;
@@ -913,14 +926,14 @@ async function fetchProfit(month){
 // Dashboard: profit today and this month
 function showProfitStat(id, s, when){
   const v = document.getElementById(id), sub = document.getElementById(id + "Sub");
-  const orders = Number(s.orders) || 0, base = Number(s.sales_with_cost) || 0, prof = Number(s.profit) || 0, noCost = Number(s.items_no_cost) || 0;
+  const orders = Number(s.orders) || 0, prof = Number(s.profit) || 0, noCost = Number(s.items_no_cost) || 0;
   v.style.color = "";
   sub.className = "stat-sub";
   if (!orders) { v.textContent = "₹0"; sub.textContent = `no orders ${when} yet`; return; }
-  if (!base) v.textContent = "—";
-  else { v.textContent = (prof < 0 ? "−" : "") + money(prof); if (prof < 0) v.style.color = "var(--red)"; }
+  v.textContent = (prof < 0 ? "−" : "") + money(prof);
+  if (prof < 0) v.style.color = "var(--red)";
   if (noCost) { sub.className = "stat-sub warn"; sub.textContent = `⚠️ ${plural(noCost, "item")} without a cost`; }
-  else sub.textContent = `${pctOf(prof, base)}% of ${money(base)} sales`;
+  else sub.textContent = `customers paid ${money(s.paid)}`;
 }
 async function loadProfitCards(){
   try {
@@ -943,25 +956,35 @@ function openNoCost(){
   showPage("products", document.querySelector(".nav-item[onclick*=\"'products'\"]"));
 }
 
-// Profit page: one card for today, one for the month
+// Profit page: one card for today, one for the month, each a short bill that adds up to the profit
 function profitCard(when, s, emptyText){
-  const orders = Number(s.orders) || 0, items = Number(s.items) || 0, noCost = Number(s.items_no_cost) || 0;
-  const prof = Number(s.profit) || 0, base = Number(s.sales_with_cost) || 0;
-  let value = money(prof), cls = "";
-  if (!orders) { value = "₹0"; cls = " none"; }
-  else if (!base) { value = "—"; cls = " none"; }
-  else if (prof < 0) { value = money(prof) + " loss"; cls = " loss"; }
-  const lines = [];
-  if (!orders) lines.push(esc(emptyText));
-  else {
-    if (base) lines.push(`from <b>${money(base)}</b> of sales · you keep <b>${pctOf(prof, base)}%</b>`);
-    else lines.push("None of these items had a cost when they were ordered.");
-    lines.push(`<b>${plural(orders, "order")}</b> · delivery fees ${money(s.delivery_fees)} (not in the profit)`);
-  }
+  const n = k => Number(s[k]) || 0;
+  const orders = n("orders"), prof = n("profit"), noCost = n("items_no_cost");
+  const head = `<div class="pc-when">${esc(when)}</div>`;
+  if (!orders) return `${head}<div class="pc-value none">₹0</div><div class="pc-line">${esc(emptyText)}</div>`;
+  const signed = x => (x < 0 ? "−" : "") + money(x);
+  const paidIs = [`products ${money(n("sales"))}`, `delivery charges ${money(n("delivery_fees"))}`, `tips ${money(n("tips"))}`];
+  if (n("discounts")) paidIs.push(`discounts −${money(n("discounts"))}`);
+  if (n("other")) paidIs.push(`other (older orders) ${signed(n("other"))}`);
+  const row = (label, amount, cls = "") => `<div class="pb-row${cls}"><span>${label}</span><b>${amount}</b></div>`;
+  const bill = [
+    row(`Customers paid · ${plural(orders, "order")}`, money(n("paid")), " pb-in"),
+    `<div class="pb-sub">${paidIs.join(" · ")}</div>`,
+    row("− Your cost of the products", money(n("cost"))),
+    n("tips") ? row("− Tips, for your delivery boys", money(n("tips"))) : "",
+    n("not_counted") ? row("− Not counted: products with no cost", money(n("not_counted"))) : "",
+    row("= Profit", signed(prof), prof < 0 ? " pb-total loss" : " pb-total"),
+  ].join("");
   const warn = noCost
-    ? `<div class="pc-warn">⚠️ ${noCost} of ${plural(items, "item")} (${money(s.sales_no_cost)} of sales) had no cost when ordered, so ${noCost === 1 ? "it isn't" : "they aren't"} in the profit. <button type="button" onclick="openNoCost()">Products without a cost</button></div>`
+    ? `<div class="pc-warn">⚠️ ${noCost} of ${plural(n("items"), "item")} had no cost when ordered, so the money for ${noCost === 1 ? "it" : "them"} isn't counted in the profit. <button type="button" onclick="openNoCost()">Products without a cost</button></div>`
     : "";
-  return `<div class="pc-when">${esc(when)}</div><div class="pc-value${cls}">${value}</div>${lines.map(l => `<div class="pc-line">${l}</div>`).join("")}${warn}`;
+  return `${head}<div class="pc-value${prof < 0 ? " loss" : ""}">${prof < 0 ? money(prof) + " loss" : money(prof)}</div><div class="pc-bill">${bill}</div>${warn}`;
+}
+// A day's profit: delivery charges count even when the products have no cost yet
+function dayProfitTag(prof, noCost){
+  if (prof > 0) return `<span class="pf pf-up">${money(prof)}</span>`;
+  if (prof < 0) return `<span class="pf pf-down">${money(prof)} loss</span>`;
+  return noCost ? "—" : `<span class="pf pf-zero">No profit</span>`;
 }
 function profitTagFor(prof, base){
   if (!base) return "—";
@@ -994,9 +1017,11 @@ function renderProfitDays(){
   body.innerHTML = !rows.length
     ? `<tr><td colspan="4" style="text-align:center;color:#aaa;padding:20px">No orders in ${esc(monthLabel(profitData.month))} yet</td></tr>`
     : rows.map(d => {
-        const base = Number(d.sales_with_cost) || 0, prof = Number(d.profit) || 0, noCost = Number(d.items_no_cost) || 0;
+        const n = k => Number(d[k]) || 0, noCost = n("items_no_cost");
+        const extra = [n("delivery_fees") ? `${money(n("delivery_fees"))} delivery` : "", n("tips") ? `${money(n("tips"))} tips` : ""].filter(Boolean).join(" · ");
+        const paid = money(n("paid")) + (extra ? `<span class="pf-sub">incl. ${extra}</span>` : "");
         const note = noCost ? `<span class="pf-note">${plural(noCost, "item")} without a cost</span>` : "";
-        return `<tr><td>${esc(dayLabel(d.day))}</td><td class="num">${esc(d.orders)}</td><td class="num">${money(d.sales)}</td><td class="num">${profitTagFor(prof, base)}${note}</td></tr>`;
+        return `<tr><td>${esc(dayLabel(d.day))}</td><td class="num">${esc(n("orders"))}</td><td class="num">${paid}</td><td class="num">${dayProfitTag(n("profit"), noCost)}${note}</td></tr>`;
       }).join("");
 }
 function fillProfitMonths(){
