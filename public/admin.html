@@ -59,12 +59,29 @@ input[type=password],input[type=text],input[type=number],select,textarea{width:1
 .ph.busy{opacity:0.45;pointer-events:none}
 .ph-big{width:100%;aspect-ratio:4/3;border-radius:12px;border:1.5px dashed #c9d3c4;background:#f7f8f5;display:flex;align-items:center;justify-content:center;overflow:hidden;color:#6B716A;font-size:13px;font-weight:600}
 .ph-big img{width:100%;height:100%;object-fit:contain}
-input.qty-in,input.mkt-in{width:72px;padding:4px 6px;border:1.5px solid #ddd;border-radius:6px;font-size:13px}
+input.qty-in,input.mkt-in,input.cost-in{width:72px;padding:4px 6px;border:1.5px solid #ddd;border-radius:6px;font-size:13px}
+input.cost-in:disabled{background:#f4f4f4}
 .off{display:inline-block;margin-left:6px;font-size:11px;font-weight:700;color:var(--green);white-space:nowrap}
+/* your cost and profit: only the admin sees these */
+.pf{display:inline-block;margin-left:6px;font-size:11px;font-weight:700;white-space:nowrap;border-radius:999px;padding:2px 8px}
+.pf-up{color:#1A6B3C;background:#e8f5e9}
+.pf-zero{color:#8a5a00;background:#fff3cd}
+.pf-down{color:#C62828;background:#ffebee}
+.profit-sum{font-size:13px;color:#444;background:#f3f7f1;border:1px solid #e1eadc;border-radius:10px;padding:9px 12px;margin:-4px 0 14px;line-height:1.5}
+.profit-sum b{color:#1A6B3C}
+.profit-sum.bad{background:#ffebee;border-color:#f8d0d0;color:#C62828}
+.profit-sum button{background:none;border:0;padding:0;font:inherit;font-weight:700;color:#C62828;text-decoration:underline;cursor:pointer}
+.profit-preview{font-size:12.5px;font-weight:700;color:var(--green);margin-top:4px;min-height:17px}
+.profit-preview .loss{color:#E53935}
 /* unit and the sizes customers can pick */
 .unit-cell b{font-size:13px;color:#222}
 .unit-cell .sizes{display:block;font-size:11px;color:#777;margin-top:2px;white-space:nowrap}
 .unit-bad{color:#E53935;font-weight:700;font-size:12px}
+/* products on a computer: slimmer cells and sizes on two lines, so every column fits beside the menu */
+#page-products th,#page-products td{padding:10px 8px}
+#page-products .unit-cell .sizes{white-space:normal;max-width:150px}
+#page-products .search-bar select{width:auto}
+.unit-cell .nw{white-space:nowrap}
 .qty-wrap{display:flex;align-items:center;gap:4px}
 .of-unit{font-size:11px;color:#777;white-space:nowrap}
 .size-btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
@@ -143,20 +160,21 @@ input.qty-in,input.mkt-in{width:72px;padding:4px 6px;border:1.5px solid #ddd;bor
   .table-wrap td{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:4px 0;border:0;text-align:right;max-width:none!important;white-space:normal!important}
   .table-wrap td::before{content:attr(data-label);font-size:11px;font-weight:700;color:#999;text-transform:uppercase;text-align:left;flex-shrink:0}
   tr:hover td{background:none}
-  /* products: photo on the left, then name, size, price, market price, stock left, status, buttons */
-  #page-products .table-wrap tr{display:grid;grid-template-columns:96px 1fr 1fr;grid-template-areas:"photo name name" "photo unit unit" "photo price mkt" "photo qty status" "act act act";gap:6px 10px;align-items:center}
+  /* products: photo on the left, then name, size, customer price and your cost, market price and stock left, status, buttons */
+  #page-products .table-wrap tr{display:grid;grid-template-columns:96px 1fr 1fr;grid-template-areas:"photo name name" "photo unit unit" "photo price cost" "photo mkt qty" "photo status status" "act act act";gap:6px 10px;align-items:center}
   #page-products .table-wrap td{padding:0}
   #page-products .table-wrap td:nth-child(1),#page-products .table-wrap td:nth-child(4){display:none}
   #page-products .table-wrap td:nth-child(2){grid-area:photo;align-self:start}
   #page-products .table-wrap td:nth-child(3){grid-area:name;justify-content:flex-start;text-align:left;font-size:14px}
   #page-products .table-wrap td:nth-child(5){grid-area:price;flex-direction:column;align-items:flex-start;gap:2px}
-  #page-products .table-wrap td:nth-child(6){grid-area:mkt;flex-direction:column;align-items:flex-start;gap:2px}
-  #page-products .table-wrap td:nth-child(7){grid-area:unit;justify-content:flex-start;color:#777;font-size:12px}
-  #page-products .table-wrap td:nth-child(8){grid-area:qty;flex-direction:column;align-items:flex-start;gap:2px}
-  #page-products .table-wrap td:nth-child(9){grid-area:status;justify-content:flex-start}
-  #page-products .table-wrap td:nth-child(10){grid-area:act;justify-content:flex-end}
-  #page-products .table-wrap td:nth-child(2)::before,#page-products .table-wrap td:nth-child(3)::before,#page-products .table-wrap td:nth-child(7)::before,#page-products .table-wrap td:nth-child(9)::before,#page-products .table-wrap td:nth-child(10)::before{content:none}
-  #page-products .table-wrap td:nth-child(6) .off{margin-left:0}
+  #page-products .table-wrap td:nth-child(6){grid-area:cost;flex-direction:column;align-items:flex-start;gap:2px}
+  #page-products .table-wrap td:nth-child(7){grid-area:mkt;flex-direction:column;align-items:flex-start;gap:2px}
+  #page-products .table-wrap td:nth-child(8){grid-area:unit;justify-content:flex-start;color:#777;font-size:12px}
+  #page-products .table-wrap td:nth-child(9){grid-area:qty;flex-direction:column;align-items:flex-start;gap:2px}
+  #page-products .table-wrap td:nth-child(10){grid-area:status;justify-content:flex-start}
+  #page-products .table-wrap td:nth-child(11){grid-area:act;justify-content:flex-end}
+  #page-products .table-wrap td:nth-child(2)::before,#page-products .table-wrap td:nth-child(3)::before,#page-products .table-wrap td:nth-child(8)::before,#page-products .table-wrap td:nth-child(10)::before,#page-products .table-wrap td:nth-child(11)::before{content:none}
+  #page-products .table-wrap td:nth-child(6) .pf,#page-products .table-wrap td:nth-child(7) .off{margin-left:0}
   #page-products .unit-cell{text-align:left}
   #page-products .unit-cell .sizes{display:inline;margin-left:8px;white-space:normal}
   #page-products .ph{width:96px;height:72px}
@@ -287,13 +305,19 @@ input.qty-in,input.mkt-in{width:72px;padding:4px 6px;border:1.5px solid #ddd;bor
             <option>Dairy</option><option>Fruits</option><option>Vegetables</option>
             <option>Exotics</option><option>Spices</option><option>Oils</option><option>Flowers</option>
           </select>
+          <select id="profitFilter" onchange="filterProducts()" aria-label="Show products by profit">
+            <option value="">All products</option>
+            <option value="loss">💸 No profit or a loss</option>
+            <option value="nocost">Your cost not typed yet</option>
+          </select>
           <button class="btn btn-green" onclick="loadProducts()">🔄 Refresh</button>
         </div>
+        <div class="profit-sum" id="profitSum" aria-live="polite"></div>
         <div class="card"><div class="table-wrap"><table>
-          <thead><tr><th>#</th><th>Photo</th><th>Name</th><th>Category</th><th>Price (₹)</th><th>Market price (₹)</th><th>Unit · sizes</th><th>Stock left</th><th>Status</th><th>Action</th></tr></thead>
-          <tbody id="productsBody"><tr><td colspan="10" style="text-align:center;padding:20px"><span class="spinner"></span>Loading...</td></tr></tbody>
+          <thead><tr><th>#</th><th>Photo</th><th>Name</th><th>Category</th><th>Customer price (₹)</th><th>Your cost (₹)</th><th>Market price (₹)</th><th>Unit · sizes</th><th>Stock left</th><th>Status</th><th>Action</th></tr></thead>
+          <tbody id="productsBody"><tr><td colspan="11" style="text-align:center;padding:20px"><span class="spinner"></span>Loading...</td></tr></tbody>
         </table></div></div>
-        <div style="font-size:12px;color:#888;margin-top:10px">Tap a photo to take or choose a new one. The price is for the unit (for example ₹40 for 1kg); other sizes are worked out from it. "Stock left" counts units: 20 × 500g is 10kg. Selling 1kg of it takes 2 off, 250g takes 0.5, and at 0 the product shows as out of stock by itself. Deleted products wait in 🗑️ Deleted Products, where you can bring them back.</div>
+        <div style="font-size:12px;color:#888;margin-top:10px">Tap a photo to take or choose a new one. The price is for the unit (for example ₹40 for 1kg); other sizes are worked out from it. "Your cost" is what the vendor charges you for the same unit: only you see it here, customers never do. Profit is the customer price minus your cost, and the % is how much of the customer price you keep. "Stock left" counts units: 20 × 500g is 10kg. Selling 1kg of it takes 2 off, 250g takes 0.5, and at 0 the product shows as out of stock by itself. Deleted products wait in 🗑️ Deleted Products, where you can bring them back.</div>
         <input type="file" id="photoPicker" accept="image/*" style="display:none" onchange="photoPicked(this)"/>
       </div>
 
@@ -515,10 +539,11 @@ input.qty-in,input.mkt-in{width:72px;padding:4px 6px;border:1.5px solid #ddd;bor
     <div class="form-grid">
       <div><label>Name</label><input type="text" id="pName" placeholder="Product name"/></div>
       <div><label>Category</label><select id="pCat"><option>Dairy</option><option>Fruits</option><option>Vegetables</option><option>Exotics</option><option>Spices</option><option>Oils</option><option>Flowers</option></select></div>
-      <div><label for="pPrice">Price (₹)</label><input id="pPrice" type="number" placeholder="0" oninput="showSizes()"/></div>
+      <div><label for="pPrice">Customer price (₹)</label><input id="pPrice" type="number" placeholder="0" oninput="showSizes()"/></div>
       <div><label for="pUnit">Unit (the price is for this)</label><input type="text" id="pUnit" placeholder="e.g. 1kg, 500g, 1pc, 1 bunch" oninput="unitTyped()"/></div>
-      <div><label>Supplier</label><select id="pVendor"><option value="v1">Sasnur Bakery</option><option value="v2">Katapur Fruits</option><option value="v3">Totad Vegetables</option><option value="v4">Dandin Exotics</option><option value="v5">Mulla Spices & Oils</option><option value="v6">Attar Flowers</option></select></div>
+      <div><label for="pCost">Your cost (₹), optional</label><input id="pCost" type="number" min="0" step="0.01" inputmode="decimal" placeholder="What the vendor charges you" oninput="showSizes()"/><div class="hint" id="pCostHint">Only you see this. Customers never do.</div></div>
       <div><label>Market price (₹), optional</label><input id="pMkt" type="number" min="0" step="1" inputmode="numeric" placeholder="Price at the local market"/></div>
+      <div><label>Supplier</label><select id="pVendor"><option value="v1">Sasnur Bakery</option><option value="v2">Katapur Fruits</option><option value="v3">Totad Vegetables</option><option value="v4">Dandin Exotics</option><option value="v5">Mulla Spices & Oils</option><option value="v6">Attar Flowers</option></select></div>
       <div><label for="pQty">Stock left (how many units)</label><input id="pQty" type="number" min="0" step="any" inputmode="decimal" placeholder="How many you have"/><div class="hint" id="pQtyHint"></div></div>
       <div><label>Show in shop</label><select id="pStock"><option value="true">✅ Yes</option><option value="false">❌ No (hidden)</option></select></div>
     </div>
@@ -530,6 +555,7 @@ input.qty-in,input.mkt-in{width:72px;padding:4px 6px;border:1.5px solid #ddd;bor
       <button type="button" onclick="setSizes(cleanSize(document.getElementById('pUnit').value) || '')">Only the unit</button>
     </div>
     <div class="size-preview" id="pSizesPreview" aria-live="polite"></div>
+    <div class="profit-preview" id="pProfitPreview" aria-live="polite"></div>
     <label style="margin-top:12px">Photo</label>
     <div style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center">
       <div class="ph-big" id="pPhotoBox">No photo yet</div>
@@ -915,7 +941,7 @@ function unitCell(p){
   const unit = cleanSize(p.unit);
   if (!unit) return `<span class="unit-bad" title="Write the unit like 500g, 1kg, 1pc or 1 bunch">${p.unit ? esc(p.unit) + " · " : ""}⚠️ set the unit</span>`;
   const opts = sizeOptions(unit, Number(p.price) || 0, p.variants);
-  return `<div class="unit-cell"><b>${esc(unit)}</b><span class="sizes">${opts.length > 1 ? opts.map(o => `${esc(o.label)} ₹${o.price}`).join(" · ") : "only this size"}</span></div>`;
+  return `<div class="unit-cell"><b>${esc(unit)}</b><span class="sizes">${opts.length > 1 ? opts.map(o => `<span class="nw">${esc(o.label)} ₹${o.price}</span>`).join(" · ") : "only this size"}</span></div>`;
 }
 const fmtQty = n => String(Math.round(Number(n) * 1000) / 1000);
 
@@ -927,19 +953,103 @@ function showDeletedCount(n){ const el = document.getElementById("deletedCount")
 
 async function loadProducts(){
   const wait = cols => `<tr><td colspan='${cols}' style='text-align:center;padding:20px'><span class='spinner'></span>Loading...</td></tr>`;
-  document.getElementById("productsBody").innerHTML = wait(10);
+  document.getElementById("productsBody").innerHTML = wait(11);
   document.getElementById("deletedBody").innerHTML = wait(7);
   try {
-    const rows = await db("products",{filter:"order=cat.asc"});
+    const [rows] = await Promise.all([db("products",{filter:"order=cat.asc"}), loadCosts()]);
     allProducts = rows.filter(p => !p.deleted_at);
     deletedProducts = rows.filter(p => p.deleted_at).sort((a, b) => (toDate(b.deleted_at) || 0) - (toDate(a.deleted_at) || 0)); // newest first
     filterProducts();
     renderDeleted();
     showDeletedCount(deletedProducts.length);
   } catch(e){
-    document.getElementById("productsBody").innerHTML = errRow(10,e);
+    document.getElementById("productsBody").innerHTML = errRow(11,e);
     document.getElementById("deletedBody").innerHTML = errRow(7,e);
   }
+}
+
+// ── YOUR COST AND PROFIT ──
+// Your cost is what the vendor charges you for the product's unit (the same unit as the customer price).
+// It's kept in its own table that only a logged-in admin can read, never in products, because customers can read
+// products. Profit = customer price − your cost; the % is how much of the customer price you keep.
+let productCosts = {}, costsLoaded = false;
+async function loadCosts(){
+  try {
+    const rows = await db("product_costs", {filter:"select=product_id,cost"});
+    productCosts = {};
+    (rows || []).forEach(r => { productCosts[r.product_id] = Number(r.cost); });
+    costsLoaded = true;
+  } catch(e) { costsLoaded = false; } // products still show; the summary says the costs didn't load
+}
+const COST_RE = /^\d{1,6}(\.\d{1,2})?$/;
+const rupees = n => { const v = Math.round(Math.abs(n) * 100) / 100; return "₹" + (Number.isInteger(v) ? String(v) : v.toFixed(2)); };
+function profitOf(p){
+  const c = productCosts[p.id], pr = Number(p.price);
+  if (c == null || !(pr > 0)) return null;
+  const profit = Math.round((pr - c) * 100) / 100;
+  return { cost: c, profit, pct: Math.round(profit / pr * 100) };
+}
+function profitTag(p){
+  const x = profitOf(p);
+  if (!x) return "";
+  const why = `Customer price ₹${esc(p.price)} − your cost ${rupees(x.cost)}`;
+  if (x.profit > 0) return `<span class="pf pf-up" title="${why}">${rupees(x.profit)} profit · ${x.pct}%</span>`;
+  if (x.profit === 0) return `<span class="pf pf-zero" title="${why}">No profit</span>`;
+  return `<span class="pf pf-down" title="${why}">${rupees(x.profit)} loss</span>`;
+}
+function costCell(p){
+  const c = productCosts[p.id], unit = cleanSize(p.unit);
+  return `<input class="cost-in" type="number" min="0" step="0.01" inputmode="decimal" value="${c == null ? "" : esc(c)}" placeholder="${costsLoaded ? "—" : "?"}"${costsLoaded ? "" : " disabled"} data-id="${esc(p.id)}" aria-label="Your cost for ${esc(p.name)}${unit ? ", for " + esc(unit) : ""}" onchange="updateCost(this.dataset.id,this.value)"/>${profitTag(p)}`;
+}
+function showProfitSummary(){
+  const el = document.getElementById("profitSum");
+  if (!el) return;
+  if (!costsLoaded) {
+    el.className = "profit-sum bad";
+    el.textContent = "⚠️ Your costs couldn't load, so profit isn't shown. Tap 🔄 Refresh.";
+    return;
+  }
+  el.className = "profit-sum";
+  const priced = allProducts.filter(p => profitOf(p));
+  if (!priced.length) { el.innerHTML = "💰 Type <b>Your cost</b> (what the vendor charges you) next to a product to see your profit on it. Only you see it."; return; }
+  const losing = priced.filter(p => profitOf(p).profit <= 0).length;
+  const avg = Math.round(priced.reduce((s, p) => s + profitOf(p).pct, 0) / priced.length);
+  el.innerHTML = `💰 Your cost is typed for <b>${priced.length} of ${allProducts.length}</b> products. On those you keep <b>${avg}%</b> of the price on average.`
+    + (losing ? ` <button type="button" onclick="showLosing()">${losing} ${losing === 1 ? "makes" : "make"} no profit</button>` : "");
+}
+function showLosing(){ document.getElementById("profitFilter").value = "loss"; filterProducts(); }
+
+// Save or remove one product's cost (null removes it)
+async function saveCost(id, n){
+  if (n === null) {
+    if (productCosts[id] == null) return;
+    await send("DELETE", `product_costs?product_id=eq.${q(id)}&select=product_id`);
+    delete productCosts[id];
+    return;
+  }
+  const res = await fetch(`${URL}/product_costs?on_conflict=product_id&select=product_id,cost`, {
+    method: "POST", headers: {...H, "Prefer": "resolution=merge-duplicates,return=representation"},
+    body: JSON.stringify({product_id: id, cost: n}),
+  });
+  if (!res.ok) { const t = await res.text(); throw new Error(/row-level security|42501/i.test(t) ? "Nothing was saved. Please log in again." : (t || res.statusText)); }
+  const rows = await res.json().catch(() => []);
+  if (!Array.isArray(rows) || !rows.length) throw new Error("Nothing was saved. Please log in again.");
+  productCosts[id] = Number(rows[0].cost);
+}
+async function updateCost(id, value){
+  const v = String(value).trim();
+  if (v !== "" && !COST_RE.test(v)) { toast("Type what the vendor charges you in rupees, like 190 or 18.50, or leave it empty","#E53935"); filterProducts(); return; }
+  const p = allProducts.find(x => x.id === id);
+  try {
+    await saveCost(id, v === "" ? null : Math.round(parseFloat(v) * 100) / 100);
+    const x = p && profitOf(p), per = p ? (cleanSize(p.unit) || p.unit || "unit") : "unit";
+    if (v === "") toast("Cost removed");
+    else if (!x) toast("✅ Cost saved");
+    else if (x.profit > 0) toast(`✅ Saved. You make ${rupees(x.profit)} on every ${per} (${x.pct}% of ₹${p.price})`);
+    else if (x.profit === 0) toast(`Saved. At ₹${p.price} you make no profit on ${p.name}.`, "#946500");
+    else toast(`Saved. At ₹${p.price} you lose ${rupees(x.profit)} on every ${per} of ${p.name}.`, "#E53935");
+  } catch(e) { toast("Error: " + e.message, "#E53935"); }
+  filterProducts();
 }
 
 function renderDeleted(){
@@ -1165,7 +1275,7 @@ async function restoreProduct(id, btn){
 
 function renderProducts(products){
   document.getElementById("productsBody").innerHTML=products.length===0
-    ? "<tr><td colspan='10' style='text-align:center;color:#aaa;padding:20px'>No products found</td></tr>"
+    ? "<tr><td colspan='11' style='text-align:center;color:#aaa;padding:20px'>No products found</td></tr>"
     : products.map((p,i)=>{
         const on = p.in_stock!==false;
         const ph = photoOf(p);
@@ -1174,7 +1284,8 @@ function renderProducts(products){
         <td><button class="ph" data-id="${esc(p.id)}" onclick="pickPhoto(this.dataset.id)" title="Tap to take or choose a new photo" aria-label="Change photo of ${esc(p.name)}"><span>+ Photo</span>${ph ? `<img src="${esc(ph)}" alt="" loading="lazy" onerror="this.remove()"/>` : ""}</button></td>
         <td><b>${esc(p.name)}</b></td>
         <td><span class="badge badge-green">${esc(p.cat)}</span></td>
-        <td><input type="number" value="${esc(p.price)}" data-id="${esc(p.id)}" style="width:70px;padding:4px 6px;border:1.5px solid #ddd;border-radius:6px;font-size:13px" onchange="updatePrice(this.dataset.id,this.value)"/></td>
+        <td><input type="number" value="${esc(p.price)}" data-id="${esc(p.id)}" style="width:70px;padding:4px 6px;border:1.5px solid #ddd;border-radius:6px;font-size:13px" aria-label="Customer price for ${esc(p.name)}" onchange="updatePrice(this.dataset.id,this.value)"/></td>
+        <td>${costCell(p)}</td>
         <td><input class="mkt-in" type="number" min="0" step="1" inputmode="numeric" value="${esc(p.market_price ?? "")}" placeholder="—" data-id="${esc(p.id)}" aria-label="Market price for ${esc(p.name)}" onchange="updateMarketPrice(this.dataset.id,this.value)"/>${offTag(p)}</td>
         <td>${unitCell(p)}</td>
         <td><div class="qty-wrap"><input class="qty-in" type="number" min="0" step="any" inputmode="decimal" value="${esc(p.stock_qty == null ? "" : fmtQty(p.stock_qty))}" data-id="${esc(p.id)}" aria-label="Stock left for ${esc(p.name)}${cleanSize(p.unit) ? ", in units of " + esc(cleanSize(p.unit)) : ""}" onchange="updateStockQty(this.dataset.id,this.value)"/>${cleanSize(p.unit) ? `<span class="of-unit">× ${esc(cleanSize(p.unit))}</span>` : ""}</div></td>
@@ -1189,7 +1300,10 @@ function renderProducts(products){
 function filterProducts(){
   const s=document.getElementById("productSearch").value.toLowerCase();
   const c=document.getElementById("catFilter").value;
-  renderProducts(allProducts.filter(p=>(!s||String(p.name).toLowerCase().includes(s))&&(!c||p.cat===c)));
+  const f=document.getElementById("profitFilter").value;
+  const profitOk = p => !f || (f === "nocost" ? productCosts[p.id] == null : !!profitOf(p) && profitOf(p).profit <= 0);
+  renderProducts(allProducts.filter(p=>(!s||String(p.name).toLowerCase().includes(s))&&(!c||p.cat===c)&&profitOk(p)));
+  showProfitSummary();
 }
 
 async function updatePrice(id,price){
@@ -1198,8 +1312,11 @@ async function updatePrice(id,price){
   try{
     await send("PATCH", `products?id=eq.${q(id)}&select=id`, {price:n});
     const p = allProducts.find(x => x.id === id); if (p) p.price = n;
-    toast("✅ Price updated to ₹"+n);
-    filterProducts(); // the "% off" next to the market price changes too
+    const x = p && profitOf(p);
+    if (!x) toast("✅ Price updated to ₹"+n);
+    else if (x.profit > 0) toast(`✅ Price updated to ₹${n}. You make ${rupees(x.profit)} on it (${x.pct}%).`);
+    else toast(`Price updated to ₹${n}. ${x.profit === 0 ? "You make no profit on it" : `You lose ${rupees(x.profit)} on it`}: your cost is ${rupees(x.cost)}.`, x.profit === 0 ? "#946500" : "#E53935");
+    filterProducts(); // the "% off" next to the market price and the profit change too
   }catch(e){toast("Error: "+e.message,"#E53935");}
 }
 
@@ -1374,6 +1491,24 @@ function showSizes(){
   else if (c.bad.length) el.textContent = `${c.bad.join(", ")} doesn't match the unit ${c.unit}. Use sizes like ${defaultSizes(c.unit).join(", ")}, or change the unit.`;
   else if (!c.price) el.textContent = "Enter the price to see what each size costs";
   else el.textContent = "Customers see: " + c.opts.map(o => `${o.label} ₹${o.price}`).join(" · ");
+  showFormProfit(c);
+}
+// Under the sizes: what you make on each size, from your cost for the unit
+function showFormProfit(c){
+  const el = document.getElementById("pProfitPreview"), hint = document.getElementById("pCostHint");
+  const box = document.getElementById("pCost"), raw = box.value.trim();
+  hint.textContent = box.disabled ? "Your costs couldn't load. Close this, tap 🔄 Refresh and open it again."
+    : `For ${c.unit || "the unit"}, like the customer price. Only you see this.`;
+  el.innerHTML = "";
+  if (box.disabled || raw === "" || !c.unit || c.bad.length || !c.price) return;
+  if (!COST_RE.test(raw)) { el.innerHTML = `<span class="loss">Type your cost in rupees, like 190 or 18.50</span>`; return; }
+  const cost = parseFloat(raw);
+  const parts = c.opts.map(o => {
+    const d = Math.round((o.price - cost * sizeRatio(o.label, c.unit)) * 100) / 100;
+    return d > 0 ? `${esc(o.label)} ${rupees(d)}` : `<span class="loss">${esc(o.label)} ${d === 0 ? "no profit" : rupees(d) + " loss"}</span>`;
+  });
+  const pct = Math.round((c.price - cost) / c.price * 100);
+  el.innerHTML = "Your profit: " + parts.join(" · ") + (pct > 0 ? ` (${pct}% of the price)` : "");
 }
 function unitTyped(){
   if (!sizesTouched) document.getElementById("pSizes").value = defaultSizes(document.getElementById("pUnit").value).join(", ");
@@ -1384,7 +1519,8 @@ function setSizes(v){ document.getElementById("pSizes").value = v; sizesTouched 
 
 function showAddProduct(){
   document.getElementById("modalTitle").textContent="Add Product";
-  ["pId","pName","pPrice","pUnit","pQty","pMkt","pSizes"].forEach(id=>document.getElementById(id).value="");
+  ["pId","pName","pPrice","pUnit","pQty","pMkt","pSizes","pCost"].forEach(id=>document.getElementById(id).value="");
+  costBoxReady();
   document.getElementById("pStock").value="true";
   sizesTouched = false; showSizes();
   pendingPhoto = null; showPhotoIn(document.getElementById("pPhotoBox"), "");
@@ -1406,6 +1542,8 @@ function editProduct(id){
   document.getElementById("pVendor").value=p.vendor_id||"v1";
   document.getElementById("pQty").value=p.stock_qty == null ? "" : fmtQty(p.stock_qty);
   document.getElementById("pMkt").value=p.market_price ?? "";
+  document.getElementById("pCost").value=productCosts[p.id] ?? "";
+  costBoxReady();
   document.getElementById("pStock").value=String(p.in_stock!==false);
   showSizes();
   pendingPhoto = null; showPhotoIn(document.getElementById("pPhotoBox"), photoOf(p));
@@ -1413,6 +1551,12 @@ function editProduct(id){
 }
 
 function closeModal(){ pendingPhoto = null; document.getElementById("productModal").classList.remove("open"); }
+// The cost box works only when the costs loaded (otherwise saving would wipe a cost you can't see)
+function costBoxReady(){
+  const box = document.getElementById("pCost");
+  box.disabled = !costsLoaded;
+  box.placeholder = costsLoaded ? "What the vendor charges you" : "Couldn't load";
+}
 
 async function saveProduct(){
   const id=document.getElementById("pId").value;
@@ -1430,6 +1574,8 @@ async function saveProduct(){
   const mktRaw=document.getElementById("pMkt").value.trim();
   if(mktRaw!=="" && !/^\d{1,6}$/.test(mktRaw)){toast("Enter the market price in rupees, or leave it empty","#E53935");return;}
   data.market_price = mktRaw==="" ? null : parseInt(mktRaw, 10);
+  const costBox = document.getElementById("pCost"), costRaw = costBox.value.trim();
+  if(!costBox.disabled && costRaw!=="" && !COST_RE.test(costRaw)){toast("Type your cost in rupees, like 190 or 18.50, or leave it empty","#E53935");return;}
   data.stock_qty = Math.round(parseFloat(qtyRaw) * 1000) / 1000;
   data.in_stock = data.stock_qty > 0 && document.getElementById("pStock").value === "true";
   const saveBtn = document.getElementById("pSaveBtn");
@@ -1441,12 +1587,20 @@ async function saveProduct(){
     if(id){
       await send("PATCH", `products?id=eq.${q(id)}&select=id`, data);
       if (data.img_url) removeStoredPhoto(old);
-      toast("✅ Updated!");
     }else{
       data.id=rowId;
       await send("POST", "products?select=id", data);
-      toast("✅ Added!");
     }
+    // your cost goes in its own table, after the product exists
+    let costNote = "";
+    if (!costBox.disabled) {
+      const cost = costRaw === "" ? null : Math.round(parseFloat(costRaw) * 100) / 100;
+      if (cost !== (productCosts[rowId] ?? null)) {
+        try { await saveCost(rowId, cost); } catch(e) { costNote = e.message; }
+      }
+    }
+    if (costNote) toast(`Product saved, but not your cost: ${costNote}`, "#E53935");
+    else toast(id ? "✅ Updated!" : "✅ Added!");
     closeModal();loadProducts();
   }catch(e){toast("Error: "+e.message,"#E53935");}
   finally { if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = "Save"; } }
