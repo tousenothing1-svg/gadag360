@@ -1674,6 +1674,34 @@ export default function Gadag360() {
         : `Sorry, ${names.length ? names.join(", ") : "an item in your cart"} ${names.length > 1 ? "are" : "is"} no longer available. We've updated your cart: please check it and place the order again. If WhatsApp opened, please don't send that message.`);
       return;
     }
+    if (res && res.error === "price_changed") {
+      // The shop checks every price against its list. This app still had an older one (the price changed while the
+      // customer shopped): take the new prices, drop sizes no longer sold, and say what changed before ordering again.
+      const changes = Array.isArray(res.items) ? res.items.filter(c => c && typeof c === "object") : [];
+      const fresh = res.products && typeof res.products === "object" ? res.products : {};
+      setDbProducts(list => list.map(d => (fresh[d.id] && typeof fresh[d.id] === "object"
+        ? { ...d, price: fresh[d.id].price, unit: fresh[d.id].unit, variants: fresh[d.id].variants } : d)));
+      const gone = changes.filter(c => c.price == null).map(c => c.product_id);
+      if (gone.length) setCart(cb => { const next = { ...cb }; gone.forEach(id => { delete next[id]; }); return next; });
+      if (productsReloadRef.current) productsReloadRef.current();
+      const kn = lang === "kn";
+      const lines = changes.map(c => {
+        const it = cartItems.find(x => x.id === c.product_id);
+        const name = it ? (kn ? (KN_NAMES[it.name] || it.name_kn || it.name) : it.name) : "";
+        const what = `${name}${c.variant ? " " + c.variant : ""}`.trim() || (kn ? "ಒಂದು ವಸ್ತು" : "An item");
+        return c.price == null
+          ? (kn ? `${what}: ಈ ಅಳತೆ ಈಗ ಲಭ್ಯವಿಲ್ಲ` : `${what}: no longer sold in this size`)
+          : `${what}: ₹${c.was} → ₹${c.price}`;
+      });
+      alert((kn
+        ? "ನೀವು ಕಾರ್ಟ್‌ಗೆ ಸೇರಿಸಿದ ನಂತರ ಬೆಲೆ ಬದಲಾಗಿದೆ:\n"
+        : "Some prices changed since you added them to your cart:\n")
+        + lines.join("\n")
+        + (kn
+          ? "\n\nನಿಮ್ಮ ಕಾರ್ಟ್ ಅಪ್‌ಡೇಟ್ ಆಗಿದೆ: ಪರಿಶೀಲಿಸಿ ಮತ್ತೆ ಆರ್ಡರ್ ಮಾಡಿ. WhatsApp ತೆರೆದಿದ್ದರೆ ಆ ಸಂದೇಶವನ್ನು ಕಳುಹಿಸಬೇಡಿ."
+          : "\n\nWe've updated your cart: please check it and place the order again. If WhatsApp opened, please don't send that message."));
+      return;
+    }
     alert(res && res.error === "slow_down"
       ? (lang === "kn" ? "ಸ್ವಲ್ಪ ಸಮಯದಲ್ಲಿ ತುಂಬಾ ಆರ್ಡರ್‌ಗಳು. ಸ್ವಲ್ಪ ಹೊತ್ತು ಬಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ." : "That's a lot of orders in a short time. Please wait a little and try again.")
       : (lang === "kn" ? "ಕ್ಷಮಿಸಿ, ನಿಮ್ಮ ಆರ್ಡರ್ ತಲುಪಲಿಲ್ಲ. ಇಂಟರ್ನೆಟ್ ಪರಿಶೀಲಿಸಿ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ. WhatsApp ತೆರೆದಿದ್ದರೆ ಆ ಸಂದೇಶವನ್ನು ಕಳುಹಿಸಬೇಡಿ." : "Sorry, your order didn't go through. Please check your internet and try again. If WhatsApp opened, please don't send that message."));
