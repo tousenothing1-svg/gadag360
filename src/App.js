@@ -94,7 +94,8 @@ const deviceId = () => {
 // ── FRESH START ──
 // Changing this date signs every phone out on its next visit and shows the welcome flow again, so everyone
 // signs in as a new customer. The cart, language and any order being tracked stay.
-const FRESH_START = "2026-11-06";
+// 9 Nov 2026: clean start for the business, all orders and customers cleared from the database.
+const FRESH_START = "2026-11-09";
 const FRESH_START_KEYS = ["gd360_loggedIn", "gd360_profile", "gd360_userId", "gd360_coins", "gd360_ctoken",
   "gd360_onboarded", "gd360_prefs", "gd360_tip_seen", "gd360_loc"];
 let freshStartNow = false;
@@ -2041,6 +2042,12 @@ const verifyOtp = async () => {
       if (deliveredRef.current) return;
       try {
         const list = await rpc("order_status", { p_device: deviceId(), p_ids: [activeOrderId] });
+        if (Array.isArray(list) && !list.length) {
+          // Not in the shop's records. Just after placing it, it's still being saved; an older one was cleared
+          // from the admin panel, so stop showing it as on its way.
+          setActiveOrders(v => v.filter(x => x.id !== activeOrderId || Date.now() - (x.placedAt || 0) < 6e5));
+          return;
+        }
         const data = Array.isArray(list) ? list[0] : null;
         if (!data) return;
         setOrderStatusIdx(STATUS_TO_IDX[data.status] ?? 0);
