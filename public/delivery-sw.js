@@ -1,11 +1,21 @@
 // Royal Harvest Delivery app: lets the rider page install on a phone and still open with a weak signal.
 // Only the page and its icons are kept; orders, logins and locations always go live to the server.
 // It also shows order alerts ("New delivery for you", "Order cancelled") and opens the app when one is tapped.
-const CACHE = "rh-delivery-v2";
+const CACHE = "rh-delivery-v3";
 const SHELL = ["/delivery.html", "/delivery-manifest.json", "/rider-192.png", "/rider-512.png"];
 
+// Cloudflare sends /delivery.html on to /delivery. A page saved from such a redirect can't be shown when the app
+// opens with no signal, so a plain copy of it is kept instead.
+const plain = res => res.redirected
+  ? res.blob().then(b => new Response(b, { status: res.status, statusText: res.statusText, headers: res.headers }))
+  : res;
+
 self.addEventListener("install", e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(CACHE)
+    .then(c => Promise.all(SHELL.map(u => fetch(u, { cache: "reload" })
+      .then(res => { if (!res.ok) throw new Error(`${u}: ${res.status}`); return plain(res); })
+      .then(res => c.put(u, res)))))
+    .then(() => self.skipWaiting()));
 });
 
 self.addEventListener("activate", e => {
@@ -21,10 +31,12 @@ self.addEventListener("fetch", e => {
   e.respondWith(
     fetch(req)
       .then(res => {
-        if (res.ok) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)); }
+        if (res.ok && !res.redirected) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)); }
         return res;
       })
-      .catch(() => caches.match(req, { ignoreSearch: true }))
+      .catch(() => caches.match(req, { ignoreSearch: true })
+        .then(hit => hit || (req.mode === "navigate" ? caches.match("/delivery.html") : undefined)) // /delivery or /delivery.html
+        .then(hit => (hit ? plain(hit) : Response.error())))
   );
 });
 
