@@ -14,7 +14,7 @@ import { b64uEncode, sendPush, vapidSigner } from "./webpush.js";
 
 const SB_URL = Deno.env.get("SUPABASE_URL") || "";
 const SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-const SUBJECT = Deno.env.get("VAPID_SUBJECT") || "https://gadag360.vercel.app";
+const SUBJECT = Deno.env.get("VAPID_SUBJECT") || "https://royalharvest.pages.dev";
 const BATCH = 150;   // phones per call (the admin panel calls again for the next ones)
 const PARALLEL = 15; // sent at the same time
 

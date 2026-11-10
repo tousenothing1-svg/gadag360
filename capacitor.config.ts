@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.gadag360.gadag360',
-  appName: 'GADAG 360',
+  appId: 'in.royalharvest.app',
+  appName: 'Royal Harvest',
   webDir: 'build',
   server: {
     androidScheme: 'https'
@@ -13,10 +13,10 @@ const config: CapacitorConfig = {
   },
   plugins: {
     Preferences: {
-      group: 'gadag360'
+      group: 'royalharvest'
     },
     CapacitorUpdater: {
-      appId: 'com.gadag360.gadag360'
+      appId: 'in.royalharvest.app'
     }
   }
 };

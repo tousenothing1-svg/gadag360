@@ -1,8 +1,6 @@
 // @ts-nocheck
 /* eslint-disable */
 import { createClient } from "@supabase/supabase-js";
-import { auth } from "./firebase";
-import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
 import { Onboarding, WelcomeOffer, CoachTip, AreaNotice } from "./FirstOpen";
@@ -82,10 +80,10 @@ const randomHex = (n) => {
 let memDevice = null;
 const deviceId = () => {
   try {
-    let d = localStorage.getItem("gd360_device");
+    let d = localStorage.getItem("rh_device");
     if (d && /^[A-Za-z0-9_-]{16,128}$/.test(d)) return d;
     d = randomHex(18);
-    Storage.set("gd360_device", d);
+    Storage.set("rh_device", d);
     return d;
   } catch (e) {
     return memDevice || (memDevice = randomHex(18));
@@ -96,13 +94,13 @@ const deviceId = () => {
 // signs in as a new customer. The cart, language and any order being tracked stay.
 // 9 Nov 2026: clean start for the business, all orders and customers cleared from the database.
 const FRESH_START = "2026-11-09";
-const FRESH_START_KEYS = ["gd360_loggedIn", "gd360_profile", "gd360_userId", "gd360_coins", "gd360_ctoken",
-  "gd360_onboarded", "gd360_prefs", "gd360_tip_seen", "gd360_loc"];
+const FRESH_START_KEYS = ["rh_loggedIn", "rh_profile", "rh_userId", "rh_coins", "rh_ctoken",
+  "rh_onboarded", "rh_prefs", "rh_tip_seen", "rh_loc"];
 let freshStartNow = false;
 try {
-  if (localStorage.getItem("gd360_fresh") !== FRESH_START) {
+  if (localStorage.getItem("rh_fresh") !== FRESH_START) {
     FRESH_START_KEYS.forEach(k => Storage.remove(k)); // web storage now, the phone app's storage right after
-    localStorage.setItem("gd360_fresh", FRESH_START);
+    localStorage.setItem("rh_fresh", FRESH_START);
     freshStartNow = true;
   }
 } catch (e) {}
@@ -1182,12 +1180,12 @@ function HandpickdLayout({ filtered, listMode, onClearList, suggestions, onSugge
   );
 }
 
-// ── ROYAL HARVEST (formerly GADAG 360): single-warehouse grocery delivery ──
-export default function Gadag360() {
+// ── ROYAL HARVEST: single-warehouse grocery delivery ──
+export default function RoyalHarvest() {
   const [screen, setScreen] = useState("home");
   const [activeCat, setActiveCat] = useState("all");
   const [query, setQuery] = useState("");
-  const [cart, setCart] = useState(() => readJSON("gd360_cart", {}));
+  const [cart, setCart] = useState(() => readJSON("rh_cart", {}));
   const [address, setAddress] = useState("");
   const [gpsCoords, setGpsCoords] = useState(null); // {lat, lon, accuracy} from GPS
   const payment = "cod"; // cash or UPI to the delivery partner; online payment comes with Razorpay later
@@ -1196,10 +1194,10 @@ export default function Gadag360() {
   const riderPollRef = useRef(null);
   const timerRef = useRef(null);
   const [activeOrders, setActiveOrders] = useState(() => {    // orders being tracked; kept for a day so a reload doesn't lose them
-    const v = readJSON("gd360_active", []);
+    const v = readJSON("rh_active", []);
     return Array.isArray(v) ? v.filter(o => o && o.id && Date.now() - (o.placedAt || 0) < 864e5 && !["delivered", "cancelled"].includes(o.status)) : [];
   });
-  const [lang, setLang] = useState(() => { try { return localStorage.getItem("gd360_lang") === "kn" ? "kn" : "en"; } catch (e) { return "en"; } });
+  const [lang, setLang] = useState(() => { try { return localStorage.getItem("rh_lang") === "kn" ? "kn" : "en"; } catch (e) { return "en"; } });
 
   // ── ALL 16 FEATURES STATE ──
   const [orderHistory, setOrderHistory] = useState([]);     // F3 order history
@@ -1229,20 +1227,20 @@ export default function Gadag360() {
   const [editProfile, setEditProfile] = useState({ name:"", phone:"", email:"" });
   const [suggestText, setSuggestText] = useState("");
   const [suggestSent, setSuggestSent] = useState(false);
-  const [selectedVariant, setSelectedVariant] = useState(() => readJSON("gd360_sizes", {}));
+  const [selectedVariant, setSelectedVariant] = useState(() => readJSON("rh_sizes", {}));
   const ctokenRef = useRef(null); // this phone's sign-in session (see signIn)
   const productsReloadRef = useRef(null), productsLoadedAt = useRef(0); // fetch the product list again (see the startup effect)
   const [tip, setTip] = useState(0);
   // Last product list seen (prices, units, stock), so the shop opens with them instead of the built-in ones
-  const [dbProducts, setDbProducts] = useState(() => { const v = readJSON("gd360_products", null); return Array.isArray(v) ? v : []; });
+  const [dbProducts, setDbProducts] = useState(() => { const v = readJSON("rh_products", null); return Array.isArray(v) ? v : []; });
   const [vendorOrderStatus, setVendorOrderStatus] = useState({}); // {orderId: "accepted"|"rejected"}
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(() => {
-    try { return !localStorage.getItem("gd360_onboarded") && localStorage.getItem("gd360_loggedIn") !== "true"; } catch (e) { return false; }
+    try { return !localStorage.getItem("rh_onboarded") && localStorage.getItem("rh_loggedIn") !== "true"; } catch (e) { return false; }
   });
   const [showWelcomeOffer, setShowWelcomeOffer] = useState(false);
   const [showTip, setShowTip] = useState(false);
-  const [userLoc, setUserLoc] = useState(() => readJSON("gd360_loc", null));
+  const [userLoc, setUserLoc] = useState(() => readJSON("rh_loc", null));
   const [areaNoticeClosed, setAreaNoticeClosed] = useState(false);
   // Alerts (push notifications) for fresh arrivals, price drops and offers — see Alerts.js
   const [alerts, setAlerts] = useState("unknown"); // on | off | blocked | ios-install | no
@@ -1270,10 +1268,10 @@ export default function Gadag360() {
   const [chipNote, setChipNote] = useState(null);        // short note under a shelf that has nothing yet
   const stickyRef = useRef(null), chipsWrapRef = useRef(null), chipNoteTimer = useRef(null);
   // Keep the cart, chosen sizes and language after a refresh
-  useEffect(() => { Storage.set("gd360_cart", JSON.stringify(cart)); }, [cart]);
-  useEffect(() => { Storage.set("gd360_sizes", JSON.stringify(selectedVariant)); }, [selectedVariant]);
-  useEffect(() => { Storage.set("gd360_lang", lang); }, [lang]);
-  useEffect(() => { Storage.set("gd360_active", JSON.stringify(activeOrders.filter(o => !["delivered", "cancelled"].includes(o.status)).slice(0, 3))); }, [activeOrders]);
+  useEffect(() => { Storage.set("rh_cart", JSON.stringify(cart)); }, [cart]);
+  useEffect(() => { Storage.set("rh_sizes", JSON.stringify(selectedVariant)); }, [selectedVariant]);
+  useEffect(() => { Storage.set("rh_lang", lang); }, [lang]);
+  useEffect(() => { Storage.set("rh_active", JSON.stringify(activeOrders.filter(o => !["delivered", "cancelled"].includes(o.status)).slice(0, 3))); }, [activeOrders]);
   // Share the pinned header's height so category tags stick right under it
   useEffect(() => {
     const el = stickyRef.current;
@@ -1820,7 +1818,7 @@ const mapOrders = (list) => (Array.isArray(list) ? list : []).map(o => ({
 }));
 const saveToken = (t) => {
   ctokenRef.current = t || null;
-  if (t) Storage.set("gd360_ctoken", t); else Storage.remove("gd360_ctoken");
+  if (t) Storage.set("rh_ctoken", t); else Storage.remove("rh_ctoken");
 };
 const loadMyOrders = async (token) => {
   try { const r = await rpc("customer_orders", { p_token: token }); if (r && r.ok) setOrderHistory(mapOrders(r.orders)); } catch (e) {}
@@ -1844,9 +1842,9 @@ const signIn = async (phone, name, legacyId) => {
   setUserProfile(profileData);
   setEditProfile(profileData);
   setIsLoggedIn(true);
-  await Storage.set("gd360_loggedIn", "true");
-  await Storage.set("gd360_profile", JSON.stringify(profileData));
-  Storage.remove("gd360_userId"); // the old way of remembering the account
+  await Storage.set("rh_loggedIn", "true");
+  await Storage.set("rh_profile", JSON.stringify(profileData));
+  Storage.remove("rh_userId"); // the old way of remembering the account
   return s ? s.token : null;
 };
 const verifyOtp = async () => {
@@ -1859,23 +1857,23 @@ const verifyOtp = async () => {
 
   // ── FIRST OPEN: welcome, sign-in, a few questions; shown once to new visitors ──
   const savePrefs = async (prefs, token) => {
-    Storage.set("gd360_prefs", JSON.stringify(prefs));
+    Storage.set("rh_prefs", JSON.stringify(prefs));
     const t = token || ctokenRef.current;
     if (t) { try { await rpc("customer_save_prefs", { p_token: t, p_prefs: prefs }); } catch (e) {} }
   };
-  const saveLocation = loc => { setUserLoc(loc); Storage.set("gd360_loc", JSON.stringify(loc)); };
+  const saveLocation = loc => { setUserLoc(loc); Storage.set("rh_loc", JSON.stringify(loc)); };
   const finishOnboarding = () => {
-    Storage.set("gd360_onboarded", "1");
+    Storage.set("rh_onboarded", "1");
     setShowOnboarding(false);
     setScreen("home"); setActiveTab("home");
     setShowWelcomeOffer(true);
   };
   const closeWelcomeOffer = () => {
     setShowWelcomeOffer(false);
-    let seen = false; try { seen = !!localStorage.getItem("gd360_tip_seen"); } catch (e) {}
+    let seen = false; try { seen = !!localStorage.getItem("rh_tip_seen"); } catch (e) {}
     if (!seen) setShowTip(true);
   };
-  const closeTip = () => { setShowTip(false); Storage.set("gd360_tip_seen", "1"); };
+  const closeTip = () => { setShowTip(false); Storage.set("rh_tip_seen", "1"); };
   const toggleWishlist = (id) => setWishlist(w=>({...w,[id]:!w[id]}));
 
 
@@ -1893,11 +1891,11 @@ const verifyOtp = async () => {
         if (isNative()) {
           try {
             const { Preferences } = await import("@capacitor/preferences");
-            const r1 = await Preferences.get({ key: "gd360_loggedIn" });
+            const r1 = await Preferences.get({ key: "rh_loggedIn" });
             loggedIn = r1.value;
             if (loggedIn === "true") {
-              const r2 = await Preferences.get({ key: "gd360_profile" });
-              const r4 = await Preferences.get({ key: "gd360_userId" });
+              const r2 = await Preferences.get({ key: "rh_profile" });
+              const r4 = await Preferences.get({ key: "rh_userId" });
               profileStr = r2.value;
               savedUserId = r4.value;
             }
@@ -1906,19 +1904,19 @@ const verifyOtp = async () => {
 
         // Fallback to localStorage
         if (!loggedIn) {
-          loggedIn = localStorage.getItem("gd360_loggedIn");
-          profileStr = localStorage.getItem("gd360_profile");
-          savedUserId = localStorage.getItem("gd360_userId");
+          loggedIn = localStorage.getItem("rh_loggedIn");
+          profileStr = localStorage.getItem("rh_profile");
+          savedUserId = localStorage.getItem("rh_userId");
         }
         let savedToken = null;
-        try { savedToken = localStorage.getItem("gd360_ctoken"); } catch (e) {}
+        try { savedToken = localStorage.getItem("rh_ctoken"); } catch (e) {}
         if (isNative()) {
           // the phone app also keeps the session and device id in Preferences, in case the web view was cleared
           try {
             const { Preferences } = await import("@capacitor/preferences");
-            if (!savedToken) savedToken = (await Preferences.get({ key: "gd360_ctoken" })).value;
-            const d = (await Preferences.get({ key: "gd360_device" })).value;
-            if (d && !localStorage.getItem("gd360_device")) localStorage.setItem("gd360_device", d);
+            if (!savedToken) savedToken = (await Preferences.get({ key: "rh_ctoken" })).value;
+            const d = (await Preferences.get({ key: "rh_device" })).value;
+            if (d && !localStorage.getItem("rh_device")) localStorage.setItem("rh_device", d);
           } catch (e) {}
         }
 
@@ -1948,7 +1946,7 @@ const verifyOtp = async () => {
             } catch (e) {}
           }
           if (token) {
-            Storage.remove("gd360_userId");
+            Storage.remove("rh_userId");
             loadMyOrders(token); // order history on session restore, not just after login
           }
         }
@@ -1965,7 +1963,7 @@ const verifyOtp = async () => {
         if (data && data.length > 0) {
           setDbProducts(data);
           productsLoadedAt.current = Date.now();
-          Storage.set("gd360_products", JSON.stringify(data));
+          Storage.set("rh_products", JSON.stringify(data));
         } else if (attempt < 3) {
           // Retry up to 3 times if empty (mobile network delay)
           setTimeout(() => loadProductsFromDB(attempt + 1), 1500 * attempt);
@@ -2097,10 +2095,10 @@ const verifyOtp = async () => {
                     saveToken(null);
                     setIsLoggedIn(false);
                     setOrderHistory([]); // the next person on this phone shouldn't see these
-                    Storage.remove("gd360_loggedIn");
-                    Storage.remove("gd360_profile");
-                    Storage.remove("gd360_userId");
-                    Storage.remove("gd360_coins");
+                    Storage.remove("rh_loggedIn");
+                    Storage.remove("rh_profile");
+                    Storage.remove("rh_userId");
+                    Storage.remove("rh_coins");
                   }} style={{fontSize:12,fontWeight:600,padding:"6px 14px",borderRadius:20,backgroundColor:"#fee2e2",color:chili,border:"none",cursor:"pointer"}}>
                     {lang==="kn"?"ಲಾಗ್ ಔಟ್":"Sign Out"}
                   </button>
@@ -2447,7 +2445,7 @@ const verifyOtp = async () => {
                 if (r && r.error === "bad_email") { alert(lang==="kn" ? "ಇಮೇಲ್ ವಿಳಾಸವನ್ನು ಪರಿಶೀಲಿಸಿ" : "Please check the email address"); return; }
               }
               setUserProfile({...editProfile});
-              Storage.set("gd360_profile", JSON.stringify(editProfile));
+              Storage.set("rh_profile", JSON.stringify(editProfile));
               setProfileSection(null);
             }} className="w-full py-3 rounded-2xl font-bold text-sm" style={{backgroundColor:basil,color:"white"}}>
               {lang==="kn"?"ಪ್ರೊಫೈಲ್ ಉಳಿಸಿ":"Save Profile"}

@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace = "in.gadag360.app"
+    namespace = "in.royalharvest.app"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "in.gadag360.app"
+        applicationId "in.royalharvest.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

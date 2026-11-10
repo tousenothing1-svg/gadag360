@@ -1,4 +1,4 @@
-package in.gadag360.app;
+package in.royalharvest.app;
 
 import com.getcapacitor.BridgeActivity;
 

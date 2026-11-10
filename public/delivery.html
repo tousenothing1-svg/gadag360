@@ -293,7 +293,6 @@ const WAREHOUSE_MAP = `https://maps.google.com/?q=${WAREHOUSE.lat},${WAREHOUSE.l
 
 let currentDeliveryBoy = null; // { id, name, token }
 let refreshTimer = null;
-try { localStorage.removeItem("gd360_db"); } catch (e) {} // the old login kept the whole row here, password included
 
 // ── AUTH ──
 async function doLogin() {
