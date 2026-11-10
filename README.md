@@ -1,70 +1,27 @@
-# Getting Started with Create React App
+# Royal Harvest
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Fresh fruits, vegetables and daily essentials delivered across Gadag in 2 hours, in English and ಕನ್ನಡ.
 
-## Available Scripts
+## What's in here
 
-In the project directory, you can run:
+| Part | File | Who uses it |
+|---|---|---|
+| The shop | `src/App.js` (plus `src/FirstOpen.js`, `src/Alerts.js`) | Customers |
+| Admin panel | `public/admin.html` | The owner: orders, products, prices, costs, profit, delivery boys, alerts |
+| Delivery app | `public/delivery.html` (+ `delivery-sw.js`, `delivery-manifest.json`) | Delivery boys |
+| Database | `supabase/*.sql` (applied in number order) | Supabase |
+| Alert sender | `supabase/functions/send-push` | Supabase Edge Functions |
 
-### `npm start`
+## Where it runs
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+- **Website:** Cloudflare Pages, project `royalharvest` (royalharvest.pages.dev). Every push to `main` builds with
+  `npm run build` and publishes the `build` folder.
+- **Database and login:** Supabase.
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## Working on it
 
-### `npm test`
-
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
-
-### `npm run build`
-
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
-
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
-
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
-
-### `npm run eject`
-
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
-
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
-
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+```
+npm install
+npm start          # the shop on http://localhost:3000
+npm run build      # what Cloudflare builds
+```
