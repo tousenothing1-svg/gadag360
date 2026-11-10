@@ -447,7 +447,7 @@ function orderCard(o, isActive) {
       <div class="order-footer">
         <div class="order-meta">
           <span class="meta-pill meta-total">₹${esc(o.total)}</span>
-          <span class="meta-pill meta-payment">${pay === "cod" ? "💵 COD" : "📱 " + esc(pay.toUpperCase())}</span>
+          <span class="meta-pill meta-payment">${pay === "cod" ? "💵 Collect: cash or UPI" : "📱 " + esc(pay.toUpperCase())}</span>
           <span class="meta-pill meta-slot">🕐 ${esc(o.delivery_slot || "Standard")}</span>
         </div>
         ${mapsLinks}

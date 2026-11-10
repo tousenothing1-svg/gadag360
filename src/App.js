@@ -1190,7 +1190,7 @@ export default function Gadag360() {
   const [cart, setCart] = useState(() => readJSON("gd360_cart", {}));
   const [address, setAddress] = useState("");
   const [gpsCoords, setGpsCoords] = useState(null); // {lat, lon, accuracy} from GPS
-  const [payment, setPayment] = useState("cod"); // cod = cash or UPI on delivery; "online" once Razorpay is live
+  const payment = "cod"; // cash or UPI to the delivery partner; online payment comes with Razorpay later
   const [orderStatusIdx, setOrderStatusIdx] = useState(0);
   const [riderPos, setRiderPos] = useState(null); // {lat, lon} from live delivery boy GPS
   const riderPollRef = useRef(null);
@@ -2387,7 +2387,7 @@ const verifyOtp = async () => {
 
           {/* PAYMENT MANAGEMENT */}
           {profileSection==="payments" && <div className="space-y-3">
-            {[{icon:"📱",label:"UPI / GPay / PhonePe",sub:"Linked & active"},{icon:"💳",label:lang==="kn"?"ಕ್ರೆಡಿಟ್/ಡೆಬಿಟ್ ಕಾರ್ಡ್":"Credit / Debit Card",sub:lang==="kn"?"ಕಾರ್ಡ್ ಸೇರಿಸಿ":"Add a card"},{icon:"💵",label:"Cash on Delivery",sub:lang==="kn"?"ಡೆಲಿವರಿ ಸಮಯದಲ್ಲಿ ಪಾವತಿ":"Pay when order arrives"}].map((m,i)=>(
+            {[{icon:"💵",label:lang==="kn"?"ಡೆಲಿವರಿ ವೇಳೆ ನಗದು / UPI":"Cash or UPI on delivery",sub:lang==="kn"?"ಆರ್ಡರ್ ತಲುಪಿದಾಗ ನಗದು ಅಥವಾ ಯಾವುದೇ UPI ಆಪ್ ಮೂಲಕ ಪಾವತಿಸಿ (GPay, PhonePe, Paytm)":"Pay when your order arrives: cash, or any UPI app (GPay, PhonePe, Paytm)"},{icon:"📱",label:lang==="kn"?"ಆನ್‌ಲೈನ್ ಪಾವತಿ":"Online payment",sub:lang==="kn"?"ಶೀಘ್ರದಲ್ಲೇ ಬರಲಿದೆ":"Coming soon"}].map((m,i)=>(
               <div key={i} className="flex items-center gap-3 p-4 rounded-2xl" style={{backgroundColor:panel,border:`1px solid ${line}`}}>
                 <span className="text-2xl">{m.icon}</span>
                 <div><div className="font-semibold text-sm">{m.label}</div><div className="text-xs" style={{color:soil}}>{m.sub}</div></div>
@@ -2891,16 +2891,16 @@ const verifyOtp = async () => {
                   </div>}
                 </div>
 
-                {/* Payment + Place Order */}
+                {/* Payment + Place Order: paid to the delivery partner, cash or UPI (no online payment yet) */}
                 <div style={{backgroundColor:"white",margin:"8px 0",padding:"14px"}}>
                   <div style={{fontSize:12,fontWeight:700,color:ink,marginBottom:10}}>💳 {lang==="kn"?"ಪಾವತಿ ವಿಧಾನ":"Payment Method"}</div>
-                  <div style={{display:"flex",gap:8,marginBottom:14}}>
-                    {[{id:"cod",icon:"💵",label:lang==="kn"?"ನಗದು/UPI ಡೆಲಿವರಿ":"Cash/UPI on Delivery"},{id:"online",icon:"📱",label:lang==="kn"?"ಆನ್‌ಲೈನ್ ಪಾವತಿ":"Pay Online"}].map(opt=>(
-                      <button key={opt.id} onClick={()=>setPayment(opt.id)} style={{flex:1,padding:"10px 6px",borderRadius:12,fontSize:11,fontWeight:600,cursor:"pointer",backgroundColor:payment===opt.id?"#f0faf4":"#f7f7f7",color:payment===opt.id?basil:soil,border:`1.5px solid ${payment===opt.id?basil:line}`,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
-                        <span style={{fontSize:20}}>{opt.icon}</span>{opt.label}
-                        {payment===opt.id&&<Check size={12} style={{color:basil}}/>}
-                      </button>
-                    ))}
+                  <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:12,backgroundColor:"#f0faf4",border:`1.5px solid ${basil}`,marginBottom:14}}>
+                    <span style={{fontSize:20}} aria-hidden="true">💵</span>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:12.5,fontWeight:700,color:basil}}>{lang==="kn"?"ಡೆಲಿವರಿ ವೇಳೆ ನಗದು / UPI":"Cash or UPI on delivery"}</div>
+                      <div style={{fontSize:11,color:soil,marginTop:2}}>{lang==="kn"?"ಆರ್ಡರ್ ತಲುಪಿದಾಗ ನಗದು ಅಥವಾ ಯಾವುದೇ UPI ಆಪ್ ಮೂಲಕ ಪಾವತಿಸಿ":"Pay when your order arrives: cash, or any UPI app"}</div>
+                    </div>
+                    <Check size={14} style={{color:basil,flexShrink:0}}/>
                   </div>
                   <button onClick={placeOrder} disabled={!address.trim()} style={{width:"100%",padding:"14px",borderRadius:14,backgroundColor:address.trim()?basil:"#ccc",color:"white",border:"none",cursor:address.trim()?"pointer":"not-allowed",fontSize:15,fontWeight:800}}>
                     {lang==="kn"?"ಆರ್ಡರ್ ಮಾಡಿ":"Place Order"} →
