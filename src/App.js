@@ -370,6 +370,82 @@ const ts = (s) => (s ? Date.parse(String(s).replace(" ", "T").replace(/(\.\d{3})
 function readJSON(key, fallback) {
   try { const v = JSON.parse(localStorage.getItem(key)); return v && typeof v === "object" ? v : fallback; } catch (e) { return fallback; }
 }
+
+// ── DELIVERY ADDRESSES ──
+// Every order needs a typed address (house no., street, landmark) of at least ADDR_MIN characters, even with a GPS
+// pin: the pin shows the area, the words find the door. The database checks the same (place_order).
+const ADDR_MIN = 10;
+const MAX_ADDRESSES = 3;
+const GPS_MARKS = ["GPS location pinned ✓", "GPS ಸ್ಥಳ ಪಿನ್ ಮಾಡಲಾಗಿದೆ ✓"]; // older versions put this in front of the address
+const addrText = (s) => GPS_MARKS.reduce((t, m) => t.split(m).join(""), String(s || "")).replace(/\s+/g, " ").trim();
+const inIndia = (la, lo) => typeof la === "number" && typeof lo === "number" && la >= 6 && la <= 37 && lo >= 68 && lo <= 98;
+const newAddrId = () => "a" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+// Saved addresses as the database keeps them (clean_addresses): at most 3, each with a name, the typed address and
+// a map spot only if it's a real one
+function cleanSavedAddresses(list) {
+  if (!Array.isArray(list)) return [];
+  return list.filter(a => a && typeof a === "object" && addrText(a.text).length >= ADDR_MIN).slice(0, MAX_ADDRESSES).map((a, i) => {
+    const out = { id: String(a.id || "").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 40) || "a" + i + Date.now().toString(36),
+                  label: String(a.label || "").replace(/\s+/g, " ").trim().slice(0, 30) || "Address",
+                  text: addrText(a.text).slice(0, 300) };
+    if (inIndia(a.lat, a.lon)) { out.lat = a.lat; out.lon = a.lon; }
+    return out;
+  });
+}
+const ADDR_LABELS = [
+  { id: "Home", en: "Home", kn: "ಮನೆ", icon: "🏠" },
+  { id: "Work", en: "Work", kn: "ಕೆಲಸ", icon: "💼" },
+  { id: "Other", en: "Someone else", kn: "ಬೇರೆಯವರು", icon: "👪" },
+];
+// a name the customer typed is always someone else's place (the name box shows only for "Someone else")
+const addrIcon = (label) => (label === "Home" ? "🏠" : label === "Work" ? "💼" : label === "Address" ? "📍" : "👪");
+const addrLabelText = (label, lang) => { const l = ADDR_LABELS.find(x => x.id === label); return l ? (lang === "kn" ? l.kn : l.en) : label; };
+// Home / Work / Someone else
+function LabelChips({ value, onChange, lang }) {
+  return (
+    <div role="radiogroup" aria-label={lang === "kn" ? "ವಿಳಾಸದ ಹೆಸರು" : "Address name"} style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+      {ADDR_LABELS.map(l => {
+        const on = value === l.id;
+        return (
+          <button key={l.id} type="button" role="radio" aria-checked={on} onClick={() => onChange(l.id)}
+            style={{ padding:"7px 12px", borderRadius:16, fontSize:12.5, fontWeight:700, cursor:"pointer", fontFamily:"inherit",
+              border:`1.5px solid ${on ? basil : line}`, backgroundColor: on ? basil : "#fff", color: on ? "#fff" : soil }}>
+            {l.icon} {lang === "kn" ? l.kn : l.en}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── PRODUCT SUGGESTION PHOTO ──
+// A phone photo shrunk to 800 px on its longer side, as a JPEG data: link of about 60–150 KB (the database takes up
+// to ~300 KB). Tries smaller sizes if a photo is still too big.
+function shrinkPhoto(file) {
+  return new Promise((resolve, reject) => {
+    if (!file || (file.type && !/^image\//.test(file.type))) { reject(new Error("type")); return; }
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      try {
+        let side = 800, out = "";
+        for (let tries = 0; tries < 4; tries++) {
+          const scale = Math.min(1, side / Math.max(img.naturalWidth, img.naturalHeight, 1));
+          const w = Math.max(1, Math.round(img.naturalWidth * scale)), h = Math.max(1, Math.round(img.naturalHeight * scale));
+          const c = document.createElement("canvas"); c.width = w; c.height = h;
+          const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, w, h); g.drawImage(img, 0, 0, w, h);
+          out = c.toDataURL("image/jpeg", tries ? 0.6 : 0.75);
+          if (out.length <= 380000) break;
+          side = Math.round(side * 0.75);
+        }
+        URL.revokeObjectURL(url);
+        if (!out.startsWith("data:image/jpeg;base64,") || out.length > 380000) reject(new Error("size")); else resolve(out);
+      } catch (e) { URL.revokeObjectURL(url); reject(e); }
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("decode")); };
+    img.src = url;
+  });
+}
 // SIZES-BEGIN
 // ── SIZES ── (the same code is in src/App.js and public/admin.html)
 // A product's price is for its unit ("500g", "1kg", "1pc", "1 bunch"). Customers can also pick other sizes of the
@@ -522,8 +598,8 @@ function ProductImage({ p }) {
 const WAREHOUSE_POS = [15.426861, 75.614917];
 // The shop's WhatsApp: new orders and "Get help" messages go here
 const SHOP_WHATSAPP = "919035068924";
-// We deliver within this distance of the warehouse (covers Gadag, Betageri and the district towns in the service list)
-const SERVICE_RADIUS_KM = 50;
+// We deliver to Gadag, Betageri and Hulkoti: all within this distance of the warehouse (Hulkoti is about 9 km away)
+const SERVICE_RADIUS_KM = 12;
 
 // ── MAPS ──
 // Leaflet (the map library) loads once from the CDN, only when a map is shown.
@@ -1222,10 +1298,22 @@ export default function RoyalHarvest() {
   const [loginOtp, setLoginOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [wishlist, setWishlist] = useState({});
-  const [savedAddresses, setSavedAddresses] = useState(["Near Bus Stand, Gadag"]);
+  // Saved delivery addresses (up to 3, e.g. Home and a parent's house): {id, label, text, lat?, lon?}.
+  // Kept on this phone, and with the account when the database trusts this phone (see syncAddresses).
+  const [savedAddresses, setSavedAddresses] = useState(() => cleanSavedAddresses(readJSON("rh_addresses", [])));
+  const [selectedAddrId, setSelectedAddrId] = useState(null); // the saved address picked at checkout
+  const [gpsBusy, setGpsBusy] = useState(false);             // "Use GPS" is finding the spot
+  const [saveAddrOpen, setSaveAddrOpen] = useState(false);   // checkout: "Save this address" open
+  const [saveAddrLabel, setSaveAddrLabel] = useState("Home");
+  const [saveAddrCustom, setSaveAddrCustom] = useState("");
+  const [newAddr, setNewAddr] = useState(null);              // profile: the address being added {label, custom, text, coords}
   const [userProfile, setUserProfile] = useState({ name:"", phone:"", email:"" });
   const [editProfile, setEditProfile] = useState({ name:"", phone:"", email:"" });
-  const [suggestText, setSuggestText] = useState("");
+  const [suggestText, setSuggestText] = useState("");        // details (optional)
+  const [suggestName, setSuggestName] = useState("");        // product name (needed)
+  const [suggestPhoto, setSuggestPhoto] = useState(null);    // shrunk photo as a data: link
+  const [suggestBusy, setSuggestBusy] = useState(false);
+  const [suggestError, setSuggestError] = useState("");
   const [suggestSent, setSuggestSent] = useState(false);
   const [selectedVariant, setSelectedVariant] = useState(() => readJSON("rh_sizes", {}));
   const ctokenRef = useRef(null); // this phone's sign-in session (see signIn)
@@ -1250,6 +1338,7 @@ export default function RoyalHarvest() {
     try { return Date.now() - Number(localStorage.getItem("rh_alerts_card_closed") || 0) < 14 * 864e5; } catch (e) { return false; }
   });
   const outsideArea = !!(userLoc && typeof userLoc.lat === "number" && kmBetween([userLoc.lat, userLoc.lon], WAREHOUSE_POS) > SERVICE_RADIUS_KM);
+  const addressReady = addrText(address).length >= ADDR_MIN; // a typed address is needed to place an order
   // The running "Use GPS" watch, so a second tap (or placing the order) stops the old one
   const gpsWatchRef = useRef(null);
   const stopGpsWatch = () => {
@@ -1258,6 +1347,49 @@ export default function RoyalHarvest() {
     clearTimeout(w.timer);
     if (w.id != null && navigator.geolocation) navigator.geolocation.clearWatch(w.id);
     gpsWatchRef.current = null;
+    setGpsBusy(false);
+  };
+  // Find the phone's spot for an address: take the first reading at once, keep refining for up to 15 s
+  // (a phone may first give only a rough, cell-tower spot). onFix gets {lat, lon, accuracy} each time it improves.
+  const findGps = (onFix) => {
+    if (!navigator.geolocation) { alert(lang==="kn" ? "ಈ ಫೋನ್‌ನಲ್ಲಿ GPS ಇಲ್ಲ. ವಿಳಾಸ ಟೈಪ್ ಮಾಡಿ." : "GPS isn't available on this phone. Please type your address."); return; }
+    stopGpsWatch();
+    setGpsBusy(true);
+    let watchId = null, best = Infinity;
+    const stopTimer = setTimeout(() => { if (watchId != null) navigator.geolocation.clearWatch(watchId); gpsWatchRef.current = null; setGpsBusy(false); }, 15000);
+    watchId = navigator.geolocation.watchPosition(pos => {
+      const { latitude: lat, longitude: lon, accuracy } = pos.coords;
+      if (accuracy < best) { best = accuracy; onFix({ lat, lon, accuracy: Math.round(accuracy) }); }
+      if (accuracy <= 50) { clearTimeout(stopTimer); navigator.geolocation.clearWatch(watchId); gpsWatchRef.current = null; setGpsBusy(false); }
+    }, err => {
+      if (best < Infinity) return; // a hiccup after we already have a spot: keep it
+      clearTimeout(stopTimer);
+      if (watchId != null) navigator.geolocation.clearWatch(watchId);
+      gpsWatchRef.current = null; setGpsBusy(false);
+      if (err.code === 1) alert(lang==="kn"?"ಲೊಕೇಶನ್ ಅನುಮತಿ ನಿರಾಕರಿಸಲಾಗಿದೆ.\n\niPhone ಬಳಕೆದಾರರು: Settings → Safari → Location → Allow\nಮತ್ತು Precise Location ಆನ್ ಮಾಡಿ\n\nAndroid: Browser settings → Site settings → Location → Allow":"Location permission denied.\n\niPhone users: Settings → Safari → Location → Allow\nAlso turn ON Precise Location\n\nAndroid: tap the 🔒 lock icon in address bar → allow Location");
+      else alert(lang==="kn"?"ಸ್ಥಳ ಪತ್ತೆ ವಿಫಲ. ವಿಳಾಸ ಟೈಪ್ ಮಾಡಿ":"GPS failed. Please type your address");
+    }, { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 });
+    gpsWatchRef.current = { id: watchId, timer: stopTimer };
+  };
+  // Saved addresses: keep them on this phone, and with the account when the database trusts this phone
+  const persistAddresses = async (list) => {
+    const clean = cleanSavedAddresses(list);
+    setSavedAddresses(clean);
+    Storage.set("rh_addresses", JSON.stringify(clean));
+    const t = ctokenRef.current;
+    if (t) { try { await rpc("customer_save_addresses", { p_token: t, p_addresses: clean }); } catch (e) {} }
+    return clean;
+  };
+  // After signing in: the account's saved addresses win; if it has none yet, this phone's go up to it
+  const syncAddresses = async (token) => {
+    if (!token) return;
+    let r = null;
+    try { r = await rpc("customer_addresses", { p_token: token }); } catch (e) {}
+    if (!r || !r.ok || !r.trusted) return;
+    const server = cleanSavedAddresses(r.addresses);
+    if (server.length) { setSavedAddresses(server); Storage.set("rh_addresses", JSON.stringify(server)); return; }
+    const local = cleanSavedAddresses(readJSON("rh_addresses", []));
+    if (local.length) { try { await rpc("customer_save_addresses", { p_token: token, p_addresses: local }); } catch (e) {} }
   };
   const [showCatDrawer, setShowCatDrawer] = useState(false);
 
@@ -1418,7 +1550,7 @@ export default function RoyalHarvest() {
   // ── STATIC DATA ──
   const SLOTS = ["Morning 7–10am","Afternoon 12–3pm","Evening 5–8pm"];
   const SLOTS_KN = ["ಬೆಳಿಗ್ಗೆ 7–10","ಮಧ್ಯಾಹ್ನ 12–3","ಸಂಜೆ 5–8"];
-  const AREAS = ["Gadag","Betageri","Laxmeshwar","Shirahatti","Naragund","Ron","Mundaragi"];
+  const AREAS = ["Gadag","Betageri","Hulkoti"]; // where we deliver
 
   const T = {
     en: {
@@ -1615,11 +1747,43 @@ export default function RoyalHarvest() {
     alert(lang === "kn" ? "ಆರ್ಡರ್ ರದ್ದು ಮಾಡಲಾಗಿದೆ" : "Order cancelled");
   };
 
+  // ── PRODUCT SUGGESTIONS ── (saved by suggest_product in the database table product_suggestions)
+  const pickSuggestPhoto = async (file) => {
+    setSuggestError("");
+    if (!file) return;
+    try { setSuggestPhoto(await shrinkPhoto(file)); }
+    catch (e) { setSuggestError(lang === "kn" ? "ಈ ಫೋಟೋ ತೆರೆಯಲು ಆಗಲಿಲ್ಲ. ಬೇರೆ ಫೋಟೋ ಪ್ರಯತ್ನಿಸಿ." : "That photo couldn't be opened. Please try another one."); }
+  };
+  const submitSuggestion = async () => {
+    const kn = lang === "kn";
+    const name = suggestName.replace(/\s+/g, " ").trim();
+    if (name.length < 2) { setSuggestError(kn ? "ಉತ್ಪನ್ನದ ಹೆಸರು ಟೈಪ್ ಮಾಡಿ" : "Please type the product's name"); return; }
+    setSuggestBusy(true); setSuggestError("");
+    let r = null;
+    try {
+      r = await rpc("suggest_product", { p_device: deviceId(), p_token: ctokenRef.current || null, p_name: name,
+        p_note: suggestText.trim() || null, p_photo: suggestPhoto || null });
+    } catch (e) {}
+    setSuggestBusy(false);
+    if (r && r.ok) { setSuggestSent(true); return; }
+    setSuggestError(!r ? (kn ? "ಕಳುಹಿಸಲು ಆಗಲಿಲ್ಲ. ಇಂಟರ್ನೆಟ್ ಪರಿಶೀಲಿಸಿ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ." : "Couldn't send it. Please check your internet and try again.")
+      : r.error === "slow_down" ? (kn ? "ಇಂದು ನೀವು ಸಾಕಷ್ಟು ಸಲಹೆ ಕಳುಹಿಸಿದ್ದೀರಿ, ಧನ್ಯವಾದ! ನಾಳೆ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ." : "You've sent a lot of suggestions today, thank you! Please try again tomorrow.")
+      : r.error === "photo" ? (kn ? "ಈ ಫೋಟೋ ಕಳುಹಿಸಲು ಆಗಲಿಲ್ಲ. ಬೇರೆ ಫೋಟೋ ಪ್ರಯತ್ನಿಸಿ." : "That photo couldn't be sent. Please try another one.")
+      : r.error === "name" ? (kn ? "ಉತ್ಪನ್ನದ ಹೆಸರು ಟೈಪ್ ಮಾಡಿ" : "Please type the product's name")
+      : (kn ? "ಈಗ ಕಳುಹಿಸಲು ಆಗಲಿಲ್ಲ. ಸ್ವಲ್ಪ ಸಮಯದ ನಂತರ ಪ್ರಯತ್ನಿಸಿ." : "Couldn't send it just now. Please try again in a little while."));
+  };
+
   const placeOrder = async () => {
+    // A GPS pin alone isn't enough: the delivery boy needs the typed house no., street and landmark
+    const typedAddress = addrText(address);
+    if (typedAddress.length < ADDR_MIN) {
+      alert(lang==="kn" ? "ದಯವಿಟ್ಟು ಮನೆ ನಂ., ಬೀದಿ ಮತ್ತು ಲ್ಯಾಂಡ್‌ಮಾರ್ಕ್ ಟೈಪ್ ಮಾಡಿ. GPS ಪಿನ್ ಮಾತ್ರ ಸಾಕಾಗುವುದಿಲ್ಲ." : "Please type your house no., street and a landmark. A GPS pin alone isn't enough for the delivery partner to find you.");
+      return;
+    }
     stopGpsWatch();
     const orderId = newOrderId();
     const cartBefore = cart;
-    const newOrder = {id:orderId, status:"placed", placedAt:Date.now(), items:cartItems, total:finalTotal, address, gps_lat: gpsCoords?.lat || null, gps_lon: gpsCoords?.lon || null, payment, slot:deliverySlot, date: new Date().toLocaleDateString("en-IN"), customer_phone: userProfile.phone, customer_name: userProfile.name};
+    const newOrder = {id:orderId, status:"placed", placedAt:Date.now(), items:cartItems, total:finalTotal, address: typedAddress, gps_lat: gpsCoords?.lat || null, gps_lon: gpsCoords?.lon || null, payment, slot:deliverySlot, date: new Date().toLocaleDateString("en-IN"), customer_phone: userProfile.phone, customer_name: userProfile.name};
     setActiveOrders(v => [newOrder, ...v]);
     sendOwnerNotification(newOrder); // keep before any await: phones only open WhatsApp straight from the tap
     setOrderHistory(h => [newOrder, ...h]);
@@ -1629,7 +1793,7 @@ export default function RoyalHarvest() {
 
     // ── SAVE: one secure call works out the bill, saves the order and its items, and updates stock ──
     const payload = {
-      id: orderId, address, payment, tip,
+      id: orderId, address: typedAddress, payment, tip,
       gps_lat: gpsCoords ? gpsCoords.lat : null,
       gps_lon: gpsCoords ? gpsCoords.lon : null,
       delivery_slot: deliverySlot || "Standard",
@@ -1699,6 +1863,12 @@ export default function RoyalHarvest() {
         + (kn
           ? "\n\nನಿಮ್ಮ ಕಾರ್ಟ್ ಅಪ್‌ಡೇಟ್ ಆಗಿದೆ: ಪರಿಶೀಲಿಸಿ ಮತ್ತೆ ಆರ್ಡರ್ ಮಾಡಿ. WhatsApp ತೆರೆದಿದ್ದರೆ ಆ ಸಂದೇಶವನ್ನು ಕಳುಹಿಸಬೇಡಿ."
           : "\n\nWe've updated your cart: please check it and place the order again. If WhatsApp opened, please don't send that message."));
+      return;
+    }
+    if (res && res.error === "address") {
+      alert(lang === "kn"
+        ? "ದಯವಿಟ್ಟು ಪೂರ್ಣ ವಿಳಾಸ ಟೈಪ್ ಮಾಡಿ (ಮನೆ ನಂ., ಬೀದಿ, ಲ್ಯಾಂಡ್‌ಮಾರ್ಕ್), ನಂತರ ಮತ್ತೆ ಆರ್ಡರ್ ಮಾಡಿ. WhatsApp ತೆರೆದಿದ್ದರೆ ಆ ಸಂದೇಶವನ್ನು ಕಳುಹಿಸಬೇಡಿ."
+        : "Please type your full address (house no., street, landmark), then place the order again. If WhatsApp opened, please don't send that message.");
       return;
     }
     alert(res && res.error === "slow_down"
@@ -1836,6 +2006,7 @@ const signIn = async (phone, name, legacyId) => {
   if (s) {
     saveToken(s.token);
     loadMyOrders(s.token);
+    syncAddresses(s.token);
   }
   // Always sign in on this phone, even if the network failed (the next app start tries again)
   const profileData = { name: name || (s && s.name) || "", phone, email: (s && s.email) || "" };
@@ -1948,6 +2119,7 @@ const verifyOtp = async () => {
           if (token) {
             Storage.remove("rh_userId");
             loadMyOrders(token); // order history on session restore, not just after login
+            syncAddresses(token);
           }
         }
       } catch(e) {}
@@ -2095,6 +2267,7 @@ const verifyOtp = async () => {
                     saveToken(null);
                     setIsLoggedIn(false);
                     setOrderHistory([]); // the next person on this phone shouldn't see these
+                    setSavedAddresses([]); setSelectedAddrId(null); Storage.remove("rh_addresses"); // nor these (they stay with the account)
                     Storage.remove("rh_loggedIn");
                     Storage.remove("rh_profile");
                     Storage.remove("rh_userId");
@@ -2117,11 +2290,14 @@ const verifyOtp = async () => {
                 {/* Delivery address */}
                 <div style={{marginTop:14,padding:"10px 14px",backgroundColor:"#f8f8f6",borderRadius:12,textAlign:"left"}}>
                   <div style={{fontSize:11,fontWeight:600,color:soil,marginBottom:4}}>{lang==="kn"?"ಡೆಲಿವರಿ ವಿಳಾಸ":"Your Delivery Address"}</div>
-                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                    <div style={{display:"flex",alignItems:"center",gap:6,fontSize:12,color:ink}}>
-                      <MapPin size={12} style={{color:basil}}/>{savedAddresses[0]||"Add address"}
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+                    <div style={{display:"flex",alignItems:"center",gap:6,fontSize:12,color:ink,minWidth:0,flex:1}}>
+                      <MapPin size={12} style={{color:basil,flexShrink:0}}/>
+                      <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                        {savedAddresses[0] ? `${addrLabelText(savedAddresses[0].label, lang)}: ${savedAddresses[0].text}` : (lang==="kn" ? "ವಿಳಾಸ ಸೇರಿಸಿ" : "Add address")}
+                      </span>
                     </div>
-                    <button onClick={()=>setProfileSection("addresses")} style={{background:"none",border:"none",cursor:"pointer",color:soil}}><Edit3 size={12}/></button>
+                    <button onClick={()=>setProfileSection("addresses")} aria-label={lang==="kn" ? "ಉಳಿಸಿದ ವಿಳಾಸಗಳು" : "Saved addresses"} style={{background:"none",border:"none",cursor:"pointer",color:soil,flexShrink:0}}><Edit3 size={12}/></button>
                   </div>
                 </div>
                 {/* Delivery slot */}
@@ -2235,13 +2411,13 @@ const verifyOtp = async () => {
 
       {/* ── PROFILE SECTIONS ── */}
       {activeTab==="profile" && profileSection && <>
-        <div className="flex items-center gap-3 px-4 py-3 sticky top-0 z-10" style={{backgroundColor: basil}}>
-          <button onClick={()=>setProfileSection(null)} className="text-white"><ArrowLeft size={20}/></button>
+        <div className="tw flex items-center gap-3 px-4 py-3 sticky top-0 z-10" style={{backgroundColor: basil}}>
+          <button onClick={()=>setProfileSection(null)} className="text-white" aria-label={lang==="kn" ? "ಹಿಂದೆ" : "Back"}><ArrowLeft size={20}/></button>
           <span style={{fontFamily: display, color:"white", fontSize:17}}>
             {{orders:lang==="kn"?"ನನ್ನ ಆರ್ಡರ್‌ಗಳು":"My Orders", payments:lang==="kn"?"ಪಾವತಿ":"Payment Management", wishlist:lang==="kn"?"ವಿಶ್‌ಲಿಸ್ಟ್":"Wishlist", addresses:lang==="kn"?"ವಿಳಾಸ":"Saved Addresses", rewards:lang==="kn"?"ರಿವಾರ್ಡ್ಸ್":"Rewards", refunds:lang==="kn"?"ರಿಫಂಡ್":"Refunds", editprofile:lang==="kn"?"ಪ್ರೊಫೈಲ್ ಎಡಿಟ್":"Edit Profile", suggest:lang==="kn"?"ಸೂಚಿಸಿ":"Suggest Product", info:lang==="kn"?"ಮಾಹಿತಿ":"General Info", help:lang==="kn"?"ಸಹಾಯ":"Help & Support"}[profileSection]}
           </span>
         </div>
-        <div className="flex-1 overflow-y-auto pb-24 px-4 pt-4">
+        <div className="tw flex-1 overflow-y-auto pb-24 px-4 pt-4">
 
           {/* MY ORDERS */}
           {profileSection==="orders" && (<>
@@ -2405,23 +2581,83 @@ const verifyOtp = async () => {
                 ))}</div>
           )}
 
-          {/* SAVED ADDRESSES */}
-          {profileSection==="addresses" && <div className="space-y-3">
-            {savedAddresses.map((a,i)=>(
-              <div key={i} className="flex items-start gap-3 p-4 rounded-2xl" style={{backgroundColor:panel,border:`1px solid ${line}`}}>
-                <MapPin size={16} style={{color:basil,marginTop:2}}/>
-                <div className="flex-1 text-sm">{a}</div>
-                <button onClick={()=>setSavedAddresses(s=>s.filter((_,j)=>j!==i))} className="text-xs" style={{color:chili}}>✕</button>
-              </div>
-            ))}
-            <button onClick={()=>{const a=prompt("Enter new address:");if(a)setSavedAddresses(s=>[...s,a]);}} className="w-full py-3 rounded-2xl text-sm font-bold" style={{backgroundColor:basil,color:"white"}}>+ {lang==="kn"?"ಹೊಸ ವಿಳಾಸ ಸೇರಿಸಿ":"Add New Address"}</button>
-          </div>}
+          {/* SAVED ADDRESSES: up to 3 (home, work, or someone else they order for), each with an optional map pin */}
+          {profileSection==="addresses" && (() => {
+            const kn = lang==="kn";
+            const full = savedAddresses.length >= MAX_ADDRESSES;
+            const na = newAddr;
+            const naText = na ? addrText(na.text) : "";
+            return <div className="space-y-3">
+              <div className="text-xs" style={{color:soil}}>{kn ? "3 ವಿಳಾಸಗಳವರೆಗೆ ಉಳಿಸಿ: ನಿಮ್ಮ ಮನೆ, ಕೆಲಸ, ಅಥವಾ ನೀವು ಆರ್ಡರ್ ಮಾಡುವ ಬೇರೆಯವರ ಮನೆ. ಆರ್ಡರ್ ಮಾಡುವಾಗ ಒಂದು ಟ್ಯಾಪ್‌ನಲ್ಲಿ ಆರಿಸಿ." : "Save up to 3 addresses: your home, work, or someone else you order for. Pick one with a tap when you order."}</div>
+              {savedAddresses.length===0 && !na && (
+                <div className="text-sm text-center py-4" style={{color:soil}}>{kn ? "ಇನ್ನೂ ಯಾವುದೇ ವಿಳಾಸ ಉಳಿಸಿಲ್ಲ" : "No saved addresses yet"}</div>
+              )}
+              {savedAddresses.map(a => { const pinned = inIndia(a.lat, a.lon); return (
+                <div key={a.id} className="flex items-start gap-3 p-4 rounded-2xl" style={{backgroundColor:panel,border:`1px solid ${line}`}}>
+                  <span aria-hidden="true" style={{fontSize:18,lineHeight:"20px"}}>{addrIcon(a.label)}</span>
+                  <div className="flex-1" style={{minWidth:0}}>
+                    <div className="text-sm font-semibold">{addrLabelText(a.label, lang)}</div>
+                    <div className="text-sm" style={{color:soil,wordBreak:"break-word"}}>{a.text}</div>
+                    <div className="text-xs" style={{color:pinned?basil:soil,marginTop:3}}>{pinned ? (kn ? "📌 ಮ್ಯಾಪ್ ಪಿನ್ ಉಳಿಸಲಾಗಿದೆ" : "📌 Map pin saved") : (kn ? "ಮ್ಯಾಪ್ ಪಿನ್ ಇಲ್ಲ" : "No map pin")}</div>
+                  </div>
+                  <button aria-label={kn ? `${addrLabelText(a.label, lang)} ತೆಗೆದುಹಾಕಿ` : `Remove ${addrLabelText(a.label, lang)}`}
+                    onClick={()=>{ if (window.confirm(kn ? "ಈ ವಿಳಾಸ ತೆಗೆದುಹಾಕುವುದೇ?" : "Remove this address?")) { persistAddresses(savedAddresses.filter(x=>x.id!==a.id)); if (selectedAddrId===a.id) setSelectedAddrId(null); } }}
+                    className="text-xs" style={{color:chili,padding:"2px 4px"}}>✕</button>
+                </div>
+              );})}
+              {na ? (
+                <div className="p-4 rounded-2xl space-y-3" style={{backgroundColor:panel,border:`1.5px solid ${basil}`}}>
+                  <div className="text-sm font-semibold">{kn ? "ಹೊಸ ವಿಳಾಸ" : "New address"}</div>
+                  <LabelChips value={na.label} onChange={l => setNewAddr(v => (v ? {...v, label:l} : v))} lang={lang}/>
+                  {na.label==="Other" && (
+                    <input value={na.custom} onChange={e=>{ const val = e.target.value; setNewAddr(v => (v ? {...v, custom:val} : v)); }} maxLength={30}
+                      aria-label={kn ? "ವಿಳಾಸದ ಹೆಸರು" : "Name for this address"} placeholder={kn ? "ಹೆಸರು, ಉದಾ: ಅಮ್ಮನ ಮನೆ" : "Name, e.g. Amma's house"}
+                      className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{backgroundColor:"#fff",border:`1.5px solid ${line}`}}/>
+                  )}
+                  <div>
+                    <label htmlFor="rh-new-address" className="text-xs font-semibold" style={{color:ink}}>{kn ? "ಮನೆ ನಂ., ಬೀದಿ, ಲ್ಯಾಂಡ್‌ಮಾರ್ಕ್" : "House no., street, landmark"} <span style={{color:chili}}>*</span></label>
+                    <textarea id="rh-new-address" value={na.text} rows={2} onChange={e=>{ const val = e.target.value; setNewAddr(v => (v ? {...v, text:val} : v)); }}
+                      placeholder={kn ? "ಉದಾ: ಮನೆ 12, 3ನೇ ಕ್ರಾಸ್, ದೇವಸ್ಥಾನದ ಹತ್ತಿರ, ಬೆಟಗೇರಿ" : "e.g. House 12, 3rd cross, near the temple, Betageri"}
+                      className="w-full px-3 py-2 rounded-xl text-sm outline-none" style={{backgroundColor:"#fff",border:`1.5px solid ${line}`,marginTop:4,resize:"none",fontFamily:"inherit"}}/>
+                  </div>
+                  <button onClick={()=>findGps(fix => setNewAddr(v => (v ? {...v, coords: (v.coords && v.coords.manual) ? v.coords : fix} : v)))} disabled={gpsBusy}
+                    className="w-full py-2 rounded-xl text-sm font-bold" style={{color:basil,backgroundColor:"#f0faf4",border:`1px solid ${basil}`,opacity:gpsBusy?0.75:1}}>
+                    📍 {gpsBusy ? (kn ? "ಸ್ಥಳ ಹುಡುಕುತ್ತಿದೆ…" : "Finding the spot…") : na.coords ? (kn ? "GPS ಮೂಲಕ ಮತ್ತೆ ಪಿನ್ ಮಾಡಿ" : "Pin again with GPS") : (kn ? "GPS ಮೂಲಕ ಮ್ಯಾಪ್‌ನಲ್ಲಿ ಪಿನ್ ಮಾಡಿ (ಬೇಕಿದ್ದರೆ)" : "Pin it on the map with GPS (optional)")}
+                  </button>
+                  {na.coords && (
+                    <div>
+                      <LocationPicker lat={na.coords.lat} lon={na.coords.lon} accuracy={na.coords.accuracy} manual={!!na.coords.manual} lang={lang}
+                        onMove={({lat, lon}) => setNewAddr(v => (v ? {...v, coords:{...(v.coords || {}), lat, lon, manual:true}} : v))}/>
+                      <div className="text-xs" style={{color:soil,marginTop:6}}>{kn ? "ಬೇರೆಯವರ ವಿಳಾಸವಾದರೆ, ಅವರ ಮನೆಗೆ ಪಿನ್ ಸರಿಸಿ." : "Saving someone else's address? Move the pin to their door."}</div>
+                    </div>
+                  )}
+                  {naText.length < ADDR_MIN && <div className="text-xs" style={{color:soil}}>{kn ? "ಕನಿಷ್ಠ 10 ಅಕ್ಷರಗಳ ವಿಳಾಸ ಟೈಪ್ ಮಾಡಿ" : "Type at least 10 letters of the address"}</div>}
+                  <div className="flex gap-2">
+                    <button onClick={()=>{ stopGpsWatch(); setNewAddr(null); }} className="flex-1 py-2 rounded-xl text-sm font-bold" style={{backgroundColor:"#fff",color:soil,border:`1px solid ${line}`}}>{kn ? "ರದ್ದು" : "Cancel"}</button>
+                    <button disabled={naText.length < ADDR_MIN}
+                      onClick={()=>{
+                        const lbl = na.label==="Other" ? (na.custom.trim() || "Other") : na.label;
+                        const c = na.coords;
+                        persistAddresses([...savedAddresses, { id:newAddrId(), label:lbl, text:naText, ...(c && inIndia(c.lat, c.lon) ? { lat:+c.lat.toFixed(6), lon:+c.lon.toFixed(6) } : {}) }]);
+                        stopGpsWatch(); setNewAddr(null);
+                      }}
+                      className="py-2 rounded-xl text-sm font-bold" style={{flex:2,backgroundColor:naText.length < ADDR_MIN ? "#ccc" : basil,color:"#fff"}}>💾 {kn ? "ವಿಳಾಸ ಉಳಿಸಿ" : "Save address"}</button>
+                  </div>
+                </div>
+              ) : full ? (
+                <div className="text-xs text-center" style={{color:soil}}>{kn ? "ನೀವು 3 ವಿಳಾಸ ಉಳಿಸಿದ್ದೀರಿ. ಹೊಸದನ್ನು ಸೇರಿಸಲು ಒಂದನ್ನು ತೆಗೆದುಹಾಕಿ." : "You've saved 3 addresses. Remove one to add another."}</div>
+              ) : (
+                <button onClick={()=>setNewAddr({ label: savedAddresses.some(a=>a.label==="Home") ? "Other" : "Home", custom:"", text:"", coords:null })}
+                  className="w-full py-3 rounded-2xl text-sm font-bold" style={{backgroundColor:basil,color:"white"}}>+ {kn ? "ಹೊಸ ವಿಳಾಸ ಸೇರಿಸಿ" : "Add New Address"}</button>
+              )}
+            </div>;
+          })()}
 
           {/* REFUNDS */}
           {profileSection==="refunds" && <div className="text-center pt-8">
             <div className="text-5xl mb-3">💸</div>
             <div className="font-semibold mb-1">{lang==="kn"?"ರಿಫಂಡ್ ನೀತಿ":"Refund Policy"}</div>
-            <div className="text-sm mb-6" style={{color:soil}}>{lang==="kn"?"ತಾಜಾ ಸಮಸ್ಯೆ ಇದ್ದರೆ 24 ಗಂಟೆಯಲ್ಲಿ ಸಂಪರ್ಕಿಸಿ":"Contact within 24 hrs for freshness issues. Full refund guaranteed."}</div>
+            <div className="text-sm mb-6" style={{color:soil}}>{lang==="kn"?"ತಾಜಾತನದ ಸಮಸ್ಯೆ ಇದ್ದರೆ ಡೆಲಿವರಿಯಾದ 2 ಗಂಟೆಯೊಳಗೆ ಸಂಪರ್ಕಿಸಿ.":"Contact us within 2 hours of delivery for freshness issues."}</div>
             <div className="rounded-2xl p-4 text-left" style={{backgroundColor:panel,border:`1px solid ${line}`}}>
               <div className="text-sm font-semibold mb-2">📋 {lang==="kn"?"ರಿಫಂಡ್ ಇತಿಹಾಸ":"Refund History"}</div>
               <div className="text-xs" style={{color:soil}}>{lang==="kn"?"ಇನ್ನೂ ರಿಫಂಡ್‌ಗಳಿಲ್ಲ":"No refunds yet — great!"}</div>
@@ -2453,26 +2689,58 @@ const verifyOtp = async () => {
           </div>}
 
           {/* SUGGEST PRODUCT */}
-          {profileSection==="suggest" && <div>
-            <div className="text-sm mb-3" style={{color:soil}}>{lang==="kn"?"ನೀವು ಇಷ್ಟಪಡುವ ಉತ್ಪನ್ನ ಇಲ್ಲವೇ? ನಮಗೆ ತಿಳಿಸಿ!":"Can't find what you need? Tell us and we'll add it!"}</div>
-            {!suggestSent ? <>
-              <textarea value={suggestText} onChange={e=>setSuggestText(e.target.value)} rows={4}
-                placeholder={lang==="kn"?"ಉದಾ: ರಾಗಿ ಹಿಟ್ಟು, ದೇಸಿ ತುಪ್ಪ 500g...":"e.g. Ragi flour, Desi ghee 500g, Jowar seeds..."}
-                className="w-full px-4 py-3 rounded-xl text-sm outline-none" style={{backgroundColor:panel,border:`1.5px solid ${line}`}}/>
-              <button onClick={()=>{if(suggestText.trim())setSuggestSent(true);}} className="w-full mt-3 py-3 rounded-2xl font-bold text-sm" style={{backgroundColor:basil,color:"white"}}>
-                📤 {lang==="kn"?"ಸಲ್ಲಿಸಿ":"Submit Suggestion"}
+          {/* SUGGEST A PRODUCT: name (needed), a photo and details (optional). Saved in the database
+              (product_suggestions) and shown in the admin panel's Suggestions page. */}
+          {profileSection==="suggest" && (() => { const kn = lang==="kn"; return <div>
+            <div className="text-sm mb-3" style={{color:soil}}>{kn?"ನೀವು ಇಷ್ಟಪಡುವ ಉತ್ಪನ್ನ ಇಲ್ಲವೇ? ನಮಗೆ ತಿಳಿಸಿ!":"Can't find what you need? Tell us and we'll add it!"}</div>
+            {!suggestSent ? <div className="space-y-3">
+              <div>
+                <label htmlFor="rh-suggest-name" className="text-xs font-semibold" style={{color:ink}}>{kn?"ಉತ್ಪನ್ನದ ಹೆಸರು":"Product name"} <span style={{color:chili}}>*</span></label>
+                <input id="rh-suggest-name" value={suggestName} onChange={e=>{ setSuggestName(e.target.value); setSuggestError(""); }} maxLength={80}
+                  placeholder={kn?"ಉದಾ: ರಾಗಿ ಹಿಟ್ಟು 1 ಕೆಜಿ":"e.g. Ragi flour 1 kg"}
+                  className="w-full px-4 py-3 rounded-xl text-sm outline-none" style={{backgroundColor:panel,border:`1.5px solid ${line}`,marginTop:4}}/>
+              </div>
+              <div>
+                <div className="text-xs font-semibold" style={{color:ink}}>{kn?"ಫೋಟೋ (ಬೇಕಿದ್ದರೆ)":"Photo (optional)"}</div>
+                <input id="rh-suggest-photo" type="file" accept="image/*" style={{display:"none"}}
+                  onChange={e=>{ const f = e.target.files && e.target.files[0]; e.target.value = ""; pickSuggestPhoto(f); }}/>
+                {suggestPhoto ? (
+                  <div className="flex items-center gap-3" style={{marginTop:6}}>
+                    <img src={suggestPhoto} alt={kn?"ನೀವು ಆರಿಸಿದ ಫೋಟೋ":"Your photo"} style={{width:84,height:84,objectFit:"cover",borderRadius:12,border:`1px solid ${line}`}}/>
+                    <div className="flex flex-col gap-2">
+                      <label htmlFor="rh-suggest-photo" className="text-xs font-bold" style={{color:basil,cursor:"pointer"}}>🔄 {kn?"ಫೋಟೋ ಬದಲಿಸಿ":"Change photo"}</label>
+                      <button onClick={()=>setSuggestPhoto(null)} className="text-xs font-bold text-left" style={{color:chili}}>✕ {kn?"ಫೋಟೋ ತೆಗೆದುಹಾಕಿ":"Remove photo"}</button>
+                    </div>
+                  </div>
+                ) : (
+                  <label htmlFor="rh-suggest-photo" className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-bold"
+                    style={{marginTop:6,color:basil,backgroundColor:"#f0faf4",border:`1.5px dashed ${basil}`,cursor:"pointer"}}>
+                    📷 {kn?"ಫೋಟೋ ಸೇರಿಸಿ (ಕ್ಯಾಮೆರಾ ಅಥವಾ ಗ್ಯಾಲರಿ)":"Add a photo (camera or gallery)"}
+                  </label>
+                )}
+              </div>
+              <div>
+                <label htmlFor="rh-suggest-note" className="text-xs font-semibold" style={{color:ink}}>{kn?"ಹೆಚ್ಚಿನ ವಿವರ (ಬೇಕಿದ್ದರೆ)":"More details (optional)"}</label>
+                <textarea id="rh-suggest-note" value={suggestText} onChange={e=>setSuggestText(e.target.value)} rows={3} maxLength={300}
+                  placeholder={kn?"ಉದಾ: ಬ್ರ್ಯಾಂಡ್, ಅಳತೆ, ಎಷ್ಟು ಬಾರಿ ಖರೀದಿಸುತ್ತೀರಿ":"e.g. brand, size, how often you'd buy it"}
+                  className="w-full px-4 py-3 rounded-xl text-sm outline-none" style={{backgroundColor:panel,border:`1.5px solid ${line}`,marginTop:4,fontFamily:"inherit"}}/>
+              </div>
+              {suggestError && <div role="alert" className="text-sm font-semibold" style={{color:chili}}>{suggestError}</div>}
+              <button onClick={submitSuggestion} disabled={suggestBusy || suggestName.trim().length < 2}
+                className="w-full py-3 rounded-2xl font-bold text-sm" style={{backgroundColor: suggestBusy || suggestName.trim().length < 2 ? "#ccc" : basil, color:"white"}}>
+                {suggestBusy ? (kn?"ಕಳುಹಿಸುತ್ತಿದೆ…":"Sending…") : `📤 ${kn?"ಸಲ್ಲಿಸಿ":"Submit Suggestion"}`}
               </button>
-            </> : <div className="text-center pt-8">
+            </div> : <div className="text-center pt-8">
               <div className="text-5xl mb-3">🙏</div>
-              <div className="font-bold">{lang==="kn"?"ಧನ್ಯವಾದ!":"Thank you!"}</div>
-              <div className="text-sm mt-1" style={{color:soil}}>{lang==="kn"?"ನಿಮ್ಮ ಸಲಹೆ ಸ್ವೀಕರಿಸಲಾಗಿದೆ":"Your suggestion has been received. We'll review it soon!"}</div>
-              <button onClick={()=>{setSuggestSent(false);setSuggestText("");}} className="mt-4 text-xs" style={{color:basil}}>{lang==="kn"?"ಮತ್ತೊಂದು ಸೂಚಿಸಿ":"Suggest another"}</button>
+              <div className="font-bold">{kn?"ಧನ್ಯವಾದ!":"Thank you!"}</div>
+              <div className="text-sm mt-1" style={{color:soil}}>{kn?"ನಿಮ್ಮ ಸಲಹೆ ಸ್ವೀಕರಿಸಲಾಗಿದೆ":"Your suggestion has been received. We'll review it soon!"}</div>
+              <button onClick={()=>{ setSuggestSent(false); setSuggestText(""); setSuggestName(""); setSuggestPhoto(null); setSuggestError(""); }} className="mt-4 text-xs" style={{color:basil}}>{kn?"ಮತ್ತೊಂದು ಸೂಚಿಸಿ":"Suggest another"}</button>
             </div>}
-          </div>}
+          </div>; })()}
 
           {/* GENERAL INFO */}
           {profileSection==="info" && <div className="space-y-3">
-            {[{title:"About Royal Harvest",body:"Royal Harvest delivers fresh fruits, vegetables and daily essentials straight from our own warehouse in Gadag to your doorstep in under 2 hours."},{title:"Service Areas",body:"Gadag · Betageri · Laxmeshwar · Shirahatti · Naragund · Ron · Mundaragi"},{title:"Delivery Hours",body:"7:00 AM – 9:00 PM, all days including Sundays"},{title:"Contact",body:"📞 +91 90350 68924\n📍 Gadag-Betageri, Karnataka 582101"}].map((s,i)=>(
+            {[{title:"About Royal Harvest",body:"Royal Harvest delivers fresh fruits, vegetables and daily essentials to your doorstep in 20–30 min."},{title:"Service Areas",body:"Gadag · Betageri · Hulkoti"},{title:"Delivery Hours",body:"7:00 AM – 9:00 PM, all days including Sundays"},{title:"Contact",body:"📞 +91 90350 68924\n📍 Gadag-Betageri, Karnataka 582101"}].map((s,i)=>(
               <div key={i} className="rounded-2xl p-4" style={{backgroundColor:panel,border:`1px solid ${line}`}}>
                 <div className="font-semibold text-sm mb-1">{s.title}</div>
                 <div className="text-xs whitespace-pre-line" style={{color:soil}}>{s.body}</div>
@@ -2482,7 +2750,7 @@ const verifyOtp = async () => {
 
           {/* HELP & SUPPORT */}
           {profileSection==="help" && <div className="space-y-3">
-            {[{q:lang==="kn"?"ಡೆಲಿವರಿ ಎಷ್ಟು ಸಮಯ ತೆಗೆದುಕೊಳ್ಳುತ್ತದೆ?":"How long does delivery take?",a:lang==="kn"?"ಸಾಮಾನ್ಯವಾಗಿ 45–90 ನಿಮಿಷ":"Usually 45–90 minutes within Gadag-Betageri."},{q:lang==="kn"?"ನನ್ನ ಆರ್ಡರ್ ಟ್ರ್ಯಾಕ್ ಮಾಡುವುದು ಹೇಗೆ?":"How do I track my order?",a:lang==="kn"?"ಆರ್ಡರ್ ನಂತರ ಲೈವ್ ಮ್ಯಾಪ್ ಲಭ್ಯ":"After placing, a live map screen shows your rider's location."},{q:lang==="kn"?"ಕನಿಷ್ಠ ಆರ್ಡರ್ ಎಷ್ಟು?":"What is the minimum order?",a:lang==="kn"?"ಕನಿಷ್ಠ ₹50":"Minimum order is ₹50. Free delivery above ₹199."},{q:lang==="kn"?"ಉತ್ಪನ್ನ ತಾಜಾ ಆಗಿಲ್ಲದಿದ್ದರೆ?":"What if the product is not fresh?",a:lang==="kn"?"ಫೋಟೋ ಕಳುಹಿಸಿ, ಪೂರ್ಣ ರಿಫಂಡ್ ಗ್ಯಾರಂಟಿ":"Send us a photo within 24 hrs — full refund guaranteed, no questions asked."}].map((faq,i)=>(
+            {[{q:lang==="kn"?"ಡೆಲಿವರಿ ಎಷ್ಟು ಸಮಯ ತೆಗೆದುಕೊಳ್ಳುತ್ತದೆ?":"How long does delivery take?",a:lang==="kn"?"ಸಾಮಾನ್ಯವಾಗಿ 45–90 ನಿಮಿಷ":"Usually 45–90 minutes within Gadag-Betageri."},{q:lang==="kn"?"ನನ್ನ ಆರ್ಡರ್ ಟ್ರ್ಯಾಕ್ ಮಾಡುವುದು ಹೇಗೆ?":"How do I track my order?",a:lang==="kn"?"ಆರ್ಡರ್ ನಂತರ ಲೈವ್ ಮ್ಯಾಪ್ ಲಭ್ಯ":"After placing, a live map screen shows your rider's location."},{q:lang==="kn"?"ಕನಿಷ್ಠ ಆರ್ಡರ್ ಎಷ್ಟು?":"What is the minimum order?",a:lang==="kn"?"ಕನಿಷ್ಠ ₹50":"Minimum order is ₹50. Free delivery above ₹199."},{q:lang==="kn"?"ಉತ್ಪನ್ನ ತಾಜಾ ಆಗಿಲ್ಲದಿದ್ದರೆ?":"What if the product is not fresh?",a:lang==="kn"?"ಡೆಲಿವರಿಯಾದ 2 ಗಂಟೆಯೊಳಗೆ ಫೋಟೋ ಕಳುಹಿಸಿ, ನಾವು ಸರಿಪಡಿಸುತ್ತೇವೆ.":"Send us a photo within 2 hours of delivery and we'll sort it out."}].map((faq,i)=>(
               <div key={i} className="rounded-2xl p-4" style={{backgroundColor:panel,border:`1px solid ${line}`}}>
                 <div className="font-semibold text-sm mb-1">❓ {faq.q}</div>
                 <div className="text-xs" style={{color:soil}}>{faq.a}</div>
@@ -2696,7 +2964,7 @@ const verifyOtp = async () => {
 
         {/* ── F12 AREA PICKER MODAL ── */}
         {showAreaPicker && (
-          <div className="fixed inset-0 z-50 flex flex-col justify-end" style={{backgroundColor:"rgba(0,0,0,0.4)"}}>
+          <div className="tw fixed inset-0 z-50 flex flex-col justify-end" style={{backgroundColor:"rgba(0,0,0,0.4)"}}>
             <div className="rounded-t-3xl pb-8 px-4 pt-4" style={{backgroundColor: bg, width:"100%", maxWidth:480, margin:"0 auto"}}>
               <div className="flex items-center justify-between mb-3">
                 <div className="font-bold text-base" style={{fontFamily: display}}>📍 {lang==="kn" ? "ನಿಮ್ಮ ಪ್ರದೇಶ" : "Your Area"}</div>
@@ -2745,83 +3013,110 @@ const verifyOtp = async () => {
                   ))}
                 </div>
 
-                {/* Delivery address */}
-                <div style={{backgroundColor:"white",margin:"8px 0",padding:"14px"}}>
-                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
-                    <div style={{fontSize:12,fontWeight:700,color:ink}}>📍 {lang==="kn"?"ಡೆಲಿವರಿ ವಿಳಾಸ":"Delivery Address"}</div>
-                    <button onClick={()=>{
-                      if(!navigator.geolocation){alert("GPS not supported on this device");return;}
-                      stopGpsWatch();
-                      setAddress(lang==="kn"?"ಸ್ಥಳ ಪತ್ತೆ ಮಾಡಲಾಗುತ್ತಿದೆ...":"Detecting location...");
-                      setGpsCoords(null);
-                      // GPS strategy: accept ANY reading immediately, keep refining silently.
-                      // Phone GPS chip may only give cell-tower accuracy (7421m) — that's OK,
-                      // we save the coords for rough area + customer types exact address below.
-                      let watchId = null;
-                      let bestAccuracy = Infinity;
-                      // Stop watching after 15s (keep best reading we got)
-                      const stopTimer = setTimeout(()=>{
-                        if(watchId!=null) navigator.geolocation.clearWatch(watchId);
-                      }, 15000);
-                      watchId = navigator.geolocation.watchPosition((pos)=>{
-                        const {latitude:lat, longitude:lon, accuracy} = pos.coords;
-                        // Always update if this reading is better than what we have
-                        if(accuracy < bestAccuracy){
-                          bestAccuracy = accuracy;
-                          setGpsCoords(g => (g && g.manual ? g : {lat, lon, accuracy: Math.round(accuracy)}));
-                          setAddress(a => (!a || a==="Detecting location..." || a==="ಸ್ಥಳ ಪತ್ತೆ ಮಾಡಲಾಗುತ್ತಿದೆ...") ? (lang==="kn"?"GPS ಸ್ಥಳ ಪಿನ್ ಮಾಡಲಾಗಿದೆ ✓":"GPS location pinned ✓") : a);
-                        }
-                        // Stop early if excellent fix
-                        if(accuracy <= 50){
-                          clearTimeout(stopTimer);
-                          navigator.geolocation.clearWatch(watchId);
-                        }
-                      },(err)=>{
-                        // A hiccup after we already have a position: keep the pin and what they typed
-                        if(bestAccuracy < Infinity) return;
-                        clearTimeout(stopTimer);
-                        if(watchId!=null) navigator.geolocation.clearWatch(watchId);
-                        setAddress(a => (a==="Detecting location..." || a==="ಸ್ಥಳ ಪತ್ತೆ ಮಾಡಲಾಗುತ್ತಿದೆ...") ? "" : a);
-                        if(err.code===1) alert(lang==="kn"?"ಲೊಕೇಶನ್ ಅನುಮತಿ ನಿರಾಕರಿಸಲಾಗಿದೆ.\n\niPhone ಬಳಕೆದಾರರು: Settings → Safari → Location → Allow\nಮತ್ತು Precise Location ಆನ್ ಮಾಡಿ\n\nAndroid: Browser settings → Site settings → Location → Allow":"Location permission denied.\n\niPhone users: Settings → Safari → Location → Allow\nAlso turn ON Precise Location\n\nAndroid: tap the 🔒 lock icon in address bar → allow Location");
-                        else alert(lang==="kn"?"ಸ್ಥಳ ಪತ್ತೆ ವಿಫಲ. ವಿಳಾಸ ಟೈಪ್ ಮಾಡಿ":"GPS failed. Please type your address");
-                      },{enableHighAccuracy:true, maximumAge:0, timeout:15000});
-                      gpsWatchRef.current = { id: watchId, timer: stopTimer };
-                    }} style={{display:"flex",alignItems:"center",gap:4,fontSize:11,fontWeight:700,color:basil,backgroundColor:"#f0faf4",border:`1px solid ${basil}`,borderRadius:20,padding:"5px 12px",cursor:"pointer"}}>
-                      <MapPin size={12}/> {lang==="kn"?"GPS ಬಳಸಿ":"Use GPS"}
-                    </button>
-                  </div>
-                  {/* GPS pin: a small map with a centre pin the customer can move to their door */}
-                  {gpsCoords ? (
-                    <div style={{marginBottom:8}}>
-                      <LocationPicker lat={gpsCoords.lat} lon={gpsCoords.lon} accuracy={gpsCoords.accuracy} manual={!!gpsCoords.manual} lang={lang}
-                        onMove={({lat, lon}) => setGpsCoords(g => ({...(g || {}), lat, lon, manual: true}))}/>
-                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginTop:8}}>
-                        <span style={{fontSize:12,fontWeight:600,color: gpsCoords.manual || gpsCoords.accuracy <= 500 ? basil : "#B5621A"}}>
-                          {gpsCoords.manual
-                            ? (lang==="kn" ? "✓ ನೀವು ಪಿನ್ ಇಟ್ಟಿದ್ದೀರಿ" : "✓ Pin placed by you")
-                            : gpsCoords.accuracy > 500
-                              ? (lang==="kn" ? `GPS ಅಂದಾಜು ±${fmtAccuracy(gpsCoords.accuracy)}: ಪಿನ್ ಸರಿಪಡಿಸಿ` : `Rough GPS (±${fmtAccuracy(gpsCoords.accuracy)}): move the pin to your door`)
-                              : (lang==="kn" ? `GPS ಪಿನ್ (±${fmtAccuracy(gpsCoords.accuracy)})` : `GPS pinned (±${fmtAccuracy(gpsCoords.accuracy)})`)}
-                        </span>
-                        <a href={`https://maps.google.com/?q=${gpsCoords.lat},${gpsCoords.lon}`} target="_blank" rel="noreferrer"
-                          style={{fontSize:12,fontWeight:600,color:basil,whiteSpace:"nowrap"}}>{lang==="kn" ? "ಮ್ಯಾಪ್‌ನಲ್ಲಿ ನೋಡಿ" : "Check in Maps"}</a>
+                {/* Delivery address: pick a saved one, or pin with GPS; the typed address (house no., street, landmark) is
+                    always needed, because a pin alone doesn't find the door */}
+                {(() => {
+                  const kn = lang==="kn";
+                  const typed = addrText(address);
+                  const typedOk = typed.length >= ADDR_MIN;
+                  const alreadySaved = savedAddresses.some(a => a.text === typed);
+                  const full = savedAddresses.length >= MAX_ADDRESSES;
+                  return (
+                  <div style={{backgroundColor:"white",margin:"8px 0",padding:"14px"}}>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                      <div style={{fontSize:12,fontWeight:700,color:ink}}>📍 {kn?"ಡೆಲಿವರಿ ವಿಳಾಸ":"Delivery Address"}</div>
+                      <button onClick={()=>{ setSelectedAddrId(null); setGpsCoords(null); findGps(fix => setGpsCoords(g => (g && g.manual ? g : fix))); }}
+                        disabled={gpsBusy}
+                        style={{display:"flex",alignItems:"center",gap:4,fontSize:11,fontWeight:700,color:basil,backgroundColor:"#f0faf4",border:`1px solid ${basil}`,borderRadius:20,padding:"5px 12px",cursor:gpsBusy?"default":"pointer",opacity:gpsBusy?0.75:1}}>
+                        <MapPin size={12}/> {gpsBusy ? (kn?"ಸ್ಥಳ ಹುಡುಕುತ್ತಿದೆ…":"Finding you…") : (kn?"GPS ಬಳಸಿ":"Use GPS")}
+                      </button>
+                    </div>
+                    {/* Saved addresses: one tap fills the address and its map pin */}
+                    {savedAddresses.length>0 && (
+                      <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:10}}>
+                        {savedAddresses.map(a => { const on = selectedAddrId===a.id; const pinned = inIndia(a.lat, a.lon); return (
+                          <button key={a.id} aria-pressed={on}
+                            onClick={()=>{ stopGpsWatch(); setSelectedAddrId(a.id); setAddress(a.text); setGpsCoords(pinned ? {lat:a.lat, lon:a.lon, accuracy:10, manual:true} : null); setSaveAddrOpen(false); }}
+                            style={{display:"flex",alignItems:"flex-start",gap:8,textAlign:"left",padding:"9px 11px",borderRadius:12,border:`1.5px solid ${on?basil:line}`,backgroundColor:on?"#f0faf4":"#fafafa",cursor:"pointer",fontFamily:"inherit"}}>
+                            <span aria-hidden="true" style={{fontSize:16,lineHeight:"18px"}}>{addrIcon(a.label)}</span>
+                            <span style={{flex:1,minWidth:0}}>
+                              <span style={{display:"block",fontSize:12.5,fontWeight:700,color:ink}}>
+                                {addrLabelText(a.label, lang)}{pinned && <span style={{fontWeight:600,color:basil,fontSize:11}}> · 📌 {kn?"ಮ್ಯಾಪ್ ಪಿನ್":"map pin"}</span>}
+                              </span>
+                              <span style={{display:"block",fontSize:12,color:soil,marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.text}</span>
+                            </span>
+                            {on && <Check size={14} style={{color:basil,flexShrink:0,marginTop:2}}/>}
+                          </button>
+                        );})}
                       </div>
-                    </div>
-                  ) : null}
-                  <textarea value={gpsCoords ? address.replace("GPS location pinned ✓","").replace("GPS ಸ್ಥಳ ಪಿನ್ ಮಾಡಲಾಗಿದೆ ✓","") : address}
-                    onChange={e=>{ setAddress(e.target.value); if(!e.target.value) setGpsCoords(null); }}
-                    placeholder={gpsCoords ? (lang==="kn"?"ಮನೆ ನಂ, ಲ್ಯಾಂಡ್‌ಮಾರ್ಕ್, ಬೀದಿ ಹೆಸರು ನಮೂದಿಸಿ *":"Enter house no., landmark, street name *") : (lang==="kn"?"ನಿಮ್ಮ ವಿಳಾಸ ನಮೂದಿಸಿ...":"Enter your delivery address...")} rows={2}
-                    style={{width:"100%",borderRadius:10,padding:"10px 12px",fontSize:14,fontFamily:"inherit",border:`1px solid ${gpsCoords?basil:line}`,outline:"none",resize:"none",boxSizing:"border-box"}}/>
-                  {savedAddresses.length>0 && (
-                    <div style={{display:"flex",gap:6,marginTop:6,overflowX:"auto",scrollbarWidth:"none"}}>
-                      {savedAddresses.map((a,i)=>(
-                        <button key={i} onClick={()=>{ setAddress(a); setGpsCoords(null); }} style={{flexShrink:0,fontSize:10,padding:"4px 10px",borderRadius:12,backgroundColor:address===a?basil:"#f0f0f0",color:address===a?"white":soil,border:"none",cursor:"pointer"}}>
-                          📍 {a.substring(0,20)}...
+                    )}
+                    {/* GPS pin: a small map with a centre pin the customer can move to their door */}
+                    {gpsCoords ? (
+                      <div style={{marginBottom:8}}>
+                        <LocationPicker lat={gpsCoords.lat} lon={gpsCoords.lon} accuracy={gpsCoords.accuracy} manual={!!gpsCoords.manual} lang={lang}
+                          onMove={({lat, lon}) => setGpsCoords(g => ({...(g || {}), lat, lon, manual: true}))}/>
+                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginTop:8}}>
+                          <span style={{fontSize:12,fontWeight:600,color: gpsCoords.manual || gpsCoords.accuracy <= 500 ? basil : "#B5621A"}}>
+                            {gpsCoords.manual
+                              ? (kn ? "✓ ಪಿನ್ ಇಡಲಾಗಿದೆ" : "✓ Pin placed")
+                              : gpsCoords.accuracy > 500
+                                ? (kn ? `GPS ಅಂದಾಜು ±${fmtAccuracy(gpsCoords.accuracy)}: ಪಿನ್ ಸರಿಪಡಿಸಿ` : `Rough GPS (±${fmtAccuracy(gpsCoords.accuracy)}): move the pin to your door`)
+                                : (kn ? `GPS ಪಿನ್ (±${fmtAccuracy(gpsCoords.accuracy)})` : `GPS pinned (±${fmtAccuracy(gpsCoords.accuracy)})`)}
+                          </span>
+                          <a href={`https://maps.google.com/?q=${gpsCoords.lat},${gpsCoords.lon}`} target="_blank" rel="noreferrer"
+                            style={{fontSize:12,fontWeight:600,color:basil,whiteSpace:"nowrap"}}>{kn ? "ಮ್ಯಾಪ್‌ನಲ್ಲಿ ನೋಡಿ" : "Check in Maps"}</a>
+                        </div>
+                      </div>
+                    ) : null}
+                    <label htmlFor="rh-address" style={{display:"block",fontSize:11.5,fontWeight:700,color:ink,margin:"2px 0 5px"}}>
+                      {kn ? "ಮನೆ ನಂ., ಬೀದಿ, ಲ್ಯಾಂಡ್‌ಮಾರ್ಕ್" : "House no., street, landmark"} <span style={{color:chili}}>*</span>
+                    </label>
+                    <textarea id="rh-address" value={address} aria-invalid={!typedOk} aria-describedby="rh-address-hint"
+                      onChange={e=>{ setAddress(e.target.value); setSelectedAddrId(null); }}
+                      placeholder={kn?"ಉದಾ: ಮನೆ 12, 3ನೇ ಕ್ರಾಸ್, ವೀರಭದ್ರೇಶ್ವರ ದೇವಸ್ಥಾನದ ಹತ್ತಿರ":"e.g. House 12, 3rd cross, near Veerabhadreshwar temple"} rows={2}
+                      style={{width:"100%",borderRadius:10,padding:"10px 12px",fontSize:14,fontFamily:"inherit",border:`1.5px solid ${!typedOk && gpsCoords ? chili : typedOk ? basil : line}`,outline:"none",resize:"none",boxSizing:"border-box"}}/>
+                    {!typedOk && (
+                      <div id="rh-address-hint" style={{fontSize:11.5,fontWeight:600,color:gpsCoords?chili:soil,marginTop:6,lineHeight:1.4}}>
+                        {gpsCoords
+                          ? (kn ? "GPS ಪಿನ್ ಸಿಕ್ಕಿದೆ. ಆರ್ಡರ್ ಮಾಡಲು ಈಗ ಮನೆ ನಂ., ಬೀದಿ ಮತ್ತು ಲ್ಯಾಂಡ್‌ಮಾರ್ಕ್ ಟೈಪ್ ಮಾಡಿ." : "Pin found. Now type your house no., street and a landmark to place the order.")
+                          : (kn ? "ಆರ್ಡರ್ ಮಾಡಲು ಪೂರ್ಣ ವಿಳಾಸ ಟೈಪ್ ಮಾಡಿ, ಅಥವಾ ಉಳಿಸಿದ ವಿಳಾಸ ಆರಿಸಿ." : "Type your full address to place the order, or pick a saved one.")}
+                      </div>
+                    )}
+                    {/* Save it for next time (up to 3): Home, Work, or someone else they order for */}
+                    {typedOk && !alreadySaved && !selectedAddrId && (
+                      full ? (
+                        <div style={{fontSize:11.5,color:soil,marginTop:8}}>{kn?"ನೀವು 3 ವಿಳಾಸ ಉಳಿಸಿದ್ದೀರಿ. ಇದನ್ನು ಉಳಿಸಲು ಪ್ರೊಫೈಲ್ → ಉಳಿಸಿದ ವಿಳಾಸದಲ್ಲಿ ಒಂದನ್ನು ತೆಗೆದುಹಾಕಿ.":"You've saved 3 addresses. To save this one, remove one in Profile → Saved Addresses."}</div>
+                      ) : !saveAddrOpen ? (
+                        <button onClick={()=>{ setSaveAddrOpen(true); setSaveAddrLabel(savedAddresses.some(a=>a.label==="Home") ? "Other" : "Home"); }}
+                          style={{marginTop:8,fontSize:12,fontWeight:700,color:basil,background:"none",border:"none",padding:"4px 0",cursor:"pointer",fontFamily:"inherit"}}>
+                          💾 {kn?"ಮುಂದಿನ ಬಾರಿಗೆ ಈ ವಿಳಾಸ ಉಳಿಸಿ":"Save this address for next time"}
                         </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                      ) : (
+                        <div style={{marginTop:10,padding:"10px 12px",borderRadius:12,backgroundColor:"#f7faf7",border:`1px solid ${line}`}}>
+                          <div style={{fontSize:12,fontWeight:700,color:ink,marginBottom:8}}>{kn?"ಈ ವಿಳಾಸ ಯಾರದು?":"Whose address is this?"}</div>
+                          <LabelChips value={saveAddrLabel} onChange={setSaveAddrLabel} lang={lang}/>
+                          {saveAddrLabel==="Other" && (
+                            <input value={saveAddrCustom} onChange={e=>setSaveAddrCustom(e.target.value)} maxLength={30} aria-label={kn?"ವಿಳಾಸದ ಹೆಸರು":"Name for this address"}
+                              placeholder={kn?"ಹೆಸರು, ಉದಾ: ಅಮ್ಮನ ಮನೆ":"Name, e.g. Amma's house"}
+                              style={{width:"100%",marginTop:8,borderRadius:10,padding:"8px 10px",fontSize:13,fontFamily:"inherit",border:`1px solid ${line}`,outline:"none",boxSizing:"border-box"}}/>
+                          )}
+                          <div style={{display:"flex",gap:8,marginTop:10}}>
+                            <button onClick={()=>{ setSaveAddrOpen(false); setSaveAddrCustom(""); }}
+                              style={{flex:1,padding:"8px",borderRadius:10,fontSize:12.5,fontWeight:700,backgroundColor:"#fff",color:soil,border:`1px solid ${line}`,cursor:"pointer",fontFamily:"inherit"}}>{kn?"ರದ್ದು":"Cancel"}</button>
+                            <button onClick={()=>{
+                                const lbl = saveAddrLabel==="Other" ? (saveAddrCustom.trim() || "Other") : saveAddrLabel;
+                                const entry = { id:newAddrId(), label:lbl, text:typed, ...(gpsCoords && inIndia(gpsCoords.lat, gpsCoords.lon) ? { lat:+gpsCoords.lat.toFixed(6), lon:+gpsCoords.lon.toFixed(6) } : {}) };
+                                persistAddresses([...savedAddresses, entry]);
+                                setSelectedAddrId(entry.id); setSaveAddrOpen(false); setSaveAddrCustom("");
+                              }}
+                              style={{flex:2,padding:"8px",borderRadius:10,fontSize:12.5,fontWeight:800,backgroundColor:basil,color:"#fff",border:"none",cursor:"pointer",fontFamily:"inherit"}}>💾 {kn?"ವಿಳಾಸ ಉಳಿಸಿ":"Save address"}</button>
+                          </div>
+                        </div>
+                      )
+                    )}
+                  </div>
+                  );
+                })()}
 
                 {/* Delivery slot */}
                 <div style={{backgroundColor:"white",margin:"8px 0",padding:"14px"}}>
@@ -2900,7 +3195,12 @@ const verifyOtp = async () => {
                     </div>
                     <Check size={14} style={{color:basil,flexShrink:0}}/>
                   </div>
-                  <button onClick={placeOrder} disabled={!address.trim()} style={{width:"100%",padding:"14px",borderRadius:14,backgroundColor:address.trim()?basil:"#ccc",color:"white",border:"none",cursor:address.trim()?"pointer":"not-allowed",fontSize:15,fontWeight:800}}>
+                  {!addressReady && (
+                    <div style={{fontSize:11.5,fontWeight:600,color:chili,textAlign:"center",marginBottom:8}}>
+                      {lang==="kn" ? "ಆರ್ಡರ್ ಮಾಡಲು ಮೇಲೆ ಪೂರ್ಣ ವಿಳಾಸ ಟೈಪ್ ಮಾಡಿ" : "Type your full delivery address above to place the order"}
+                    </div>
+                  )}
+                  <button onClick={placeOrder} disabled={!addressReady} style={{width:"100%",padding:"14px",borderRadius:14,backgroundColor:addressReady?basil:"#ccc",color:"white",border:"none",cursor:addressReady?"pointer":"not-allowed",fontSize:15,fontWeight:800}}>
                     {lang==="kn"?"ಆರ್ಡರ್ ಮಾಡಿ":"Place Order"} →
                   </button>
                 </div>

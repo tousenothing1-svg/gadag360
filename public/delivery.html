@@ -223,6 +223,10 @@
     <div class="txt" id="alertTxt"></div>
     <button id="alertBtn" onclick="turnOnOrderAlerts()">Turn on</button>
   </div>
+  <div class="alert-strip" id="locStrip" role="region" aria-label="Location">
+    <div class="txt" id="locTxt"></div>
+    <button id="locBtn" onclick="allowLocation()">Allow</button>
+  </div>
 
   <div class="tabs">
     <div class="tab active" id="tab-active" onclick="switchTab('active')">
@@ -321,6 +325,7 @@ function doLogout(msg) {
   try { localStorage.removeItem("rh_rider"); } catch (e) {}
   currentDeliveryBoy = null;
   stopRiderTracking();
+  stopGeoWatch();
   clearInterval(refreshTimer);
   document.getElementById("mainPanel").style.display = "none";
   document.getElementById("loginScreen").style.display = "flex";
@@ -334,6 +339,7 @@ function showPanel() {
   loadOrders();
   showAlertStrip();
   refreshOrderAlerts();
+  setupLocation();
   // Auto-refresh every 60 seconds
   clearInterval(refreshTimer);
   refreshTimer = setInterval(loadOrders, 60000);
@@ -373,7 +379,7 @@ async function loadOrders() {
 
   // Share location for every order on the way, also after the app was closed and opened again
   const enRoute = active.filter(o => o.status === "pickedup" || o.status === "picked_up").map(o => o.id);
-  enRoute.forEach(id => startRiderTracking(id));
+  enRoute.forEach(id => startRiderTracking(id, false));
   [...trackingIds].forEach(id => { if (!enRoute.includes(id)) stopRiderTracking(id); });
 
   renderOrders("activeOrders", active, true);
@@ -457,18 +463,113 @@ function orderCard(o, isActive) {
   `;
 }
 
+// ── LOCATION: asked once, then followed ──
+// The phone asks the rider about location only once: when they tap "Allow" (or "Mark as Picked Up" the first time).
+// Once allowed, the app follows the position by itself (one watchPosition) for as long as it's open, also when the
+// app is opened again later, without asking again. If it was blocked, the app never pops the question again; it only
+// says how to switch location back on in the phone's settings.
+// A web app can't follow the phone while it's closed: opening it again picks up again by itself.
+let geoWatch = null, lastFix = null;
+let geoState = "unknown"; // granted | prompt | denied | unsupported | unknown
+
+async function geoPermission() {
+  if (!navigator.geolocation) return "unsupported";
+  try {
+    if (navigator.permissions && navigator.permissions.query) {
+      const st = await navigator.permissions.query({ name: "geolocation" });
+      if (!geoPermission.watching) { // the rider changed it in the phone's settings: follow along
+        geoPermission.watching = true;
+        st.onchange = () => {
+          geoState = st.state;
+          if (st.state === "granted" && currentDeliveryBoy) startGeoWatch();
+          if (st.state === "denied") stopGeoWatch();
+          showLocStrip();
+        };
+      }
+      return st.state;
+    }
+  } catch (e) {}
+  // This browser can't tell: go by what happened last time on this phone
+  try { return localStorage.getItem("rh_loc_ok") === "1" ? "granted" : "prompt"; } catch (e) { return "prompt"; }
+}
+
+function startGeoWatch() {
+  if (geoWatch !== null || !navigator.geolocation) return;
+  geoWatch = navigator.geolocation.watchPosition(pos => {
+    const first = !lastFix;
+    lastFix = { lat: pos.coords.latitude, lon: pos.coords.longitude, at: Date.now() };
+    if (geoState !== "granted") { geoState = "granted"; showLocStrip(); }
+    try { localStorage.setItem("rh_loc_ok", "1"); } catch (e) {}
+    if (first) pushLocation(); // customers on the way see the rider at once, not 5 seconds later
+  }, err => {
+    if (err && err.code === 1) { // not allowed: stop, and never bring the question up by itself
+      geoState = "denied";
+      stopGeoWatch();
+      try { localStorage.removeItem("rh_loc_ok"); } catch (e) {}
+      showLocStrip();
+      // The rider only closed the question without answering: show the "Allow" button again
+      if (navigator.permissions && navigator.permissions.query) {
+        navigator.permissions.query({ name: "geolocation" })
+          .then(st => { if (st.state === "prompt" && geoState === "denied") { geoState = "prompt"; showLocStrip(); } })
+          .catch(() => {});
+      }
+    }
+    // no signal for a moment: the watch keeps going and picks up again by itself
+  }, { enableHighAccuracy: true, maximumAge: 5000, timeout: 30000 });
+}
+
+function stopGeoWatch() {
+  if (geoWatch !== null && navigator.geolocation) navigator.geolocation.clearWatch(geoWatch);
+  geoWatch = null; lastFix = null;
+}
+
+// fromTap: only a tap by the rider may bring up the phone's question, and only while it hasn't been answered
+function ensureLocation(fromTap) {
+  if (geoState === "granted" || (geoState === "prompt" && fromTap)) startGeoWatch();
+}
+function allowLocation() { ensureLocation(true); }
+
+async function setupLocation() {
+  geoState = await geoPermission();
+  if (geoState === "granted") startGeoWatch();
+  showLocStrip();
+}
+
+// "Sharing your live location" shows only while it really is shared: an order on the way and location allowed
+function showLiveStrip() {
+  const live = document.getElementById("liveStrip");
+  if (live) live.classList.toggle("show", trackingIds.size > 0 && geoState === "granted");
+}
+
+function showLocStrip() {
+  showLiveStrip();
+  const el = document.getElementById("locStrip"), txt = document.getElementById("locTxt"), btn = document.getElementById("locBtn");
+  if (!el) return;
+  if (geoState === "granted" || geoState === "unknown") { el.classList.remove("show"); return; }
+  el.classList.add("show");
+  if (geoState === "denied") {
+    txt.innerHTML = "<b>📍 Location is off for this app</b><br>Customers can't see where you are. Turn it on once in your phone: tap 🔒 next to the web address (or Settings → Apps → Chrome → Permissions) → Location → Allow.";
+    btn.style.display = "none";
+  } else if (geoState === "unsupported") {
+    txt.innerHTML = "<b>📍 This phone can't share its location</b>";
+    btn.style.display = "none";
+  } else {
+    txt.innerHTML = "<b>📍 Allow location once</b><br>Customers see where you are while you deliver. Your phone asks only once.";
+    btn.style.display = "";
+  }
+}
+
 // ── LIVE GPS TRACKING ──
-// While an order is picked up, its customer sees the rider's position, sent every 5 seconds.
+// While an order is picked up, its customer sees the rider's position, sent every 5 seconds from the position the
+// app is already following (no new question to the rider).
 // A web app can only do this while it's open on screen, so the screen is kept on during deliveries.
 const trackingIds = new Set();
 let trackTimer = null, wakeLock = null;
 
 function pushLocation() {
-  if (!currentDeliveryBoy || !trackingIds.size || !navigator.geolocation) return;
-  navigator.geolocation.getCurrentPosition(pos => {
-    const { latitude: lat, longitude: lon } = pos.coords;
-    trackingIds.forEach(id => call("rider_set_location", { p_id: id, p_lat: lat, p_lon: lon }).catch(() => {}));
-  }, null, { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 });
+  if (!currentDeliveryBoy || !trackingIds.size || !lastFix) return;
+  const { lat, lon } = lastFix;
+  trackingIds.forEach(id => call("rider_set_location", { p_id: id, p_lat: lat, p_lon: lon }).catch(() => {}));
 }
 
 async function keepScreenOn(on) {
@@ -482,13 +583,15 @@ async function keepScreenOn(on) {
   } catch (e) {}
 }
 
-function startRiderTracking(orderId) {
-  if (!navigator.geolocation || trackingIds.has(orderId)) return;
+function startRiderTracking(orderId, fromTap) {
+  if (!navigator.geolocation) return;
+  ensureLocation(fromTap);
+  if (trackingIds.has(orderId)) return;
   trackingIds.add(orderId);
   pushLocation();
   if (!trackTimer) trackTimer = setInterval(pushLocation, 5000);
   keepScreenOn(true);
-  document.getElementById("liveStrip").classList.add("show");
+  showLiveStrip();
 }
 
 function stopRiderTracking(orderId) {
@@ -497,7 +600,7 @@ function stopRiderTracking(orderId) {
   clearInterval(trackTimer); trackTimer = null;
   keepScreenOn(false);
   // The last position stays saved; the customer's map stops showing it once the order is delivered
-  document.getElementById("liveStrip").classList.remove("show");
+  showLiveStrip();
 }
 
 // Back in the app (for example after Google Maps): send the position at once and keep the screen on again
@@ -514,7 +617,7 @@ async function updateStatus(orderId, newStatus) {
     return;
   }
   // Start sharing location when picked up, stop when delivered
-  if (newStatus === "pickedup") startRiderTracking(orderId);
+  if (newStatus === "pickedup") startRiderTracking(orderId, true);
   else if (newStatus === "delivered") stopRiderTracking(orderId);
   await loadOrders();
 }

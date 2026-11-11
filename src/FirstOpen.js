@@ -605,13 +605,13 @@ export function CoachTip({ lang, onClose }) {
 const AREA = {
   en: {
     title: "We're not in your area yet",
-    text: "Royal Harvest delivers across Gadag district for now. Ask us to come to your area and we'll let you know when we arrive.",
+    text: "Royal Harvest delivers in Gadag, Betageri and Hulkoti for now. Ask us to come to your area and we'll let you know when we arrive.",
     ask: "Request my area", look: "Meanwhile, take a look around", close: "Close",
     msg: link => `Hi Royal Harvest, please start delivering in my area: ${link}`,
   },
   kn: {
     title: "ನಾವು ಇನ್ನೂ ನಿಮ್ಮ ಪ್ರದೇಶಕ್ಕೆ ಬಂದಿಲ್ಲ",
-    text: "ಸದ್ಯಕ್ಕೆ ಗದಗ ಜಿಲ್ಲೆಯಾದ್ಯಂತ ಮಾತ್ರ ಡೆಲಿವರಿ ಮಾಡುತ್ತೇವೆ. ನಿಮ್ಮ ಪ್ರದೇಶಕ್ಕೆ ಬರಲು ಕೇಳಿ, ನಾವು ಬಂದಾಗ ತಿಳಿಸುತ್ತೇವೆ.",
+    text: "ಸದ್ಯಕ್ಕೆ ಗದಗ, ಬೆಟಗೇರಿ ಮತ್ತು ಹುಲಕೋಟಿಯಲ್ಲಿ ಮಾತ್ರ ಡೆಲಿವರಿ ಮಾಡುತ್ತೇವೆ. ನಿಮ್ಮ ಪ್ರದೇಶಕ್ಕೆ ಬರಲು ಕೇಳಿ, ನಾವು ಬಂದಾಗ ತಿಳಿಸುತ್ತೇವೆ.",
     ask: "ನನ್ನ ಪ್ರದೇಶಕ್ಕೆ ವಿನಂತಿಸಿ", look: "ಅಲ್ಲಿಯವರೆಗೆ, ಒಮ್ಮೆ ನೋಡಿ", close: "ಮುಚ್ಚಿ",
     msg: link => `ನಮಸ್ಕಾರ ರಾಯಲ್ ಹಾರ್ವೆಸ್ಟ್, ದಯವಿಟ್ಟು ನನ್ನ ಪ್ರದೇಶಕ್ಕೂ ಡೆಲಿವರಿ ಆರಂಭಿಸಿ: ${link}`,
   },

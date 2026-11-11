@@ -30,6 +30,7 @@ tr:hover td{background:#fafafa}
 .badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600}
 .badge-green{background:#e8f5e9;color:var(--green)}
 .badge-red{background:#ffebee;color:var(--red)}
+.badge-orange{background:#fff4e0;color:#b25e00}
 .btn{padding:7px 14px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:600}
 .btn-green{background:var(--green);color:white}
 .btn-red{background:var(--red);color:white}
@@ -336,6 +337,7 @@ tr.row-link:focus-visible{outline:2px solid var(--green);outline-offset:-2px}
       <div class="nav-section">Customers</div>
       <div class="nav-item" onclick="showPage('customers',this)">👥 Customers</div>
       <div class="nav-item" onclick="showPage('alerts',this)">🔔 Notifications</div>
+      <div class="nav-item" onclick="showPage('suggestions',this)">💡 Suggestions<span class="nav-count" id="suggestCount" title="New product suggestions"></span></div>
       <div class="nav-section">Delivery</div>
       <div class="nav-item" onclick="showPage('delivery',this)">🛵 Delivery Boys</div>
       <div class="nav-section">Links</div>
@@ -531,6 +533,20 @@ tr.row-link:focus-visible{outline:2px solid var(--green);outline-offset:-2px}
           <thead><tr><th>Name</th><th>Area</th><th>Phone</th><th>Email</th><th>Status</th><th>Action</th></tr></thead>
           <tbody id="vendorsBody"><tr><td colspan="6" style="text-align:center;padding:20px"><span class="spinner"></span>Loading...</td></tr></tbody>
         </table></div></div>
+      </div>
+
+      <div class="page" id="page-suggestions">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:8px">
+          <div style="font-size:22px;font-weight:800">💡 Product Suggestions</div>
+          <select id="suggestFilter" onchange="loadSuggestions()" style="min-width:170px;width:auto" aria-label="Show">
+            <option value="new">New</option>
+            <option value="">All</option>
+            <option value="added">Added to the shop</option>
+            <option value="declined">Not adding</option>
+          </select>
+        </div>
+        <div class="card-note" style="margin:0 0 14px">Products customers asked for in the app (Profile → Suggest Product), newest first. Each one is saved in your database, in the table <b>product_suggestions</b>, together with its photo.</div>
+        <div id="suggestList"><div style="text-align:center;padding:20px"><span class="spinner"></span>Loading...</div></div>
       </div>
 
       <div class="page" id="page-customers">
@@ -799,6 +815,7 @@ function enterApp(name) {
   document.getElementById("mainApp").style.display = "block";
   document.getElementById("connStatus").textContent = "🟢 " + (name || "Admin");
   loadDashboard();
+  refreshSuggestCount();
 }
 async function doLogin() {
   const phone = document.getElementById("phoneInput").value.trim();
@@ -887,6 +904,7 @@ async function showPage(p,el){
   if(p==="orders")loadOrders();
   if(p==="products"||p==="deleted")loadProducts();
   if(p==="alerts")loadAlertsPage();
+  if(p==="suggestions")loadSuggestions();
   if(p==="vendors")loadVendors();
   if(p==="customers")loadCustomers();
   if(p==="delivery"){loadDeliveryBoys();loadUnassignedOrders();}
@@ -2054,6 +2072,100 @@ async function saveSupplier(){
     await send("PATCH", `vendors?id=eq.${q(id)}&select=id`, data);
     toast("✅ Supplier updated!");closeSupplierModal();loadVendors();
   }catch(e){toast("Error: "+e.message,"#E53935");}
+}
+
+// ── PRODUCT SUGGESTIONS ──────────────────────────────────────
+// Customers suggest products in the app; each is a row in product_suggestions (with its photo). Only a logged-in
+// admin can read them (the database checks the x-staff-token).
+async function adminCall(fn, args){
+  const res = await fetch(`${URL}/rpc/${fn}`, {method:"POST", headers:H, body:JSON.stringify(args || {})});
+  if (!res.ok) throw new Error((await res.text()) || res.statusText);
+  const r = await res.json();
+  if (r && r.ok === false && r.error === "login") { setToken(null); showLogin("Your login has ended. Please log in again."); throw new Error("login"); }
+  return r;
+}
+function showSuggestCount(n){ const el = document.getElementById("suggestCount"); if (el) el.textContent = n > 0 ? String(n) : ""; }
+async function refreshSuggestCount(){
+  try { const r = await adminCall("admin_suggestions", {p_status:"new"}); if (r && r.ok) showSuggestCount(Number(r.new) || 0); } catch(e) {}
+}
+const SUGGEST_STATUS = { new:["🆕 New","badge-orange"], added:["✅ Added","badge-green"], declined:["✕ Not adding","badge-red"] };
+let suggestTicket = 0;
+async function loadSuggestions(){
+  const box = document.getElementById("suggestList"), ticket = ++suggestTicket;
+  const status = document.getElementById("suggestFilter").value || null;
+  box.innerHTML = `<div style="text-align:center;padding:20px"><span class="spinner"></span>Loading...</div>`;
+  let r;
+  try { r = await adminCall("admin_suggestions", {p_status:status}); }
+  catch(e) { if (ticket === suggestTicket && e.message !== "login") box.innerHTML = `<div class="card" style="color:var(--red)">Couldn't load the suggestions. ${esc(e.message)}</div>`; return; }
+  if (ticket !== suggestTicket) return;
+  if (!r || !r.ok) { box.innerHTML = `<div class="card" style="color:var(--red)">Couldn't load the suggestions.</div>`; return; }
+  showSuggestCount(Number(r.new) || 0);
+  const items = Array.isArray(r.items) ? r.items : [];
+  if (!items.length) {
+    box.innerHTML = `<div class="card" style="text-align:center;color:#888;padding:28px">${status === "new" ? "No new suggestions. 🎉" : "No suggestions here yet."}</div>`;
+    return;
+  }
+  box.innerHTML = items.map(s => {
+    const st = SUGGEST_STATUS[s.status] || [esc(s.status), "badge-orange"];
+    const who = s.customer || s.phone ? `${esc(s.customer || "Customer")}${s.phone ? ` · <a href="tel:+91${esc(s.phone)}">${esc(s.phone)}</a>` : ""}` : "Not signed in";
+    const d = toDate(s.at);
+    const when = d ? d.toLocaleString("en-IN", {day:"numeric", month:"short", hour:"2-digit", minute:"2-digit"}) : "—";
+    return `<div class="card suggest-card" style="display:flex;gap:14px;align-items:flex-start">
+      <div class="suggest-photo" data-photo="${s.has_photo ? esc(s.id) : ""}" style="width:96px;height:96px;flex-shrink:0;border-radius:10px;background:#f4f4f2;display:flex;align-items:center;justify-content:center;color:#aaa;font-size:11px;overflow:hidden;text-align:center">${s.has_photo ? '<span class="spinner"></span>' : "No photo"}</div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b style="font-size:15px">${esc(s.name)}</b><span class="badge ${st[1]}">${st[0]}</span></div>
+        ${s.note ? `<div style="font-size:13px;color:#555;margin-top:4px;word-break:break-word">${esc(s.note)}</div>` : ""}
+        <div style="font-size:12px;color:#888;margin-top:6px">${who} · ${esc(when)}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">
+          ${s.status !== "added" ? `<button class="btn btn-green btn-sm" data-id="${esc(s.id)}" onclick="setSuggestion(this.dataset.id,'added')">✅ Added to shop</button>` : ""}
+          ${s.status !== "declined" ? `<button class="btn btn-gray btn-sm" data-id="${esc(s.id)}" onclick="setSuggestion(this.dataset.id,'declined')">✕ Not adding</button>` : ""}
+          ${s.status !== "new" ? `<button class="btn btn-gray btn-sm" data-id="${esc(s.id)}" onclick="setSuggestion(this.dataset.id,'new')">↩ Back to new</button>` : ""}
+          <button class="btn btn-red btn-sm" data-id="${esc(s.id)}" onclick="deleteSuggestion(this.dataset.id)">🗑 Delete</button>
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+  // photos: a few at a time, each straight into its card (tap one to see it big)
+  const slots = [...box.querySelectorAll(".suggest-photo[data-photo]")].filter(el => el.dataset.photo).slice(0, 60);
+  let next = 0;
+  const worker = async () => {
+    while (next < slots.length && ticket === suggestTicket) {
+      const el = slots[next++];
+      try {
+        const p = await adminCall("admin_suggestion_photo", {p_id:Number(el.dataset.photo)});
+        if (ticket !== suggestTicket) return;
+        if (p && p.ok && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(p.photo || "")) {
+          const img = document.createElement("img");
+          img.src = p.photo; img.alt = "Customer's photo"; img.style.cssText = "width:100%;height:100%;object-fit:cover;cursor:zoom-in";
+          img.onclick = () => { // the photo, big, in a new tab
+            const w = window.open("", "_blank");
+            if (!w) return;
+            w.document.title = "Suggestion photo";
+            const big = w.document.createElement("img");
+            big.src = p.photo; big.alt = "Customer's photo"; big.style.maxWidth = "100%";
+            w.document.body.appendChild(big);
+          };
+          el.innerHTML = ""; el.appendChild(img);
+        } else el.textContent = "No photo";
+      } catch(e) { if (e.message === "login") return; el.textContent = "Photo didn't load"; }
+    }
+  };
+  await Promise.all([worker(), worker(), worker()]);
+}
+async function setSuggestion(id, status){
+  try {
+    const r = await adminCall("admin_suggestion_set", {p_id:Number(id), p_status:status});
+    if (!r || !r.ok) throw new Error(r && r.error === "not_found" ? "This suggestion isn't there any more." : "Couldn't save that.");
+  } catch(e) { if (e.message !== "login") alert(e.message); }
+  loadSuggestions();
+}
+async function deleteSuggestion(id){
+  if (!confirm("Delete this suggestion and its photo? This can't be undone.")) return;
+  try {
+    const r = await adminCall("admin_suggestion_delete", {p_id:Number(id)});
+    if (!r || !r.ok) throw new Error(r && r.error === "not_found" ? "This suggestion isn't there any more." : "Couldn't delete it.");
+  } catch(e) { if (e.message !== "login") alert(e.message); }
+  loadSuggestions();
 }
 
 // ── CUSTOMERS ────────────────────────────────────────────────
