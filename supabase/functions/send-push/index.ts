@@ -7,6 +7,9 @@
 //   GET                                 -> {publicKey}: the app's public push key (made on first use)
 //   POST {action:"rider", order_id}     -> order alerts for delivery boys, called by the database when an order is
 //                                          assigned or cancelled; sends only what rider_alert_claim says is due (once)
+//   POST {action:"admin", order_id}     -> new-order alerts for the admin's phones and computers, called by the
+//                                          database when a customer places an order; sends what admin_alert_claim says (once)
+//   POST {action:"admin_test"}          -> (admin login) a test alert to the logged-in admin's phones and computers
 //
 // The VAPID key pair is made here once with Web Crypto and kept in the database (private half in Vault), so it never
 // leaves Supabase. Push addresses live in push_subscriptions; each send is kept in push_messages with its counts.
@@ -14,7 +17,7 @@ import { b64uEncode, sendPush, vapidSigner } from "./webpush.js";
 
 const SB_URL = Deno.env.get("SUPABASE_URL") || "";
 const SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-const SUBJECT = Deno.env.get("VAPID_SUBJECT") || "https://royalharvest.pages.dev";
+const SUBJECT = Deno.env.get("VAPID_SUBJECT") || "https://royalharvest.co.in";
 const BATCH = 150;   // phones per call (the admin panel calls again for the next ones)
 const PARALLEL = 15; // sent at the same time
 
@@ -109,6 +112,52 @@ async function riderAlert(a) {
   return { ok: true, kind: due.kind, sent };
 }
 
+// The admin: "New order" on every phone or computer where order alerts are on in the admin panel.
+// Like the riders' alerts: the database decides what is due and hands it out once.
+async function sendToAdmins(phones, payload) {
+  const { signer: sign } = await keys();
+  let sent = 0;
+  const gone = [];
+  await eachLimited(phones, PARALLEL, async s => {
+    const r = await sendPush(s, payload, sign, { urgency: "high", ttl: 4 * 3600 });
+    if (r.ok) sent++;
+    else if (r.gone) gone.push(s.id);
+  });
+  if (gone.length) await db(`admin_push?id=in.(${gone.join(",")})`, { method: "DELETE" });
+  return sent;
+}
+
+async function adminAlert(a) {
+  const orderId = String(a.order_id ?? "");
+  if (!/^RH[A-Z0-9]{8}$/.test(orderId)) return { ok: false, error: "order" };
+  const { rows: due } = await db("rpc/admin_alert_claim", { method: "POST", body: { p_order: orderId } });
+  if (!due || !due.ok || !due.kind) return { ok: true, sent: 0 };
+  const o = due.order || {}, phones = due.phones || [];
+  if (!phones.length) return { ok: true, kind: due.kind, sent: 0 };
+  const items = Number(o.items) || 0;
+  const pay = o.payment === "cod" ? "pay on delivery" : "paid";
+  const who = o.customer ? ` · ${oneLine(o.customer, 40)}` : "";
+  const when = o.slot && o.slot !== "Standard" ? `\n🕐 ${oneLine(o.slot, 40)}` : "\n🕐 Now (20–30 min)";
+  const where = o.address && !NO_ADDRESS.test(o.address) ? `\n📍 ${oneLine(o.address, 120)}` : "";
+  const payload = JSON.stringify({
+    title: `🛒 New order · ₹${o.total}`,
+    body: `#${o.id} · ${items} item${items === 1 ? "" : "s"} · ${pay}${who}${when}${where}`,
+    tag: `rh-admin-${o.id}`, url: "/admin.html",
+  });
+  const sent = await sendToAdmins(phones, payload);
+  await db(`admin_alerts?order_id=eq.${o.id}`, { method: "PATCH", body: { phones: sent } });
+  return { ok: true, kind: due.kind, sent };
+}
+
+async function adminTest(me) {
+  const { rows: phones } = await db(`admin_push?select=id,endpoint,p256dh,auth&admin_id=eq.${encodeURIComponent(me.id)}`);
+  if (!phones || !phones.length) return { ok: false, error: "no_devices" };
+  const payload = JSON.stringify({ title: "🔔 Order alerts are on", body: "This is a test. Every new order will show up like this.",
+    tag: "rh-admin-test", url: "/admin.html" });
+  const sent = await sendToAdmins(phones, payload);
+  return { ok: true, sent, devices: phones.length };
+}
+
 async function start(a, me) {
   const m = {
     kind: ["fresh", "price", "offer", "other"].includes(a.kind) ? a.kind : "other",
@@ -175,12 +224,14 @@ Deno.serve(async req => {
     if (req.method === "GET") return reply(200, { ok: true, publicKey: (await keys()).publicKey });
     const a = (await req.json().catch(() => null)) || {};
     if (a.action === "rider") return reply(200, await riderAlert(a));
+    if (a.action === "admin") return reply(200, await adminAlert(a));
     const token = req.headers.get("x-staff-token") || "";
     if (!token) return reply(401, { ok: false, error: "login" });
     const { rows: me } = await db("rpc/staff_me", { method: "POST", body: { p_token: token } });
     if (!me || !me.ok || me.kind !== "admin") return reply(401, { ok: false, error: "login" });
     if (a.action === "start") return reply(200, await start(a, me));
     if (a.action === "next") return reply(200, await next(a));
+    if (a.action === "admin_test") return reply(200, await adminTest(me));
     return reply(400, { ok: false, error: "action" });
   } catch (e) {
     console.error("send-push", e);

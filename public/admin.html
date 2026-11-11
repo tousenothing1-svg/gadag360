@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="theme-color" content="#1A6B3C"/>
+<link rel="manifest" href="/admin-manifest.json"/>
+<link rel="apple-touch-icon" href="/apple-touch-icon.png"/>
 <title>Royal Harvest Admin Panel</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -156,6 +159,13 @@ tr.row-link:focus-visible{outline:2px solid var(--green);outline-offset:-2px}
 .ph.ph-static{cursor:default}
 .ph.ph-static:hover{border-color:#c9d3c4}
 .page-note{font-size:13px;color:#666;margin:-8px 0 16px;line-height:1.5;max-width:720px}
+.order-alert{display:none;align-items:center;gap:12px;flex-wrap:wrap;background:#FFF8E6;border:1.5px solid #F2B53A;border-radius:12px;padding:12px 14px;margin:-6px 0 18px;font-size:13.5px;line-height:1.45}
+.order-alert.show{display:flex}
+.order-alert.on{background:#EEF7F1;border-color:#9CCBAE}
+.order-alert .txt{flex:1;min-width:220px}
+.order-alert .acts{display:flex;gap:8px;flex-wrap:wrap}
+.slot-line{font-size:11px;color:#666;margin-top:2px;white-space:nowrap}
+.slot-line.later{color:#B25E00;font-weight:700}
 .btn-back{white-space:nowrap}
 .btn:disabled{opacity:.6;cursor:default}
 /* notifications: write, preview and send alerts to customers' phones */
@@ -347,6 +357,14 @@ tr.row-link:focus-visible{outline:2px solid var(--green);outline-offset:-2px}
 
       <div class="page active" id="page-dashboard">
         <div style="font-size:22px;font-weight:800;margin-bottom:20px">Dashboard</div>
+        <div class="order-alert" id="orderAlert" role="region" aria-label="New-order alerts">
+          <div class="txt" id="orderAlertTxt"></div>
+          <div class="acts">
+            <button class="btn btn-green" id="orderAlertOn" onclick="turnOnOrderAlerts()">🔔 Turn on</button>
+            <button class="btn btn-gray" id="orderAlertTest" onclick="sendTestOrderAlert()">Send a test</button>
+            <button class="btn btn-gray" id="orderAlertOff" onclick="turnOffOrderAlerts()">Turn off</button>
+          </div>
+        </div>
         <div class="stats-grid profit-row">
           <div class="stat-card stat-link" role="button" tabindex="0" title="See your profit" onclick="openProfit()" onkeydown="if(event.key==='Enter')openProfit()"><div class="stat-value" id="statProfitToday">—</div><div class="stat-label">💰 Profit today</div><div class="stat-sub" id="statProfitTodaySub"></div></div>
           <div class="stat-card stat-link" role="button" tabindex="0" title="See your profit" onclick="openProfit()" onkeydown="if(event.key==='Enter')openProfit()"><div class="stat-value" id="statProfitMonth">—</div><div class="stat-label">💰 Profit this month</div><div class="stat-sub" id="statProfitMonthSub"></div></div>
@@ -816,6 +834,8 @@ function enterApp(name) {
   document.getElementById("connStatus").textContent = "🟢 " + (name || "Admin");
   loadDashboard();
   refreshSuggestCount();
+  showOrderAlertStrip();
+  refreshOrderAlerts();
 }
 async function doLogin() {
   const phone = document.getElementById("phoneInput").value.trim();
@@ -862,7 +882,7 @@ async function doSetup() {
 function logout() {
   const t = TOKEN;
   setToken(null);
-  if (t) rpc("staff_logout", {p_token: t}).catch(() => {});
+  if (t) { stopOrderAlerts(t).finally(() => rpc("staff_logout", {p_token: t}).catch(() => {})); }
   showLogin();
 }
 async function ensureSession() {
@@ -1245,7 +1265,7 @@ function renderOrders(orders){
     ? "<tr><td colspan='7' style='text-align:center;color:#aaa;padding:20px'>No orders found</td></tr>"
     : orders.map(o=>`<tr>
         <td><b>#${esc(o.id)}</b></td>
-        <td>${fmtDate(o.created_at)}</td>
+        <td>${fmtDate(o.created_at)}${slotLine(o)}</td>
         <td><b>₹${esc(o.total)}</b></td>
         <td>${o.payment==="upi"?"UPI":"COD"}</td>
         <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(o.address)}">${esc(o.address||"—")}</td>
@@ -1260,7 +1280,7 @@ function viewOrder(id){
   const o = allOrders.find(x => x.id === id);
   if (!o) return;
   const items = (o.order_items||[]).map(i => `• ${i.product_name}${i.variant ? " ("+i.variant+")" : ""} x${i.quantity} — ₹${i.price*i.quantity}`).join("\n");
-  alert(`Order #${o.id}\nTotal: ₹${o.total}\nAddress: ${o.address||""}${o.gps_lat&&o.gps_lon?`\nMap: https://maps.google.com/?q=${o.gps_lat},${o.gps_lon}`:""}${items?"\n\n"+items:""}`);
+  alert(`Order #${o.id}\nTotal: ₹${o.total}\nDeliver: ${slotOf(o)}\nAddress: ${o.address||""}${o.gps_lat&&o.gps_lon?`\nMap: https://maps.google.com/?q=${o.gps_lat},${o.gps_lon}`:""}${items?"\n\n"+items:""}`);
 }
 
 function filterOrders(){
@@ -2073,6 +2093,140 @@ async function saveSupplier(){
     toast("✅ Supplier updated!");closeSupplierModal();loadVendors();
   }catch(e){toast("Error: "+e.message,"#E53935");}
 }
+
+// When the customer wants the order: now (20–30 min), or the day and slot they picked ("Thu 12 Nov · Morning 7–10am")
+const slotOf = o => (o.delivery_slot && o.delivery_slot !== "Standard") ? o.delivery_slot : "Now (20–30 min)";
+const slotLine = o => {
+  const later = !!(o.delivery_slot && o.delivery_slot !== "Standard");
+  return `<div class="slot-line${later ? " later" : ""}">🕐 ${esc(slotOf(o))}</div>`;
+};
+
+// ── NEW-ORDER ALERTS ─────────────────────────────────────────
+// A notification on this phone or computer for every new order, even with the admin panel closed. The database
+// sends it (supabase/18_admin_alerts.sql); admin-sw.js shows it. iPhone: only from the Home Screen app.
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const isStandalone = () => (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
+const keyBytes = b64 => { const s = String(b64).replace(/-/g, "+").replace(/_/g, "/"); const bin = atob(s + "===".slice((s.length + 3) % 4)); return Uint8Array.from(bin, ch => ch.charCodeAt(0)); };
+const sameKey = (buf, bytes) => { if (!buf) return false; const a = new Uint8Array(buf); return a.length === bytes.length && a.every((x, i) => x === bytes[i]); };
+function orderAlertSupport() {
+  if (isIOS) {
+    const m = /OS (\d+)_(\d+)/.exec(navigator.userAgent);
+    if (m && (+m[1] < 16 || (+m[1] === 16 && +m[2] < 4))) return "no";
+    if (!isStandalone()) return "ios-install";
+  }
+  return window.isSecureContext && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window ? "yes" : "no";
+}
+// the admin panel's own worker (the shop's worker may also be on this browser: never use that one)
+async function adminRegistration() {
+  const reg = await navigator.serviceWorker.getRegistration("/admin");
+  return reg && new window.URL(reg.scope).pathname === "/admin" ? reg : null;
+}
+async function currentAdminSub() {
+  const reg = await adminRegistration();
+  return reg ? reg.pushManager.getSubscription() : null;
+}
+async function orderAlertState() { // on | off | blocked | ios-install | no
+  const s = orderAlertSupport();
+  if (s !== "yes") return s;
+  let p = "default";
+  try { p = Notification.permission; } catch (e) {}
+  if (p === "denied") return "blocked";
+  if (p !== "granted") return "off";
+  try { return (await currentAdminSub()) ? "on" : "off"; } catch (e) { return "off"; }
+}
+async function showOrderAlertStrip() {
+  const st = await orderAlertState();
+  const strip = document.getElementById("orderAlert");
+  if (!strip) return st;
+  strip.className = "order-alert" + (st === "no" ? "" : " show") + (st === "on" ? " on" : "");
+  document.getElementById("orderAlertOn").style.display = st === "off" ? "" : "none";
+  document.getElementById("orderAlertTest").style.display = st === "on" ? "" : "none";
+  document.getElementById("orderAlertOff").style.display = st === "on" ? "" : "none";
+  document.getElementById("orderAlertTxt").innerHTML = {
+    off: "<b>🔔 Get an alert for every new order</b><br>Turn this on on your phone (and computer) to get a notification the moment a customer orders, even when the admin panel is closed.",
+    on: "<b>🔔 New-order alerts are on for this device.</b> Every new order shows up as a notification.",
+    blocked: "<b>🔕 Notifications are blocked for this site</b><br>Allow them in your browser: tap 🔒 next to the address → Permissions or Site settings → Notifications → Allow. Then reload this page.",
+    "ios-install": "<b>🔔 New-order alerts on iPhone</b><br>Add the admin panel to your Home Screen first (Share ⬆️ → Add to Home Screen), open it from there and log in, then turn alerts on.",
+  }[st] || "";
+  return st;
+}
+function waitActive(reg) {
+  if (reg.active) return Promise.resolve(reg);
+  return new Promise(resolve => {
+    const w = reg.installing || reg.waiting;
+    if (!w) { resolve(reg); return; }
+    w.addEventListener("statechange", () => { if (w.state === "activated") resolve(reg); });
+  });
+}
+async function turnOnOrderAlerts() {
+  const btn = document.getElementById("orderAlertOn");
+  btn.disabled = true; btn.textContent = "Turning on…";
+  try {
+    const p = await Notification.requestPermission(); // straight from the tap: phones only ask right after one
+    if (p === "granted") {
+      const reg = await waitActive(await navigator.serviceWorker.register("/admin-sw.js", { scope: "/admin" }));
+      let key = await rpc("push_public_key", {}).catch(() => null);
+      if (!key) key = (await fetch(PUSH_FN).then(r => r.json()).catch(() => ({}))).publicKey;
+      if (!key) throw new Error("no key");
+      const bytes = keyBytes(key);
+      let sub = await reg.pushManager.getSubscription();
+      if (sub && !sameKey(sub.options && sub.options.applicationServerKey, bytes)) { await sub.unsubscribe().catch(() => {}); sub = null; }
+      if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: bytes });
+      const r = await adminCall("admin_push_subscribe", { p_token: TOKEN, p_sub: sub.toJSON() });
+      if (!r || !r.ok) throw new Error((r && r.error) || "not saved");
+      toast("🔔 New-order alerts are on for this device");
+    }
+  } catch (e) {
+    if (e.message !== "login") toast("Couldn't turn on alerts. Check your internet and try again.", "#E53935");
+  }
+  btn.disabled = false; btn.textContent = "🔔 Turn on";
+  showOrderAlertStrip();
+}
+async function sendTestOrderAlert() {
+  const btn = document.getElementById("orderAlertTest");
+  btn.disabled = true;
+  try {
+    const res = await fetch(PUSH_FN, { method: "POST", headers: { "Content-Type": "application/json", "x-staff-token": TOKEN || "" }, body: JSON.stringify({ action: "admin_test" }) });
+    const r = await res.json().catch(() => ({}));
+    if (res.status === 401) { setToken(null); showLogin("Your login has ended. Please log in again."); return; }
+    if (r.ok && r.sent > 0) toast(`🔔 Test sent to ${r.sent} device${r.sent === 1 ? "" : "s"}. It should show up in a few seconds.`);
+    else if (r.error === "no_devices") { toast("This device isn't linked any more. Turn alerts on again.", "#E53935"); await stopOrderAlerts(TOKEN); }
+    else toast("The test couldn't be sent. Try again in a minute.", "#E53935");
+  } catch (e) { toast("The test couldn't be sent. Check your internet.", "#E53935"); }
+  finally { btn.disabled = false; showOrderAlertStrip(); }
+}
+async function stopOrderAlerts(token) {
+  try {
+    const sub = await currentAdminSub();
+    if (!sub) return;
+    const endpoint = sub.endpoint;
+    await sub.unsubscribe().catch(() => {});
+    await rpc("admin_push_unsubscribe", { p_token: token, p_endpoint: endpoint }).catch(() => {});
+  } catch (e) {}
+}
+async function turnOffOrderAlerts() {
+  if (!confirm("Stop new-order alerts on this device?")) return;
+  await stopOrderAlerts(TOKEN);
+  toast("🔕 New-order alerts are off for this device");
+  showOrderAlertStrip();
+}
+// already on: keep this device linked to whoever is logged in
+async function refreshOrderAlerts() {
+  try {
+    if (orderAlertSupport() !== "yes" || Notification.permission !== "granted") return;
+    const sub = await currentAdminSub();
+    if (sub) await adminCall("admin_push_subscribe", { p_token: TOKEN, p_sub: sub.toJSON() });
+  } catch (e) {}
+}
+// an alert arrived or was tapped: show the new order now
+if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", e => {
+  if (!e.data || e.data.type !== "rh-new-order" || !TOKEN) return;
+  const active = document.querySelector(".page.active");
+  if (e.data.open && (!active || active.id !== "page-orders")) { showPage("orders", document.querySelector(".nav-item[onclick*=\"'orders'\"]")); return; }
+  toast("🛒 New order!");
+  if (active && active.id === "page-orders") loadOrders();
+  else if (active && active.id === "page-dashboard") loadDashboard();
+});
 
 // ── PRODUCT SUGGESTIONS ──────────────────────────────────────
 // Customers suggest products in the app; each is a row in product_suggestions (with its photo). Only a logged-in

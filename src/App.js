@@ -380,6 +380,25 @@ const MAX_ADDRESSES = 3;
 // (below it: ₹15). The database checks both the same way (place_order).
 const MIN_ORDER = 50;
 const FREE_DELIVERY_FROM = 250;
+
+// ── DELIVERY TIME ──
+// Now (in 20–30 min), or a slot today or tomorrow. A slot today can be picked until 30 minutes before it ends.
+const SLOT_DEFS = [
+  { id: "morning",   en: "Morning 7–10am",   kn: "ಬೆಳಿಗ್ಗೆ 7–10", end: 10 },
+  { id: "afternoon", en: "Afternoon 12–3pm", kn: "ಮಧ್ಯಾಹ್ನ 12–3", end: 15 },
+  { id: "evening",   en: "Evening 5–8pm",    kn: "ಸಂಜೆ 5–8",     end: 20 },
+];
+const WEEKDAYS = { en: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], kn: ["ಭಾನು", "ಸೋಮ", "ಮಂಗಳ", "ಬುಧ", "ಗುರು", "ಶುಕ್ರ", "ಶನಿ"] };
+const MONTHS = { en: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+  kn: ["ಜನವರಿ", "ಫೆಬ್ರವರಿ", "ಮಾರ್ಚ್", "ಏಪ್ರಿಲ್", "ಮೇ", "ಜೂನ್", "ಜುಲೈ", "ಆಗಸ್ಟ್", "ಸೆಪ್ಟೆಂಬರ್", "ಅಕ್ಟೋಬರ್", "ನವೆಂಬರ್", "ಡಿಸೆಂಬರ್"] };
+const dayOf = (offset, now = new Date()) => { const d = new Date(now); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() + offset); return d; };
+const dayLabel = (d, lang = "en") => { const k = lang === "kn" ? "kn" : "en"; return `${WEEKDAYS[k][d.getDay()]} ${d.getDate()} ${MONTHS[k][d.getMonth()]}`; };
+const slotOpenToday = (s, now = new Date()) => now.getHours() * 60 + now.getMinutes() < s.end * 60 - 30;
+// What the shop and the delivery boy see: "" means now; else the date and slot, e.g. "Thu 12 Nov · Morning 7–10am"
+const slotText = (day, slotId, now = new Date()) => {
+  const s = SLOT_DEFS.find(x => x.id === slotId);
+  return s ? `${dayLabel(dayOf(day === "tomorrow" ? 1 : 0, now))} · ${s.en}` : "";
+};
 const GPS_MARKS = ["GPS location pinned ✓", "GPS ಸ್ಥಳ ಪಿನ್ ಮಾಡಲಾಗಿದೆ ✓"]; // older versions put this in front of the address
 const addrText = (s) => GPS_MARKS.reduce((t, m) => t.split(m).join(""), String(s || "")).replace(/\s+/g, " ").trim();
 const inIndia = (la, lo) => typeof la === "number" && typeof lo === "number" && la >= 6 && la <= 37 && lo >= 68 && lo <= 98;
@@ -399,12 +418,15 @@ function cleanSavedAddresses(list) {
 const ADDR_LABELS = [
   { id: "Home", en: "Home", kn: "ಮನೆ", icon: "🏠" },
   { id: "Work", en: "Work", kn: "ಕೆಲಸ", icon: "💼" },
-  { id: "Other", en: "Someone else", kn: "ಬೇರೆಯವರು", icon: "👪" },
+  { id: "Friend", en: "Friend's home", kn: "ಸ್ನೇಹಿತರ ಮನೆ", icon: "👫" },
+  { id: "Other", en: "Other", kn: "ಇತರೆ", icon: "📍" },
 ];
-// a name the customer typed is always someone else's place (the name box shows only for "Someone else")
-const addrIcon = (label) => (label === "Home" ? "🏠" : label === "Work" ? "💼" : label === "Address" ? "📍" : "👪");
+// a name the customer typed (the name box shows for "Other") gets the pin, like "Other"
+const addrIcon = (label) => { const l = ADDR_LABELS.find(x => x.id === label); return l ? l.icon : "📍"; };
 const addrLabelText = (label, lang) => { const l = ADDR_LABELS.find(x => x.id === label); return l ? (lang === "kn" ? l.kn : l.en) : label; };
-// Home / Work / Someone else
+// the name a new address starts with: Home, then Work, then Friend's home
+const firstFreeLabel = list => ["Home", "Work"].find(l => !list.some(a => a.label === l)) || "Friend";
+// Home / Work / Friend's home / Other
 function LabelChips({ value, onChange, lang }) {
   return (
     <div role="radiogroup" aria-label={lang === "kn" ? "ವಿಳಾಸದ ಹೆಸರು" : "Address name"} style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
@@ -890,27 +912,31 @@ function ProductSheet({ p, inCart, picked, lang, KN_NAMES, onCommit, onClose }) 
         style={{ width: "100%", maxWidth: 480, background: "#fff", borderRadius: "24px 24px 0 0", maxHeight: "92vh", overflowY: "auto",
           padding: "10px 18px calc(18px + env(safe-area-inset-bottom, 0px))", boxShadow: "0 -10px 40px rgba(22,32,24,0.18)",
           fontFamily: body, color: ink }}>
-        <div aria-hidden="true" style={{ width: 40, height: 4, borderRadius: 2, background: "#D9DED3", margin: "0 auto 14px" }}/>
-        <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
-          <div style={{ width: 112, height: 112, flexShrink: 0, borderRadius: 16, background: "#F5F7F2", padding: 8 }}><ProductImage p={p}/></div>
-          <div style={{ flex: 1, minWidth: 0, paddingTop: 2 }}>
-            <div style={{ fontSize: 19, fontWeight: 700, lineHeight: 1.25 }}>{name}</div>
-            <div style={{ marginTop: 6, fontSize: 15 }}>
-              <span style={{ fontWeight: 800 }}>{rs(u.price)}</span><span style={{ color: soil }}> / {u.label}</span>
-              {mp && <span style={{ marginLeft: 8, fontSize: 13, color: soil, textDecoration: "line-through" }}
-                aria-label={kn ? `ಮಾರುಕಟ್ಟೆ ಬೆಲೆ ${rs(mp)}` : `market price ${rs(mp)}`}>{rs(mp)}</span>}
-            </div>
-            {mp && <div style={{ marginTop: 4, fontSize: 12.5, fontWeight: 700, color: basil }}>
-              {kn ? `ಮಾರುಕಟ್ಟೆ ಬೆಲೆಗಿಂತ ${rs(mp - u.price)} ಕಡಿಮೆ (${offPct(mp, u.price)}%)` : `${rs(mp - u.price)} less than market price (${offPct(mp, u.price)}% off)`}
-            </div>}
-            {oos
-              ? <div style={{ marginTop: 6, fontSize: 13, fontWeight: 700, color: chili }}>{kn ? "ಸದ್ಯಕ್ಕೆ ದಾಸ್ತಾನಿಲ್ಲ" : "Out of stock right now"}</div>
-              : inCart > 0 ? <div style={{ marginTop: 6, fontSize: 13, fontWeight: 600, color: basil }}>{kn ? `ಬುಟ್ಟಿಯಲ್ಲಿ ${inCart} ಇದೆ` : `${inCart} in your cart`}</div> : null}
-          </div>
+        <div aria-hidden="true" style={{ width: 40, height: 4, borderRadius: 2, background: "#D9DED3", margin: "0 auto 12px" }}/>
+        {/* The photo, big: what the customer is buying should be easy to see */}
+        <div style={{ position: "relative", width: "100%", aspectRatio: "4 / 3", maxHeight: "42vh", borderRadius: 18, background: "#F5F7F2", overflow: "hidden" }}>
+          <div style={{ position: "absolute", inset: 10 }}><ProductImage p={p}/></div>
+          {mp && <span style={{ position: "absolute", left: 10, top: 10, fontSize: 12, fontWeight: 800, color: "#fff", padding: "4px 8px",
+            background: basil, borderRadius: 8 }}>{offPct(mp, u.price)}% {kn ? "ಕಡಿಮೆ" : "OFF"}</span>}
           <button ref={closeRef} onClick={onClose} aria-label={kn ? "ಮುಚ್ಚಿ" : "Close"} className="g-reset"
-            style={{ width: 36, height: 36, borderRadius: 18, background: "#EEF2EB", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            <X size={18}/>
+            style={{ position: "absolute", right: 10, top: 10, width: 38, height: 38, borderRadius: 19, background: "rgba(255,255,255,0.94)",
+              boxShadow: "0 2px 8px rgba(22,32,24,0.18)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <X size={19}/>
           </button>
+        </div>
+        <div style={{ marginTop: 14 }}>
+          <div style={{ fontSize: 20, fontWeight: 700, lineHeight: 1.25 }}>{name}</div>
+          <div style={{ marginTop: 6, fontSize: 16 }}>
+            <span style={{ fontWeight: 800 }}>{rs(u.price)}</span><span style={{ color: soil }}> / {u.label}</span>
+            {mp && <span style={{ marginLeft: 8, fontSize: 13.5, color: soil, textDecoration: "line-through" }}
+              aria-label={kn ? `ಮಾರುಕಟ್ಟೆ ಬೆಲೆ ${rs(mp)}` : `market price ${rs(mp)}`}>{rs(mp)}</span>}
+          </div>
+          {mp && <div style={{ marginTop: 4, fontSize: 12.5, fontWeight: 700, color: basil }}>
+            {kn ? `ಮಾರುಕಟ್ಟೆ ಬೆಲೆಗಿಂತ ${rs(mp - u.price)} ಕಡಿಮೆ (${offPct(mp, u.price)}%)` : `${rs(mp - u.price)} less than market price (${offPct(mp, u.price)}% off)`}
+          </div>}
+          {oos
+            ? <div style={{ marginTop: 6, fontSize: 13, fontWeight: 700, color: chili }}>{kn ? "ಸದ್ಯಕ್ಕೆ ದಾಸ್ತಾನಿಲ್ಲ" : "Out of stock right now"}</div>
+            : inCart > 0 ? <div style={{ marginTop: 6, fontSize: 13, fontWeight: 600, color: basil }}>{kn ? `ಬುಟ್ಟಿಯಲ್ಲಿ ${inCart} ಇದೆ` : `${inCart} in your cart`}</div> : null}
         </div>
 
         {sizes.length > 1 && <>
@@ -1281,7 +1307,8 @@ export default function RoyalHarvest() {
 
   // ── ALL 16 FEATURES STATE ──
   const [orderHistory, setOrderHistory] = useState([]);     // F3 order history
-  const [deliverySlot, setDeliverySlot] = useState("");     // F5 slot booking
+  const [deliverySlot, setDeliverySlot] = useState("");     // "" = now (20–30 min), or a SLOT_DEFS id
+  const [deliveryDay, setDeliveryDay] = useState("today");   // "today" | "tomorrow"
   const [userArea, setUserArea] = useState("Gadag");        // F12 hyperlocal
   const [hoverRating, setHoverRating] = useState(0);
   const [lastRating, setLastRating] = useState(0);          // F16 rating
@@ -1307,8 +1334,8 @@ export default function RoyalHarvest() {
   const [savedAddresses, setSavedAddresses] = useState(() => cleanSavedAddresses(readJSON("rh_addresses", [])));
   const [selectedAddrId, setSelectedAddrId] = useState(null); // the saved address picked at checkout
   const [gpsBusy, setGpsBusy] = useState(false);             // "Use GPS" is finding the spot
-  const [saveAddrOpen, setSaveAddrOpen] = useState(false);   // checkout: "Save this address" open
-  const [saveAddrLabel, setSaveAddrLabel] = useState("Home");
+  const [saveAddrSkip, setSaveAddrSkip] = useState(false);   // checkout: "Not now" on saving the typed address
+  const [saveAddrLabel, setSaveAddrLabel] = useState(null);   // checkout: the name picked for it (null: the first free one)
   const [saveAddrCustom, setSaveAddrCustom] = useState("");
   const [newAddr, setNewAddr] = useState(null);              // profile: the address being added {label, custom, text, coords}
   const [userProfile, setUserProfile] = useState({ name:"", phone:"", email:"" });
@@ -1552,8 +1579,6 @@ export default function RoyalHarvest() {
   }, [alertProduct, LIVE_PRODUCTS]);
 
   // ── STATIC DATA ──
-  const SLOTS = ["Morning 7–10am","Afternoon 12–3pm","Evening 5–8pm"];
-  const SLOTS_KN = ["ಬೆಳಿಗ್ಗೆ 7–10","ಮಧ್ಯಾಹ್ನ 12–3","ಸಂಜೆ 5–8"];
   const AREAS = ["Gadag","Betageri","Hulkoti"]; // where we deliver
 
   const T = {
@@ -1784,6 +1809,13 @@ export default function RoyalHarvest() {
       alert(lang==="kn" ? `ಕನಿಷ್ಠ ಆರ್ಡರ್ ₹${MIN_ORDER}. ಆರ್ಡರ್ ಮಾಡಲು ಇನ್ನೂ ₹${MIN_ORDER - subtotal} ಸೇರಿಸಿ.` : `The minimum order is ₹${MIN_ORDER}. Please add ₹${MIN_ORDER - subtotal} more to place the order.`);
       return;
     }
+    // a slot later today that has run out while the cart was open
+    const pickedSlot = SLOT_DEFS.find(x => x.id === deliverySlot);
+    if (deliveryDay === "today" && pickedSlot && !slotOpenToday(pickedSlot)) {
+      setDeliverySlot("");
+      alert(lang==="kn" ? "ಆ ಸಮಯ ಮುಗಿದಿದೆ. ಬೇರೆ ಸಮಯ ಅಥವಾ ನಾಳೆ ಆರಿಸಿ." : "That time slot has passed. Please pick another time, or tomorrow.");
+      return;
+    }
     // A GPS pin alone isn't enough: the delivery boy needs the typed house no., street and landmark
     const typedAddress = addrText(address);
     if (typedAddress.length < ADDR_MIN) {
@@ -1793,12 +1825,13 @@ export default function RoyalHarvest() {
     stopGpsWatch();
     const orderId = newOrderId();
     const cartBefore = cart;
-    const newOrder = {id:orderId, status:"placed", placedAt:Date.now(), items:cartItems, total:finalTotal, address: typedAddress, gps_lat: gpsCoords?.lat || null, gps_lon: gpsCoords?.lon || null, payment, slot:deliverySlot, date: new Date().toLocaleDateString("en-IN"), customer_phone: userProfile.phone, customer_name: userProfile.name};
+    const chosenSlot = slotText(deliveryDay, deliverySlot);
+    const newOrder = {id:orderId, status:"placed", placedAt:Date.now(), items:cartItems, total:finalTotal, address: typedAddress, gps_lat: gpsCoords?.lat || null, gps_lon: gpsCoords?.lon || null, payment, slot:chosenSlot, date: new Date().toLocaleDateString("en-IN"), customer_phone: userProfile.phone, customer_name: userProfile.name};
     setActiveOrders(v => [newOrder, ...v]);
     sendOwnerNotification(newOrder); // keep before any await: phones only open WhatsApp straight from the tap
     setOrderHistory(h => [newOrder, ...h]);
     setOrderStatusIdx(0); setRiderPos(null); setScreen("checkout"); setCart({});
-    setShowRating(false); setLastRating(0); setDeliverySlot("");
+    setShowRating(false); setLastRating(0); setDeliverySlot(""); setDeliveryDay("today"); setSaveAddrSkip(false);
     setTimeout(() => setNotifShown(true), 2000);
 
     // ── SAVE: one secure call works out the bill, saves the order and its items, and updates stock ──
@@ -1806,7 +1839,7 @@ export default function RoyalHarvest() {
       id: orderId, address: typedAddress, payment, tip,
       gps_lat: gpsCoords ? gpsCoords.lat : null,
       gps_lon: gpsCoords ? gpsCoords.lon : null,
-      delivery_slot: deliverySlot || "Standard",
+      delivery_slot: chosenSlot || "Standard",
       items: cartItems.map(i => {
         // cartItems already carry the size and price the customer chose (see unitOf);
         // db_id is the products row the price and stock come from (same match as LIVE_PRODUCTS)
@@ -1984,7 +2017,7 @@ export default function RoyalHarvest() {
         `Items: ${(order.items||[]).map(i=>i.name+" x"+i.qty).join(", ")}\n` +
         `Total: ₹${order.total}\n` +
         `Address: ${order.address}${mapsLink}\n` +
-        `Slot: ${order.slot}\n` +
+        `Deliver: ${order.slot || "Now (20–30 min)"}\n` +
         `Payment: ${order.payment === "online" ? "Online" : "Cash/UPI on delivery"}`
       );
       window.open(`https://wa.me/${SHOP_WHATSAPP}?text=${waMsg}`, "_blank");
@@ -2320,8 +2353,8 @@ const verifyOtp = async () => {
                 <div style={{marginTop:8,padding:"10px 14px",backgroundColor:"#f8f8f6",borderRadius:12,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                   <div style={{display:"flex",alignItems:"center",gap:8,fontSize:12,color:ink}}>
                     <Clock size={14} style={{color:basil}}/>
-                    <span>{lang==="kn"?"ಡೆಲಿವರಿ ಸ್ಲಾಟ್":"Delivery Slot:"}</span>
-                    <span style={{fontWeight:700,color:basil,backgroundColor:"#e8f5e9",padding:"2px 8px",borderRadius:10}}>7AM-9AM</span>
+                    <span>{lang==="kn"?"ಡೆಲಿವರಿ:":"Delivery:"}</span>
+                    <span style={{fontWeight:700,color:basil,backgroundColor:"#e8f5e9",padding:"2px 8px",borderRadius:10}}>{lang==="kn"?"20–30 ನಿಮಿಷ, ಅಥವಾ ನಾಳೆ":"20–30 min, or tomorrow"}</span>
                   </div>
                   <ChevronRight size={14} style={{color:soil}}/>
                 </div>
@@ -2457,7 +2490,7 @@ const verifyOtp = async () => {
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 14px",borderBottom:`1px solid ${line}`}}>
                       <div>
                         <div style={{fontSize:13,fontWeight:800,color:ink}}>#{o.id}</div>
-                        <div style={{fontSize:10,color:soil,marginTop:1}}>{o.date} · {o.slot||"Standard"}</div>
+                        <div style={{fontSize:10,color:soil,marginTop:1}}>{o.date} · {o.slot||(lang==="kn"?"20–30 ನಿಮಿಷ":"In 20–30 min")}</div>
                       </div>
                       <div style={{display:"flex",alignItems:"center",gap:6}}>
                         {(() => {
@@ -2534,7 +2567,7 @@ const verifyOtp = async () => {
                               <div>Ph: ${userProfile.phone||"—"}</div>
                             </div>
                             <div class="meta-box" style="flex:2"><div class="label">Delivery Slot</div>
-                              <div>${o.slot||"Standard Delivery"}</div>
+                              <div>${o.slot||"In 20–30 min"}</div>
                               <div class="label" style="margin-top:8px">Delivered By</div>
                               <div>Royal Harvest</div>
                             </div>
@@ -2604,7 +2637,7 @@ const verifyOtp = async () => {
             const na = newAddr;
             const naText = na ? addrText(na.text) : "";
             return <div className="space-y-3">
-              <div className="text-xs" style={{color:soil}}>{kn ? "3 ವಿಳಾಸಗಳವರೆಗೆ ಉಳಿಸಿ: ನಿಮ್ಮ ಮನೆ, ಕೆಲಸ, ಅಥವಾ ನೀವು ಆರ್ಡರ್ ಮಾಡುವ ಬೇರೆಯವರ ಮನೆ. ಆರ್ಡರ್ ಮಾಡುವಾಗ ಒಂದು ಟ್ಯಾಪ್‌ನಲ್ಲಿ ಆರಿಸಿ." : "Save up to 3 addresses: your home, work, or someone else you order for. Pick one with a tap when you order."}</div>
+              <div className="text-xs" style={{color:soil}}>{kn ? "3 ವಿಳಾಸಗಳವರೆಗೆ ಉಳಿಸಿ: ಮನೆ, ಕೆಲಸ, ಸ್ನೇಹಿತರ ಮನೆ ಅಥವಾ ಇತರೆ. ಆರ್ಡರ್ ಮಾಡುವಾಗ ಒಂದು ಟ್ಯಾಪ್‌ನಲ್ಲಿ ಆರಿಸಿ." : "Save up to 3 addresses: home, work, a friend's home or another place. Pick one with a tap when you order."}</div>
               {savedAddresses.length===0 && !na && (
                 <div className="text-sm text-center py-4" style={{color:soil}}>{kn ? "ಇನ್ನೂ ಯಾವುದೇ ವಿಳಾಸ ಉಳಿಸಿಲ್ಲ" : "No saved addresses yet"}</div>
               )}
@@ -2644,7 +2677,7 @@ const verifyOtp = async () => {
                     <div>
                       <LocationPicker lat={na.coords.lat} lon={na.coords.lon} accuracy={na.coords.accuracy} manual={!!na.coords.manual} lang={lang}
                         onMove={({lat, lon}) => setNewAddr(v => (v ? {...v, coords:{...(v.coords || {}), lat, lon, manual:true}} : v))}/>
-                      <div className="text-xs" style={{color:soil,marginTop:6}}>{kn ? "ಬೇರೆಯವರ ವಿಳಾಸವಾದರೆ, ಅವರ ಮನೆಗೆ ಪಿನ್ ಸರಿಸಿ." : "Saving someone else's address? Move the pin to their door."}</div>
+                      <div className="text-xs" style={{color:soil,marginTop:6}}>{kn ? "ಸ್ನೇಹಿತರ ಅಥವಾ ಬೇರೆಯವರ ವಿಳಾಸವಾದರೆ, ಅವರ ಮನೆಗೆ ಪಿನ್ ಸರಿಸಿ." : "Saving a friend's or someone else's address? Move the pin to their door."}</div>
                     </div>
                   )}
                   {naText.length < ADDR_MIN && <div className="text-xs" style={{color:soil}}>{kn ? "ಕನಿಷ್ಠ 10 ಅಕ್ಷರಗಳ ವಿಳಾಸ ಟೈಪ್ ಮಾಡಿ" : "Type at least 10 letters of the address"}</div>}
@@ -2663,7 +2696,7 @@ const verifyOtp = async () => {
               ) : full ? (
                 <div className="text-xs text-center" style={{color:soil}}>{kn ? "ನೀವು 3 ವಿಳಾಸ ಉಳಿಸಿದ್ದೀರಿ. ಹೊಸದನ್ನು ಸೇರಿಸಲು ಒಂದನ್ನು ತೆಗೆದುಹಾಕಿ." : "You've saved 3 addresses. Remove one to add another."}</div>
               ) : (
-                <button onClick={()=>setNewAddr({ label: savedAddresses.some(a=>a.label==="Home") ? "Other" : "Home", custom:"", text:"", coords:null })}
+                <button onClick={()=>setNewAddr({ label: firstFreeLabel(savedAddresses), custom:"", text:"", coords:null })}
                   className="w-full py-3 rounded-2xl text-sm font-bold" style={{backgroundColor:basil,color:"white"}}>+ {kn ? "ಹೊಸ ವಿಳಾಸ ಸೇರಿಸಿ" : "Add New Address"}</button>
               )}
             </div>;
@@ -3052,7 +3085,7 @@ const verifyOtp = async () => {
                       <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:10}}>
                         {savedAddresses.map(a => { const on = selectedAddrId===a.id; const pinned = inIndia(a.lat, a.lon); return (
                           <button key={a.id} aria-pressed={on}
-                            onClick={()=>{ stopGpsWatch(); setSelectedAddrId(a.id); setAddress(a.text); setGpsCoords(pinned ? {lat:a.lat, lon:a.lon, accuracy:10, manual:true} : null); setSaveAddrOpen(false); }}
+                            onClick={()=>{ stopGpsWatch(); setSelectedAddrId(a.id); setAddress(a.text); setGpsCoords(pinned ? {lat:a.lat, lon:a.lon, accuracy:10, manual:true} : null); }}
                             style={{display:"flex",alignItems:"flex-start",gap:8,textAlign:"left",padding:"9px 11px",borderRadius:12,border:`1.5px solid ${on?basil:line}`,backgroundColor:on?"#f0faf4":"#fafafa",cursor:"pointer",fontFamily:"inherit"}}>
                             <span aria-hidden="true" style={{fontSize:16,lineHeight:"18px"}}>{addrIcon(a.label)}</span>
                             <span style={{flex:1,minWidth:0}}>
@@ -3098,32 +3131,28 @@ const verifyOtp = async () => {
                           : (kn ? "ಆರ್ಡರ್ ಮಾಡಲು ಪೂರ್ಣ ವಿಳಾಸ ಟೈಪ್ ಮಾಡಿ, ಅಥವಾ ಉಳಿಸಿದ ವಿಳಾಸ ಆರಿಸಿ." : "Type your full address to place the order, or pick a saved one.")}
                       </div>
                     )}
-                    {/* Save it for next time (up to 3): Home, Work, or someone else they order for */}
-                    {typedOk && !alreadySaved && !selectedAddrId && (
+                    {/* A newly typed address: ask straight away to save it (up to 3) as Home, Work, Friend's home or Other */}
+                    {typedOk && !alreadySaved && !selectedAddrId && !saveAddrSkip && (
                       full ? (
                         <div style={{fontSize:11.5,color:soil,marginTop:8}}>{kn?"ನೀವು 3 ವಿಳಾಸ ಉಳಿಸಿದ್ದೀರಿ. ಇದನ್ನು ಉಳಿಸಲು ಪ್ರೊಫೈಲ್ → ಉಳಿಸಿದ ವಿಳಾಸದಲ್ಲಿ ಒಂದನ್ನು ತೆಗೆದುಹಾಕಿ.":"You've saved 3 addresses. To save this one, remove one in Profile → Saved Addresses."}</div>
-                      ) : !saveAddrOpen ? (
-                        <button onClick={()=>{ setSaveAddrOpen(true); setSaveAddrLabel(savedAddresses.some(a=>a.label==="Home") ? "Other" : "Home"); }}
-                          style={{marginTop:8,fontSize:12,fontWeight:700,color:basil,background:"none",border:"none",padding:"4px 0",cursor:"pointer",fontFamily:"inherit"}}>
-                          💾 {kn?"ಮುಂದಿನ ಬಾರಿಗೆ ಈ ವಿಳಾಸ ಉಳಿಸಿ":"Save this address for next time"}
-                        </button>
                       ) : (
-                        <div style={{marginTop:10,padding:"10px 12px",borderRadius:12,backgroundColor:"#f7faf7",border:`1px solid ${line}`}}>
-                          <div style={{fontSize:12,fontWeight:700,color:ink,marginBottom:8}}>{kn?"ಈ ವಿಳಾಸ ಯಾರದು?":"Whose address is this?"}</div>
-                          <LabelChips value={saveAddrLabel} onChange={setSaveAddrLabel} lang={lang}/>
+                        <div role="group" aria-labelledby="rh-save-addr" style={{marginTop:10,padding:"10px 12px",borderRadius:12,backgroundColor:"#f7faf7",border:`1.5px solid ${basil}`}}>
+                          <div id="rh-save-addr" style={{fontSize:12.5,fontWeight:700,color:ink,marginBottom:8}}>💾 {kn?"ಮುಂದಿನ ಬಾರಿಗೆ ಈ ವಿಳಾಸವನ್ನು ಹೀಗೆ ಉಳಿಸಿ":"Save this address for next time as"}</div>
+                          <LabelChips value={saveAddrLabel || firstFreeLabel(savedAddresses)} onChange={setSaveAddrLabel} lang={lang}/>
                           {saveAddrLabel==="Other" && (
                             <input value={saveAddrCustom} onChange={e=>setSaveAddrCustom(e.target.value)} maxLength={30} aria-label={kn?"ವಿಳಾಸದ ಹೆಸರು":"Name for this address"}
                               placeholder={kn?"ಹೆಸರು, ಉದಾ: ಅಮ್ಮನ ಮನೆ":"Name, e.g. Amma's house"}
                               style={{width:"100%",marginTop:8,borderRadius:10,padding:"8px 10px",fontSize:13,fontFamily:"inherit",border:`1px solid ${line}`,outline:"none",boxSizing:"border-box"}}/>
                           )}
                           <div style={{display:"flex",gap:8,marginTop:10}}>
-                            <button onClick={()=>{ setSaveAddrOpen(false); setSaveAddrCustom(""); }}
-                              style={{flex:1,padding:"8px",borderRadius:10,fontSize:12.5,fontWeight:700,backgroundColor:"#fff",color:soil,border:`1px solid ${line}`,cursor:"pointer",fontFamily:"inherit"}}>{kn?"ರದ್ದು":"Cancel"}</button>
+                            <button onClick={()=>{ setSaveAddrSkip(true); setSaveAddrCustom(""); }}
+                              style={{flex:1,padding:"8px",borderRadius:10,fontSize:12.5,fontWeight:700,backgroundColor:"#fff",color:soil,border:`1px solid ${line}`,cursor:"pointer",fontFamily:"inherit"}}>{kn?"ಈಗ ಬೇಡ":"Not now"}</button>
                             <button onClick={()=>{
-                                const lbl = saveAddrLabel==="Other" ? (saveAddrCustom.trim() || "Other") : saveAddrLabel;
+                                const pick = saveAddrLabel || firstFreeLabel(savedAddresses);
+                                const lbl = pick==="Other" ? (saveAddrCustom.trim() || "Other") : pick;
                                 const entry = { id:newAddrId(), label:lbl, text:typed, ...(gpsCoords && inIndia(gpsCoords.lat, gpsCoords.lon) ? { lat:+gpsCoords.lat.toFixed(6), lon:+gpsCoords.lon.toFixed(6) } : {}) };
                                 persistAddresses([...savedAddresses, entry]);
-                                setSelectedAddrId(entry.id); setSaveAddrOpen(false); setSaveAddrCustom("");
+                                setSelectedAddrId(entry.id); setSaveAddrLabel(null); setSaveAddrCustom("");
                               }}
                               style={{flex:2,padding:"8px",borderRadius:10,fontSize:12.5,fontWeight:800,backgroundColor:basil,color:"#fff",border:"none",cursor:"pointer",fontFamily:"inherit"}}>💾 {kn?"ವಿಳಾಸ ಉಳಿಸಿ":"Save address"}</button>
                           </div>
@@ -3134,17 +3163,47 @@ const verifyOtp = async () => {
                   );
                 })()}
 
-                {/* Delivery slot */}
-                <div style={{backgroundColor:"white",margin:"8px 0",padding:"14px"}}>
-                  <div style={{fontSize:12,fontWeight:700,color:ink,marginBottom:8}}>🕐 {lang==="kn"?"ಡೆಲಿವರಿ ಸ್ಲಾಟ್":"Delivery Slot"}</div>
-                  <div style={{display:"flex",gap:6}}>
-                    {SLOTS.map((s,i)=>(
-                      <button key={s} onClick={()=>setDeliverySlot(s)} style={{flex:1,padding:"8px 4px",borderRadius:10,fontSize:10,fontWeight:600,cursor:"pointer",backgroundColor:deliverySlot===s?basil:"#f7f7f7",color:deliverySlot===s?"white":soil,border:`1.5px solid ${deliverySlot===s?basil:line}`}}>
-                        {lang==="kn"?SLOTS_KN[i]:s}
-                      </button>
-                    ))}
+                {/* Delivery time: now (20–30 min), a slot later today, or a slot tomorrow */}
+                {(() => {
+                  const kn = lang==="kn";
+                  const now = new Date();
+                  const todaySlots = SLOT_DEFS.filter(sl => slotOpenToday(sl, now));
+                  const list = deliveryDay==="tomorrow" ? SLOT_DEFS : todaySlots;
+                  const chip = on => ({padding:"8px 11px",borderRadius:10,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",
+                    backgroundColor:on?basil:"#f7f7f7",color:on?"#fff":soil,border:`1.5px solid ${on?basil:line}`});
+                  const pickDay = d => {
+                    setDeliveryDay(d);
+                    if (d==="tomorrow" && !deliverySlot) setDeliverySlot("morning");  // tomorrow always has a time
+                    if (d==="today" && deliverySlot && !todaySlots.some(sl => sl.id===deliverySlot)) setDeliverySlot("");
+                  };
+                  return (
+                  <div style={{backgroundColor:"white",margin:"8px 0",padding:"14px"}}>
+                    <div id="rh-when" style={{fontSize:12,fontWeight:700,color:ink,marginBottom:8}}>🕐 {kn?"ಯಾವಾಗ ಡೆಲಿವರಿ ಬೇಕು?":"When should we deliver?"}</div>
+                    <div role="radiogroup" aria-label={kn?"ದಿನ":"Day"} style={{display:"flex",gap:8,marginBottom:10}}>
+                      {[["today",0,kn?"ಇಂದು":"Today"],["tomorrow",1,kn?"ನಾಳೆ":"Tomorrow"]].map(([d,off,name]) => { const on = deliveryDay===d; return (
+                        <button key={d} role="radio" aria-checked={on} onClick={()=>pickDay(d)} style={{...chip(on),flex:1,padding:"9px 8px",textAlign:"center"}}>
+                          <span style={{display:"block",fontSize:13.5}}>{name}</span>
+                          <span style={{display:"block",fontSize:11,fontWeight:600,opacity:0.85,marginTop:1}}>{dayLabel(dayOf(off, now), lang)}</span>
+                        </button>
+                      );})}
+                    </div>
+                    <div role="radiogroup" aria-label={kn?"ಸಮಯ":"Time"} style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                      {deliveryDay==="today" && (
+                        <button role="radio" aria-checked={!deliverySlot} onClick={()=>setDeliverySlot("")} style={chip(!deliverySlot)}>⚡ {kn?"ಈಗಲೇ (20–30 ನಿಮಿಷ)":"Now (20–30 min)"}</button>
+                      )}
+                      {list.map(sl => { const on = deliverySlot===sl.id; return (
+                        <button key={sl.id} role="radio" aria-checked={on} onClick={()=>setDeliverySlot(sl.id)} style={chip(on)}>{kn?sl.kn:sl.en}</button>
+                      );})}
+                    </div>
+                    {deliveryDay==="tomorrow" && deliverySlot && (
+                      <div style={{fontSize:11.5,fontWeight:600,color:basil,marginTop:8}}>
+                        {kn ? `ನಾಳೆ, ${dayLabel(dayOf(1, now), "kn")}, ${(SLOT_DEFS.find(sl=>sl.id===deliverySlot)||{}).kn} ಸಮಯದಲ್ಲಿ ಡೆಲಿವರಿ ಮಾಡುತ್ತೇವೆ`
+                            : `We'll deliver tomorrow, ${dayLabel(dayOf(1, now))}, ${((SLOT_DEFS.find(sl=>sl.id===deliverySlot)||{}).en||"").toLowerCase()}`}
+                      </div>
+                    )}
                   </div>
-                </div>
+                  );
+                })()}
 
                 {/* Suggested products ₹10-15 */}
                 <div style={{backgroundColor:"white",margin:"8px 0",padding:"14px"}}>
@@ -3278,7 +3337,7 @@ const verifyOtp = async () => {
         const sendWhatsApp = () => {
           const itemList = items.map(i => `• ${i.name} x${i.qty} = ₹${i.price * i.qty}`).join("\n");
           const msg = encodeURIComponent(
-            `✅ *Royal Harvest - Order Confirmed!*\n\n🆔 Order ID: *#${o.id || "—"}*\n📅 Date: ${o.date || ""}\n⏰ Delivery Slot: ${o.slot || ""}\n\n` +
+            `✅ *Royal Harvest - Order Confirmed!*\n\n🆔 Order ID: *#${o.id || "—"}*\n📅 Date: ${o.date || ""}\n⏰ Delivery: ${o.slot || "In 20–30 min"}\n\n` +
             `🛒 *Items Ordered:*\n${itemList}\n\n💰 *Total: ₹${o.total || 0}*\n💳 Payment: ${o.payment === "online" ? "Online" : "Cash/UPI on Delivery"}\n\n` +
             `📍 Deliver to: ${o.address || ""}\n\nThank you for ordering from Royal Harvest! 🙏\nFor help: +91 90350 68924`);
           window.open(`https://wa.me/?text=${msg}`, "_blank");
