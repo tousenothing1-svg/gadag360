@@ -376,6 +376,10 @@ function readJSON(key, fallback) {
 // pin: the pin shows the area, the words find the door. The database checks the same (place_order).
 const ADDR_MIN = 10;
 const MAX_ADDRESSES = 3;
+// The smallest order (items only, before the delivery fee and tip), and the item total from which delivery is free
+// (below it: ₹15). The database checks both the same way (place_order).
+const MIN_ORDER = 50;
+const FREE_DELIVERY_FROM = 250;
 const GPS_MARKS = ["GPS location pinned ✓", "GPS ಸ್ಥಳ ಪಿನ್ ಮಾಡಲಾಗಿದೆ ✓"]; // older versions put this in front of the address
 const addrText = (s) => GPS_MARKS.reduce((t, m) => t.split(m).join(""), String(s || "")).replace(/\s+/g, " ").trim();
 const inIndia = (la, lo) => typeof la === "number" && typeof lo === "number" && la >= 6 && la <= 37 && lo >= 68 && lo <= 98;
@@ -1012,7 +1016,7 @@ function HandpickdLayout({ filtered, listMode, onClearList, suggestions, onSugge
 
   const GAP = 12;
   const FILLERS = [
-    { icon: Truck,  en: "Delivered in 2 hrs", kn: "2 ಗಂಟೆಯಲ್ಲಿ ಡೆಲಿವರಿ", tint: "#1A6B3C", glow: "rgba(26,107,60,0.16)" },
+    { icon: Truck,  en: "Delivered in 20–30 min", kn: "20–30 ನಿಮಿಷದಲ್ಲಿ ಡೆಲಿವರಿ", tint: "#1A6B3C", glow: "rgba(26,107,60,0.16)" },
     { icon: Leaf,   en: "Fresh every day",    kn: "ಪ್ರತಿದಿನ ತಾಜಾ",        tint: "#2F7D6D", glow: "rgba(47,125,109,0.16)" },
     { icon: MapPin, en: "Made for Gadag",     kn: "ಗದಗಿಗಾಗಿ",             tint: "#A0700E", glow: "rgba(242,181,58,0.24)" },
   ];
@@ -1649,8 +1653,10 @@ export default function RoyalHarvest() {
   const subtotal = cartItems.reduce((s,i) => s + i.qty * i.price, 0);
   const marketSaving = cartItems.reduce((s,i) => s + (i.market ? (i.market - i.price) * i.qty : 0), 0); // shown on the bill
   // ── BILL: one calculation for the cart bar, the bill screen and the saved order ──
-  const deliveryFee = subtotal > 0 && subtotal < 250 ? 15 : 0; // free delivery from ₹250, as the bill promises
+  const deliveryFee = subtotal > 0 && subtotal < FREE_DELIVERY_FROM ? 15 : 0; // free delivery from ₹250, as the bill promises
   const total = subtotal + deliveryFee;
+  const belowMin = subtotal > 0 && subtotal < MIN_ORDER;  // the ₹50 minimum order isn't reached yet
+  const canPlace = addressReady && !belowMin;
 
   const addToCart = (id) => {
     const prod = LIVE_PRODUCTS.find(p => p.id === id);
@@ -1774,6 +1780,10 @@ export default function RoyalHarvest() {
   };
 
   const placeOrder = async () => {
+    if (subtotal < MIN_ORDER) {
+      alert(lang==="kn" ? `ಕನಿಷ್ಠ ಆರ್ಡರ್ ₹${MIN_ORDER}. ಆರ್ಡರ್ ಮಾಡಲು ಇನ್ನೂ ₹${MIN_ORDER - subtotal} ಸೇರಿಸಿ.` : `The minimum order is ₹${MIN_ORDER}. Please add ₹${MIN_ORDER - subtotal} more to place the order.`);
+      return;
+    }
     // A GPS pin alone isn't enough: the delivery boy needs the typed house no., street and landmark
     const typedAddress = addrText(address);
     if (typedAddress.length < ADDR_MIN) {
@@ -1863,6 +1873,12 @@ export default function RoyalHarvest() {
         + (kn
           ? "\n\nನಿಮ್ಮ ಕಾರ್ಟ್ ಅಪ್‌ಡೇಟ್ ಆಗಿದೆ: ಪರಿಶೀಲಿಸಿ ಮತ್ತೆ ಆರ್ಡರ್ ಮಾಡಿ. WhatsApp ತೆರೆದಿದ್ದರೆ ಆ ಸಂದೇಶವನ್ನು ಕಳುಹಿಸಬೇಡಿ."
           : "\n\nWe've updated your cart: please check it and place the order again. If WhatsApp opened, please don't send that message."));
+      return;
+    }
+    if (res && res.error === "min_order") {
+      alert(lang === "kn"
+        ? `ಕನಿಷ್ಠ ಆರ್ಡರ್ ₹${MIN_ORDER}. ಇನ್ನಷ್ಟು ಸೇರಿಸಿ ಮತ್ತೆ ಆರ್ಡರ್ ಮಾಡಿ. WhatsApp ತೆರೆದಿದ್ದರೆ ಆ ಸಂದೇಶವನ್ನು ಕಳುಹಿಸಬೇಡಿ.`
+        : `The minimum order is ₹${MIN_ORDER}. Please add a little more and place the order again. If WhatsApp opened, please don't send that message.`);
       return;
     }
     if (res && res.error === "address") {
@@ -2359,7 +2375,7 @@ const verifyOtp = async () => {
             <div style={{background:`linear-gradient(160deg,${basil},#2d9e5f)`,padding:"48px 24px 36px",textAlign:"center"}}>
               <img src="/logo192.png" alt="" width={68} height={68} style={{display:"inline-block",borderRadius:18,marginBottom:12,border:"2px solid rgba(255,255,255,0.55)",boxShadow:"0 6px 18px rgba(0,0,0,0.18)"}}/>
               <div style={{color:"white",fontSize:22,fontWeight:800,letterSpacing:-0.5}}>{lang==="kn"?"ರಾಯಲ್ ಹಾರ್ವೆಸ್ಟ್":"Royal Harvest"}</div>
-              <div style={{color:"rgba(255,255,255,0.8)",fontSize:13,marginTop:6}}>{lang==="kn"?"ತಾಜಾ ತರಕಾರಿ · ಹಣ್ಣು · 2 ಗಂಟೆಯಲ್ಲಿ ಡೆಲಿವರಿ":"Fresh Groceries · Delivered in 2 hrs"}</div>
+              <div style={{color:"rgba(255,255,255,0.8)",fontSize:13,marginTop:6}}>{lang==="kn"?"ತಾಜಾ ತರಕಾರಿ · ಹಣ್ಣು · 20–30 ನಿಮಿಷದಲ್ಲಿ ಡೆಲಿವರಿ":"Fresh Groceries · Delivered in 20–30 min"}</div>
             </div>
             {/* Login form */}
             <div style={{flex:1,padding:"28px 24px",backgroundColor:"white"}}>
@@ -2531,7 +2547,7 @@ const verifyOtp = async () => {
                           </table>
                           <div class="bill-summary">
                             <div class="bill-row"><span>Item Total</span><span>₹${subtotalAmt}</span></div>
-                            <div class="bill-row"><span>Delivery Fee</span><span>${subtotalAmt>=250?"FREE":"₹15"}</span></div>
+                            <div class="bill-row"><span>Delivery Fee</span><span>${subtotalAmt>=FREE_DELIVERY_FROM?"FREE":"₹15"}</span></div>
                             <div class="bill-total"><span>Invoice Value</span><span class="green">₹${o.total}</span></div>
                           </div>
                           <div style="font-size:11px;color:#555;margin:8px 0">
@@ -2540,7 +2556,7 @@ const verifyOtp = async () => {
                           </div>
                           <div class="footer">
                             <div style="font-size:12px;font-weight:700;color:#1A6B3C;margin-bottom:4px">Thank you for shopping with Royal Harvest!</div>
-                            <div>Fresh groceries delivered to your door in 2 hours</div>
+                            <div>Fresh groceries delivered to your door in 20–30 minutes</div>
                             <div style="margin-top:4px">For support: +91 90350 68924 · ${window.location.host}</div>
                           </div>
                           </body></html>`;
@@ -2750,7 +2766,7 @@ const verifyOtp = async () => {
 
           {/* HELP & SUPPORT */}
           {profileSection==="help" && <div className="space-y-3">
-            {[{q:lang==="kn"?"ಡೆಲಿವರಿ ಎಷ್ಟು ಸಮಯ ತೆಗೆದುಕೊಳ್ಳುತ್ತದೆ?":"How long does delivery take?",a:lang==="kn"?"ಸಾಮಾನ್ಯವಾಗಿ 45–90 ನಿಮಿಷ":"Usually 45–90 minutes within Gadag-Betageri."},{q:lang==="kn"?"ನನ್ನ ಆರ್ಡರ್ ಟ್ರ್ಯಾಕ್ ಮಾಡುವುದು ಹೇಗೆ?":"How do I track my order?",a:lang==="kn"?"ಆರ್ಡರ್ ನಂತರ ಲೈವ್ ಮ್ಯಾಪ್ ಲಭ್ಯ":"After placing, a live map screen shows your rider's location."},{q:lang==="kn"?"ಕನಿಷ್ಠ ಆರ್ಡರ್ ಎಷ್ಟು?":"What is the minimum order?",a:lang==="kn"?"ಕನಿಷ್ಠ ₹50":"Minimum order is ₹50. Free delivery above ₹199."},{q:lang==="kn"?"ಉತ್ಪನ್ನ ತಾಜಾ ಆಗಿಲ್ಲದಿದ್ದರೆ?":"What if the product is not fresh?",a:lang==="kn"?"ಡೆಲಿವರಿಯಾದ 2 ಗಂಟೆಯೊಳಗೆ ಫೋಟೋ ಕಳುಹಿಸಿ, ನಾವು ಸರಿಪಡಿಸುತ್ತೇವೆ.":"Send us a photo within 2 hours of delivery and we'll sort it out."}].map((faq,i)=>(
+            {[{q:lang==="kn"?"ಡೆಲಿವರಿ ಎಷ್ಟು ಸಮಯ ತೆಗೆದುಕೊಳ್ಳುತ್ತದೆ?":"How long does delivery take?",a:lang==="kn"?"ಗದಗ, ಬೆಟಗೇರಿ ಮತ್ತು ಹುಲಕೋಟಿಯಲ್ಲಿ ಸಾಮಾನ್ಯವಾಗಿ 20–30 ನಿಮಿಷ.":"Usually 20–30 minutes in Gadag, Betageri and Hulkoti."},{q:lang==="kn"?"ನನ್ನ ಆರ್ಡರ್ ಟ್ರ್ಯಾಕ್ ಮಾಡುವುದು ಹೇಗೆ?":"How do I track my order?",a:lang==="kn"?"ಆರ್ಡರ್ ನಂತರ ಲೈವ್ ಮ್ಯಾಪ್ ಲಭ್ಯ":"After placing, a live map screen shows your rider's location."},{q:lang==="kn"?"ಕನಿಷ್ಠ ಆರ್ಡರ್ ಎಷ್ಟು?":"What is the minimum order?",a:lang==="kn"?`ಕನಿಷ್ಠ ಆರ್ಡರ್ ₹${MIN_ORDER}. ₹${FREE_DELIVERY_FROM} ಮೇಲೆ ಉಚಿತ ಡೆಲಿವರಿ.`:`Minimum order is ₹${MIN_ORDER}. Free delivery above ₹${FREE_DELIVERY_FROM}.`},{q:lang==="kn"?"ಉತ್ಪನ್ನ ತಾಜಾ ಆಗಿಲ್ಲದಿದ್ದರೆ?":"What if the product is not fresh?",a:lang==="kn"?"ಡೆಲಿವರಿಯಾದ 2 ಗಂಟೆಯೊಳಗೆ ಫೋಟೋ ಕಳುಹಿಸಿ, ನಾವು ಸರಿಪಡಿಸುತ್ತೇವೆ.":"Send us a photo within 2 hours of delivery and we'll sort it out."}].map((faq,i)=>(
               <div key={i} className="rounded-2xl p-4" style={{backgroundColor:panel,border:`1px solid ${line}`}}>
                 <div className="font-semibold text-sm mb-1">❓ {faq.q}</div>
                 <div className="text-xs" style={{color:soil}}>{faq.a}</div>
@@ -2796,7 +2812,7 @@ const verifyOtp = async () => {
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, padding:"8px 14px", background:"linear-gradient(90deg, rgba(26,107,60,0.10), rgba(26,107,60,0.02))" }}>
           <div style={{ display:"flex", alignItems:"center", gap:6, fontSize:12, minWidth:0 }}>
             <Zap size={13} style={{ color:basil, flexShrink:0 }} fill={basil}/>
-            <span style={{ fontWeight:700, color:basil, whiteSpace:"nowrap" }}>{lang==="kn" ? "2 ಗಂಟೆಯಲ್ಲಿ ಡೆಲಿವರಿ" : "Delivery in 2 hrs"}</span>
+            <span style={{ fontWeight:700, color:basil, whiteSpace:"nowrap" }}>{lang==="kn" ? "20–30 ನಿಮಿಷದಲ್ಲಿ ಡೆಲಿವರಿ" : "Delivery in 20–30 min"}</span>
             <button className="g-reset" onClick={() => setShowAreaPicker(true)} aria-label={lang==="kn" ? `ಪ್ರದೇಶ ಬದಲಿಸಿ: ${userArea}` : `Change area: ${userArea}`}
               style={{ display:"inline-flex", alignItems:"center", gap:2, fontWeight:600, color:ink, whiteSpace:"nowrap", padding:"2px 0" }}>
               <MapPin size={12} style={{ color:soil }}/>{userArea}<ChevronDown size={13} style={{ color:soil }}/>
@@ -3163,8 +3179,8 @@ const verifyOtp = async () => {
                 <div style={{backgroundColor:"white",margin:"8px 0",padding:"14px"}}>
                   <div style={{fontSize:12,fontWeight:700,color:ink,marginBottom:10}}>🧾 {lang==="kn"?"ಬಿಲ್ ಸಾರಾಂಶ":"Bill Summary"}</div>
                   {[
-                    {label:lang==="kn"?"ಐಟಂ ಒಟ್ಟು":"Item total", val:`₹${subtotal}`},
-                    {label:lang==="kn"?"ಡೆಲಿವರಿ ಶುಲ್ಕ":"Delivery fee", val:subtotal>=250?<span style={{color:basil}}>{lang==="kn"?"ಉಚಿತ":"FREE"}</span>:`₹${deliveryFee}`, hint:lang==="kn"?"₹250 ಮೇಲೆ ಉಚಿತ ಡೆಲಿವರಿ":"Free delivery above ₹250"},
+                    {label:lang==="kn"?"ಐಟಂ ಒಟ್ಟು":"Item total", val:`₹${subtotal}`, hint:lang==="kn"?`ಕನಿಷ್ಠ ಆರ್ಡರ್ ₹${MIN_ORDER}`:`Minimum order ₹${MIN_ORDER}`},
+                    {label:lang==="kn"?"ಡೆಲಿವರಿ ಶುಲ್ಕ":"Delivery fee", val:subtotal>=FREE_DELIVERY_FROM?<span style={{color:basil}}>{lang==="kn"?"ಉಚಿತ":"FREE"}</span>:`₹${deliveryFee}`, hint:lang==="kn"?`₹${FREE_DELIVERY_FROM} ಮೇಲೆ ಉಚಿತ ಡೆಲಿವರಿ`:`Free delivery above ₹${FREE_DELIVERY_FROM}`},
                     {label:lang==="kn"?"ಟಿಪ್":"Tip", val:`₹${tip}`},
                   ].filter(Boolean).map((row,i)=>(
                     <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
@@ -3195,12 +3211,16 @@ const verifyOtp = async () => {
                     </div>
                     <Check size={14} style={{color:basil,flexShrink:0}}/>
                   </div>
-                  {!addressReady && (
+                  {belowMin ? (
+                    <div role="status" style={{fontSize:11.5,fontWeight:600,color:chili,textAlign:"center",marginBottom:8}}>
+                      {lang==="kn" ? `ಕನಿಷ್ಠ ಆರ್ಡರ್ ₹${MIN_ORDER}. ಆರ್ಡರ್ ಮಾಡಲು ಇನ್ನೂ ₹${MIN_ORDER - subtotal} ಸೇರಿಸಿ` : `Minimum order is ₹${MIN_ORDER}. Add ₹${MIN_ORDER - subtotal} more to place the order`}
+                    </div>
+                  ) : !addressReady && (
                     <div style={{fontSize:11.5,fontWeight:600,color:chili,textAlign:"center",marginBottom:8}}>
                       {lang==="kn" ? "ಆರ್ಡರ್ ಮಾಡಲು ಮೇಲೆ ಪೂರ್ಣ ವಿಳಾಸ ಟೈಪ್ ಮಾಡಿ" : "Type your full delivery address above to place the order"}
                     </div>
                   )}
-                  <button onClick={placeOrder} disabled={!addressReady} style={{width:"100%",padding:"14px",borderRadius:14,backgroundColor:addressReady?basil:"#ccc",color:"white",border:"none",cursor:addressReady?"pointer":"not-allowed",fontSize:15,fontWeight:800}}>
+                  <button onClick={placeOrder} disabled={!canPlace} style={{width:"100%",padding:"14px",borderRadius:14,backgroundColor:canPlace?basil:"#ccc",color:"white",border:"none",cursor:canPlace?"pointer":"not-allowed",fontSize:15,fontWeight:800}}>
                     {lang==="kn"?"ಆರ್ಡರ್ ಮಾಡಿ":"Place Order"} →
                   </button>
                 </div>
@@ -3236,7 +3256,7 @@ const verifyOtp = async () => {
           : (HEAD[lang] || HEAD.en);
         const eta = cancelled ? null : idx === 2
           ? (etaMin != null ? { label: kn ? "ತಲುಪುವ ಸಮಯ" : "Arriving in", value: kn ? `~${etaMin} ನಿಮಿಷ` : `~${etaMin} min` } : null)
-          : idx < 2 ? { label: kn ? "ಡೆಲಿವರಿ" : "Delivery", value: o.slot || (kn ? "2 ಗಂಟೆಯೊಳಗೆ" : "Within 2 hrs") } : null;
+          : idx < 2 ? { label: kn ? "ಡೆಲಿವರಿ" : "Delivery", value: o.slot || (kn ? "20–30 ನಿಮಿಷದಲ್ಲಿ" : "In 20–30 min") } : null;
         const items = o.items || [];
         const nItems = items.reduce((s, i) => s + (i.qty || 0), 0);
         const itemName = i => (kn ? (i.name_kn || KN_NAMES[i.name] || i.name) : i.name);

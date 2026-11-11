@@ -1495,10 +1495,10 @@ const marketUp = p => Number(p.market_price) > Number(p.price);
 // ready-made texts: [title, message], with or without a product
 const PUSH_TPL = {
   fresh: {
-    en: p => p ? [`🥬 Fresh ${p.name} just arrived!`, `Fresh stock in today at ${pushMoney(p)}. Order now, delivered in 2 hours.`]
-               : ["🥬 Fresh stock just arrived!", "Fresh fruits and vegetables are in today. Order now, delivered in 2 hours."],
-    kn: p => p ? [`🥬 ತಾಜಾ ${knName(p)} ಬಂದಿದೆ!`, `ಇಂದು ತಾಜಾ ಸ್ಟಾಕ್ ಬಂದಿದೆ, ${pushMoney(p)}. ಈಗಲೇ ಆರ್ಡರ್ ಮಾಡಿ, 2 ಗಂಟೆಯಲ್ಲಿ ಡೆಲಿವರಿ.`]
-               : ["🥬 ತಾಜಾ ಸ್ಟಾಕ್ ಬಂದಿದೆ!", "ಇಂದು ತಾಜಾ ಹಣ್ಣು, ತರಕಾರಿ ಬಂದಿವೆ. ಈಗಲೇ ಆರ್ಡರ್ ಮಾಡಿ, 2 ಗಂಟೆಯಲ್ಲಿ ಡೆಲಿವರಿ."],
+    en: p => p ? [`🥬 Fresh ${p.name} just arrived!`, `Fresh stock in today at ${pushMoney(p)}. Order now, delivered in 20–30 minutes.`]
+               : ["🥬 Fresh stock just arrived!", "Fresh fruits and vegetables are in today. Order now, delivered in 20–30 minutes."],
+    kn: p => p ? [`🥬 ತಾಜಾ ${knName(p)} ಬಂದಿದೆ!`, `ಇಂದು ತಾಜಾ ಸ್ಟಾಕ್ ಬಂದಿದೆ, ${pushMoney(p)}. ಈಗಲೇ ಆರ್ಡರ್ ಮಾಡಿ, 20–30 ನಿಮಿಷದಲ್ಲಿ ಡೆಲಿವರಿ.`]
+               : ["🥬 ತಾಜಾ ಸ್ಟಾಕ್ ಬಂದಿದೆ!", "ಇಂದು ತಾಜಾ ಹಣ್ಣು, ತರಕಾರಿ ಬಂದಿವೆ. ಈಗಲೇ ಆರ್ಡರ್ ಮಾಡಿ, 20–30 ನಿಮಿಷದಲ್ಲಿ ಡೆಲಿವರಿ."],
   },
   price: {
     en: p => p ? [`📉 Price drop: ${p.name}`, `Now only ${pushMoney(p)}${marketUp(p) ? ` (market price ₹${p.market_price})` : ""}. Order before it runs out!`]

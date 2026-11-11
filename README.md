@@ -1,6 +1,6 @@
 # Royal Harvest
 
-Fresh fruits, vegetables and daily essentials delivered across Gadag in 2 hours, in English and ಕನ್ನಡ.
+Fresh fruits, vegetables and daily essentials delivered in Gadag, Betageri and Hulkoti in 20–30 minutes, in English and ಕನ್ನಡ.
 
 ## What's in here
 
