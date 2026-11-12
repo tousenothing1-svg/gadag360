@@ -6,11 +6,12 @@ Fresh fruits, vegetables and daily essentials delivered in Gadag, Betageri and H
 
 | Part | File | Who uses it |
 |---|---|---|
-| The shop | `src/App.js` (plus `src/FirstOpen.js`, `src/Alerts.js`) | Customers |
-| Admin panel | `public/admin.html` | The owner: orders, products, prices, costs, profit, delivery boys, alerts |
+| The shop | `src/App.js` (plus `src/FirstOpen.js`, `src/Alerts.js`, `src/CodeSignIn.js`) | Customers |
+| Admin panel | `public/admin.html` | The owner: orders, products, prices, costs, profit, delivery boys, alerts, WhatsApp codes |
 | Delivery app | `public/delivery.html` (+ `delivery-sw.js`, `delivery-manifest.json`) | Delivery boys |
 | Database | `supabase/*.sql` (applied in number order) | Supabase |
 | Alert sender | `supabase/functions/send-push` | Supabase Edge Functions |
+| WhatsApp sign-in codes | `supabase/functions/wa-code` (+ `supabase/19_whatsapp_codes.sql`) | Supabase Edge Functions; Meta's WhatsApp Cloud API with the `WHATSAPP_TOKEN` secret |
 
 ## Where it runs
 
