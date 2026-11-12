@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
 import { Onboarding, WelcomeOffer, CoachTip, AreaNotice } from "./FirstOpen";
+import { CodeSignInForm } from "./CodeSignIn";
 import { AlertsCard, AlertsRow, AlertsSheet, alertsState, alertsText, refreshAlerts, registerAlertsWorker, turnOffAlerts, turnOnAlerts } from "./Alerts";
 
 // ── DETECT IF RUNNING IN CAPACITOR (native Android/iOS) ──
@@ -61,6 +62,7 @@ const SUPABASE_URL = "https://lykhjuizzvurklywxflz.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx5a2hqdWl6enZ1cmtseXd4Zmx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEzODg3OTMsImV4cCI6MjEwNjk2NDc5M30.2gO3aK030mJ0pYTeMd95B7uZF-dHnFzDOSaPwt9hZ6Q";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 const PUSH_FN = `${SUPABASE_URL}/functions/v1/send-push`; // sends alerts; also hands out the public push key
+const WA_CODE_FN = `${SUPABASE_URL}/functions/v1/wa-code`; // sends WhatsApp sign-in codes (supabase/19_whatsapp_codes.sql)
 
 // ── SECURE CALLS ──
 // Customer data (accounts, orders, addresses) is locked in the database. The app reaches it only through
@@ -622,8 +624,10 @@ function ProductImage({ p }) {
 
 // Real warehouse location
 const WAREHOUSE_POS = [15.426861, 75.614917];
-// The shop's WhatsApp: new orders and "Get help" messages go here
+// The shop's WhatsApp: new orders and "Get help" messages go here. The admin panel can change it (or turn it into
+// "Call us" while the number is busy sending sign-in codes): app_config says which, this is only the starting point.
 const SHOP_WHATSAPP = "919035068924";
+const DEFAULT_CFG = { codes: false, help_whatsapp: SHOP_WHATSAPP, help_phone: SHOP_WHATSAPP };
 // We deliver to Gadag, Betageri and Hulkoti: all within this distance of the warehouse (Hulkoti is about 9 km away)
 const SERVICE_RADIUS_KM = 12;
 
@@ -1322,6 +1326,14 @@ export default function RoyalHarvest() {
 
   // ── CUSTOMER ACCOUNT STATE ──
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  // Sign-in with a WhatsApp code (when the shop has it on), and where the help buttons go
+  const [appCfg, setAppCfg] = useState(() => {
+    const c = readJSON("rh_appcfg", null);
+    return c && typeof c === "object" ? { ...DEFAULT_CFG, ...c } : DEFAULT_CFG;
+  });
+  const verifiedRef = useRef(false);                          // this phone proved its number with a WhatsApp code
+  const [verifyOpen, setVerifyOpen] = useState(false);        // checkout: confirm the number before ordering
+  const [placeAfterVerify, setPlaceAfterVerify] = useState(false);
   const [activeTab, setActiveTab] = useState("home"); // home | profile
   const [profileSection, setProfileSection] = useState(null); // null = profile home, or section name
   const [loginStep, setLoginStep] = useState("phone"); // phone | otp
@@ -1822,6 +1834,8 @@ export default function RoyalHarvest() {
       alert(lang==="kn" ? "ದಯವಿಟ್ಟು ಮನೆ ನಂ., ಬೀದಿ ಮತ್ತು ಲ್ಯಾಂಡ್‌ಮಾರ್ಕ್ ಟೈಪ್ ಮಾಡಿ. GPS ಪಿನ್ ಮಾತ್ರ ಸಾಕಾಗುವುದಿಲ್ಲ." : "Please type your house no., street and a landmark. A GPS pin alone isn't enough for the delivery partner to find you.");
       return;
     }
+    // Cash on delivery: with WhatsApp codes on, the shop first confirms the number is really the customer's (once per phone)
+    if (appCfg.codes && !verifiedRef.current) { setVerifyOpen(true); return; }
     stopGpsWatch();
     const orderId = newOrderId();
     const cartBefore = cart;
@@ -1868,6 +1882,12 @@ export default function RoyalHarvest() {
     setActiveOrders(v => v.filter(x => x.id !== orderId));
     setOrderHistory(h => h.filter(x => x.id !== orderId));
     setCart(cartBefore); setScreen("cart");
+    if (res && res.error === "verify") { // codes went on while this app had the old setting: confirm the number, then order
+      verifiedRef.current = false;
+      setAppCfg(c => ({ ...c, codes: true }));
+      setVerifyOpen(true);
+      return;
+    }
     if (res && res.error === "unavailable") {
       // Deleted in the admin panel while this app still showed it: drop it from the list (the cart follows) and fetch
       // the list again
@@ -2005,7 +2025,9 @@ export default function RoyalHarvest() {
 
     // ── OWNER NOTIFICATIONS ──
     const sendOwnerNotification = (order) => {
-      // WhatsApp notification to owner
+      // WhatsApp notification to owner (only while the shop has a WhatsApp number for customers; the admin panel's
+      // order alerts tell the owner either way)
+      if (!appCfg.help_whatsapp) return;
       const mapsLink = order.gps_lat && order.gps_lon
         ? `\n📍 GPS Location: https://maps.google.com/?q=${order.gps_lat},${order.gps_lon}`
         : "";
@@ -2020,7 +2042,7 @@ export default function RoyalHarvest() {
         `Deliver: ${order.slot || "Now (20–30 min)"}\n` +
         `Payment: ${order.payment === "online" ? "Online" : "Cash/UPI on delivery"}`
       );
-      window.open(`https://wa.me/${SHOP_WHATSAPP}?text=${waMsg}`, "_blank");
+      window.open(`https://wa.me/${appCfg.help_whatsapp}?text=${waMsg}`, "_blank");
     };
 
 // 📱 SIMPLE LOGIN (no OTP — will add Firebase OTP later)
@@ -2051,9 +2073,18 @@ const signIn = async (phone, name, legacyId) => {
   try {
     const r = await rpc("customer_sign_in", { p_phone: phone, p_name: name || "", p_device: deviceId(), p_legacy_id: legacyId || null });
     if (r && r.ok) s = r;
+    else if (r && r.error === "code_required") { // the shop turned WhatsApp codes on meanwhile: sign in with a code
+      setAppCfg(c => ({ ...c, codes: true }));
+      return null;
+    }
   } catch (e) {}
+  return applySession(phone, name, s);
+};
+// Signed in (s: the database's answer, or null when the network failed): keep the session and the profile
+const applySession = async (phone, name, s) => {
   if (s) {
     saveToken(s.token);
+    verifiedRef.current = !!s.verified;
     loadMyOrders(s.token);
     syncAddresses(s.token);
   }
@@ -2074,6 +2105,48 @@ const verifyOtp = async () => {
     setLoginPhone(""); setLoginOtp(""); setLoginStep("phone");
   } catch(e){ alert("Login failed. Please try again."); }
 };
+
+// ── WHATSAPP SIGN-IN CODES (see CodeSignIn.js) ──
+// Whether codes are on, and where the help buttons go; remembered on the phone for the next start
+const loadAppCfg = async () => {
+  try {
+    const r = await rpc("app_config", {});
+    if (r && r.ok) {
+      const c = { codes: !!r.codes, help_whatsapp: r.help_whatsapp || null, help_phone: r.help_phone || SHOP_WHATSAPP };
+      setAppCfg(c);
+      Storage.set("rh_appcfg", JSON.stringify(c));
+    }
+  } catch (e) {}
+};
+// Ask for a code on WhatsApp. "off" / "not_set_up": codes aren't on right now, so the old sign-in takes over.
+const sendSignInCode = async (phone) => {
+  const res = await fetch(WA_CODE_FN, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", apikey: SUPABASE_KEY },
+    body: JSON.stringify({ action: "send", phone, device: deviceId(), lang }),
+  });
+  const r = await res.json().catch(() => null);
+  if (r && (r.error === "off" || r.error === "not_set_up")) setAppCfg(c => ({ ...c, codes: false }));
+  return r;
+};
+// The code from WhatsApp (and a name, for a new customer): signed in, and this phone is verified
+const signInWithCode = async (phone, code, name) => {
+  const r = await rpc("customer_sign_in_code", { p_phone: phone, p_code: code, p_name: name || "", p_device: deviceId() });
+  if (r && r.ok) await applySession(phone, name, r);
+  return r;
+};
+// Help: WhatsApp the shop, or call when the shop has no WhatsApp number for customers right now
+const openHelp = (text) => {
+  if (appCfg.help_whatsapp) window.open(`https://wa.me/${appCfg.help_whatsapp}${text ? `?text=${encodeURIComponent(text)}` : ""}`, "_blank");
+  else window.location.href = `tel:+${appCfg.help_phone || SHOP_WHATSAPP}`;
+};
+useEffect(() => { loadAppCfg(); }, []);
+// Checkout asked for the number to be confirmed: once it is, place the order the customer tapped for
+useEffect(() => {
+  if (!placeAfterVerify) return;
+  setPlaceAfterVerify(false);
+  if (!appCfg.codes || verifiedRef.current) placeOrder();
+}, [placeAfterVerify]);
 
   // ── FIRST OPEN: welcome, sign-in, a few questions; shown once to new visitors ──
   const savePrefs = async (prefs, token) => {
@@ -2156,13 +2229,19 @@ const verifyOtp = async () => {
             try {
               const me = await rpc("customer_session", { p_token: token });
               if (me && me.ok === false) token = null;           // ran out or signed out: get a new one below
+              else if (me && me.ok) verifiedRef.current = !!me.verified;
             } catch (e) {}                                        // offline: keep the session we have
           }
           if (!token && profile && profile.phone) {
             // Signed in before sessions existed (the old account id proves it), or the session ran out
             try {
               const r = await rpc("customer_sign_in", { p_phone: profile.phone, p_name: profile.name || "", p_device: deviceId(), p_legacy_id: savedUserId || null });
-              if (r && r.ok) { token = r.token; saveToken(token); }
+              if (r && r.ok) {
+                token = r.token; saveToken(token);
+                const me2 = await rpc("customer_session", { p_token: token }).catch(() => null);
+                verifiedRef.current = !!(me2 && me2.verified);
+              }
+              else if (r && r.error === "code_required") setAppCfg(c => ({ ...c, codes: true })); // a WhatsApp code at checkout
             } catch (e) {}
           }
           if (token) {
@@ -2314,6 +2393,7 @@ const verifyOtp = async () => {
                     const t = ctokenRef.current;
                     if (t) rpc("customer_sign_out", { p_token: t }).catch(() => {});
                     saveToken(null);
+                    verifiedRef.current = false;
                     setIsLoggedIn(false);
                     setOrderHistory([]); // the next person on this phone shouldn't see these
                     setSavedAddresses([]); setSelectedAddrId(null); Storage.remove("rh_addresses"); // nor these (they stay with the account)
@@ -2414,7 +2494,10 @@ const verifyOtp = async () => {
             <div style={{flex:1,padding:"28px 24px",backgroundColor:"white"}}>
               <div style={{fontSize:18,fontWeight:800,color:ink,marginBottom:6}}>{lang==="kn"?"ಲಾಗಿನ್ ಮಾಡಿ":"Login / Sign up"}</div>
               <div style={{fontSize:13,color:soil,marginBottom:24}}>{lang==="kn"?"ಆರ್ಡರ್ ಟ್ರ್ಯಾಕ್ ಮಾಡಿ, ವಿಳಾಸ ಉಳಿಸಿ":"Track orders & save addresses"}</div>
-              {loginStep==="phone" ? <>
+              {appCfg.codes ? (
+                <CodeSignInForm lang={lang} sendCode={sendSignInCode} verifyCode={signInWithCode}
+                  onFallback={ph => { setLoginPhone(ph); setLoginStep("otp"); }}/>
+              ) : loginStep==="phone" ? <>
                 <div style={{fontSize:12,fontWeight:600,color:soil,marginBottom:6}}>{lang==="kn"?"ಮೊಬೈಲ್ ನಂಬರ್":"Mobile Number"}</div>
                 <div style={{display:"flex",borderRadius:12,overflow:"hidden",border:`2px solid ${basil}`,marginBottom:16}}>
                   <div style={{padding:"12px 14px",backgroundColor:"#e8f5e9",color:basil,fontWeight:700,fontSize:14}}>+91</div>
@@ -2807,7 +2890,10 @@ const verifyOtp = async () => {
             ))}
             <div className="rounded-2xl p-4 text-center" style={{backgroundColor:"#E8F5E9"}}>
               <div className="text-sm font-semibold mb-2" style={{color:basil}}>{lang==="kn"?"ಇನ್ನೂ ಸಹಾಯ ಬೇಕೇ?":"Need more help?"}</div>
-              <button className="px-4 py-2 rounded-xl text-sm font-bold" style={{backgroundColor:basil,color:"white"}}>💬 WhatsApp Us</button>
+              <button onClick={() => openHelp(lang==="kn" ? "ನಮಸ್ಕಾರ ರಾಯಲ್ ಹಾರ್ವೆಸ್ಟ್, ನನಗೆ ಸಹಾಯ ಬೇಕು." : "Hi Royal Harvest, I need some help.")}
+                className="px-4 py-2 rounded-xl text-sm font-bold" style={{backgroundColor:basil,color:"white"}}>
+                {appCfg.help_whatsapp ? (lang==="kn" ? "💬 ವಾಟ್ಸಾಪ್ ಮಾಡಿ" : "💬 WhatsApp Us") : (lang==="kn" ? "📞 ನಮಗೆ ಕರೆ ಮಾಡಿ" : "📞 Call Us")}
+              </button>
             </div>
           </div>}
 
@@ -2854,7 +2940,7 @@ const verifyOtp = async () => {
         </div>
 
         {outsideArea && !areaNoticeClosed && (
-          <AreaNotice lang={lang} loc={userLoc} shopWhatsApp={SHOP_WHATSAPP} onClose={() => setAreaNoticeClosed(true)}/>
+          <AreaNotice lang={lang} loc={userLoc} shopWhatsApp={appCfg.help_whatsapp} shopPhone={appCfg.help_phone} onClose={() => setAreaNoticeClosed(true)}/>
         )}
 
         {showAlertsCard && (
@@ -3425,10 +3511,10 @@ const verifyOtp = async () => {
 
             {/* Actions */}
             <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
-              <button className="g-reset g-tap" onClick={() => window.open(`https://wa.me/${SHOP_WHATSAPP}?text=${encodeURIComponent(kn
-                  ? `ನಮಸ್ಕಾರ ರಾಯಲ್ ಹಾರ್ವೆಸ್ಟ್, ನನ್ನ ಆರ್ಡರ್ #${o.id || ""} ಬಗ್ಗೆ ಸಹಾಯ ಬೇಕು.` : `Hi Royal Harvest, I need help with my order #${o.id || ""}.`)}`, "_blank")}
+              <button className="g-reset g-tap" onClick={() => openHelp(kn
+                  ? `ನಮಸ್ಕಾರ ರಾಯಲ್ ಹಾರ್ವೆಸ್ಟ್, ನನ್ನ ಆರ್ಡರ್ #${o.id || ""} ಬಗ್ಗೆ ಸಹಾಯ ಬೇಕು.` : `Hi Royal Harvest, I need help with my order #${o.id || ""}.`)}
                 style={{ flex: 1, padding: "12px", borderRadius: 14, border: `1.5px solid ${basil}`, color: basil, fontWeight: 700, fontSize: 14, textAlign: "center" }}>
-                {kn ? "ಸಹಾಯ ಪಡೆಯಿರಿ" : "Get help"}
+                {appCfg.help_whatsapp ? (kn ? "ಸಹಾಯ ಪಡೆಯಿರಿ" : "Get help") : (kn ? "📞 ಸಹಾಯಕ್ಕೆ ಕರೆ ಮಾಡಿ" : "📞 Call for help")}
               </button>
               {canCancel && (
                 <button className="g-reset g-tap" onClick={() => setShowCancelConfirm(true)}
@@ -3529,6 +3615,7 @@ const verifyOtp = async () => {
       {/* First open: welcome → sign-in → questions → brand promise; then the welcome offer and a tip */}
       {showOnboarding && (
         <Onboarding lang={lang} setLang={setLang} onSignIn={signIn} onSavePrefs={savePrefs} onLocation={saveLocation} onDone={finishOnboarding}
+          codesOn={appCfg.codes} onSendCode={sendSignInCode} onCodeSignIn={signInWithCode}
           alertsReady={alerts === "off"} onAlerts={turnAlertsOn} onAlertsLater={closeAlertsCard}/>
       )}
       {alertsAsk && !showOnboarding && (
@@ -3536,6 +3623,33 @@ const verifyOtp = async () => {
       )}
       {showWelcomeOffer && !showOnboarding && <WelcomeOffer lang={lang} name={userProfile.name} onClose={closeWelcomeOffer}/>}
       {showTip && !showWelcomeOffer && screen === "home" && activeTab === "home" && <CoachTip lang={lang} onClose={closeTip}/>}
+
+      {/* Checkout with WhatsApp codes on: confirm the number once on this phone, then the order goes through */}
+      {verifyOpen && ReactDOM.createPortal(
+        <div role="dialog" aria-modal="true" aria-label={lang==="kn" ? "ನಿಮ್ಮ ನಂಬರ್ ದೃಢೀಕರಿಸಿ" : "Confirm your number"}
+          onClick={e => { if (e.target === e.currentTarget) setVerifyOpen(false); }}
+          style={{position:"fixed",top:0,left:0,right:0,bottom:0,zIndex:99998,display:"flex",alignItems:"flex-end",justifyContent:"center",backgroundColor:"rgba(0,0,0,0.5)"}}>
+          <div style={{width:"100%",maxWidth:480,boxSizing:"border-box",backgroundColor:"white",borderRadius:"24px 24px 0 0",
+            padding:"20px 20px calc(env(safe-area-inset-bottom, 0px) + 22px)",boxShadow:"0 -8px 32px rgba(0,0,0,0.2)",maxHeight:"90vh",overflowY:"auto"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,marginBottom:16}}>
+              <div>
+                <div style={{fontSize:18,fontWeight:800,color:ink}}>{lang==="kn" ? "ನಿಮ್ಮ ನಂಬರ್ ದೃಢೀಕರಿಸಿ" : "Confirm your number"}</div>
+                <div style={{fontSize:13,color:soil,marginTop:4,lineHeight:1.45}}>{lang==="kn"
+                  ? "ಡೆಲಿವರಿ ವೇಳೆ ಪಾವತಿಗಾಗಿ, ವಾಟ್ಸಾಪ್ ಕೋಡ್ ಮೂಲಕ ನಿಮ್ಮ ನಂಬರ್ ಅನ್ನು ಈ ಫೋನ್‌ನಲ್ಲಿ ಒಮ್ಮೆ ದೃಢೀಕರಿಸುತ್ತೇವೆ. ನಂತರ ನಿಮ್ಮ ಆರ್ಡರ್ ಹೋಗುತ್ತದೆ."
+                  : "For pay on delivery, we confirm your number once on this phone with a WhatsApp code. Then your order goes through."}</div>
+              </div>
+              <button onClick={() => setVerifyOpen(false)} aria-label={lang==="kn" ? "ಮುಚ್ಚಿ" : "Close"}
+                style={{width:36,height:36,borderRadius:18,border:"none",backgroundColor:"#f3f4f1",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0}}>
+                <X size={18} color={ink}/>
+              </button>
+            </div>
+            <CodeSignInForm lang={lang} initialPhone={userProfile.phone || ""} sendCode={sendSignInCode} verifyCode={signInWithCode}
+              onDone={() => { setVerifyOpen(false); setPlaceAfterVerify(true); }}
+              onFallback={() => { setVerifyOpen(false); setPlaceAfterVerify(true); }}/>
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* Rating modal — portal to document.body so it's never clipped by parent overflow/transform */}
       {showRating && ReactDOM.createPortal(

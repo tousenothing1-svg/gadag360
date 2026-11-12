@@ -164,6 +164,20 @@ tr.row-link:focus-visible{outline:2px solid var(--green);outline-offset:-2px}
 .order-alert.on{background:#EEF7F1;border-color:#9CCBAE}
 .order-alert .txt{flex:1;min-width:220px}
 .order-alert .acts{display:flex;gap:8px;flex-wrap:wrap}
+/* WhatsApp sign-in codes page */
+.wa-state{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.wa-state .txt{flex:1;min-width:240px;font-size:13.5px;line-height:1.5}
+.wa-state .acts{display:flex;gap:8px;flex-wrap:wrap}
+.wa-pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:800;margin-right:6px}
+.wa-on{background:#e8f5e9;color:var(--green)}
+.wa-off{background:#f1f1f1;color:#555}
+.wa-paused{background:#fff4e0;color:#b25e00}
+.wa-steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+.wa-steps .card{margin-bottom:0}
+.wa-h{font-size:15px;font-weight:800;margin-bottom:4px}
+.wa-line{font-size:13px;line-height:1.55;margin-top:8px}
+.wa-err{color:#C62828;font-size:12.5px;line-height:1.45;margin-top:8px;word-break:break-word}
+.wa-ok{color:var(--green);font-weight:700}
 .slot-line{font-size:11px;color:#666;margin-top:2px;white-space:nowrap}
 .slot-line.later{color:#B25E00;font-weight:700}
 .btn-back{white-space:nowrap}
@@ -348,6 +362,7 @@ tr.row-link:focus-visible{outline:2px solid var(--green);outline-offset:-2px}
       <div class="nav-item" onclick="showPage('customers',this)">👥 Customers</div>
       <div class="nav-item" onclick="showPage('alerts',this)">🔔 Notifications</div>
       <div class="nav-item" onclick="showPage('suggestions',this)">💡 Suggestions<span class="nav-count" id="suggestCount" title="New product suggestions"></span></div>
+      <div class="nav-item" onclick="showPage('whatsapp',this)">📲 WhatsApp Codes</div>
       <div class="nav-section">Delivery</div>
       <div class="nav-item" onclick="showPage('delivery',this)">🛵 Delivery Boys</div>
       <div class="nav-section">Links</div>
@@ -565,6 +580,56 @@ tr.row-link:focus-visible{outline:2px solid var(--green);outline-offset:-2px}
         </div>
         <div class="card-note" style="margin:0 0 14px">Products customers asked for in the app (Profile → Suggest Product), newest first. Each one is saved in your database, in the table <b>product_suggestions</b>, together with its photo.</div>
         <div id="suggestList"><div style="text-align:center;padding:20px"><span class="spinner"></span>Loading...</div></div>
+      </div>
+
+      <div class="page" id="page-whatsapp">
+        <div style="font-size:22px;font-weight:800;margin-bottom:8px">📲 WhatsApp Sign-in Codes</div>
+        <div class="card-note" style="margin:0 0 14px">When this is on, customers confirm their phone number with a 6-digit code on WhatsApp before ordering, so nobody can place a cash-on-delivery order with someone else's number. Each code costs about ₹0.12, paid to Meta.</div>
+        <div class="card">
+          <div class="wa-state">
+            <div class="txt" id="waState"><span class="spinner"></span>Loading...</div>
+            <div class="acts">
+              <button class="btn btn-green" id="waOnBtn" onclick="switchWa(true)" style="display:none">Turn on for customers</button>
+              <button class="btn btn-gray" id="waOffBtn" onclick="switchWa(false)" style="display:none">Turn off</button>
+              <button class="btn btn-gray" onclick="loadWhatsApp()">🔄 Refresh</button>
+            </div>
+          </div>
+        </div>
+        <div class="wa-steps">
+          <div class="card">
+            <div class="wa-h">1. Meta details</div>
+            <div class="hint">From developers.facebook.com → your app → WhatsApp → API Setup.</div>
+            <label for="waPhoneId">Phone number ID</label>
+            <input type="text" id="waPhoneId" inputmode="numeric" autocomplete="off" placeholder="e.g. 106540352242922">
+            <label for="waWabaId">WhatsApp Business Account ID</label>
+            <input type="text" id="waWabaId" inputmode="numeric" autocomplete="off" placeholder="e.g. 102290129340398">
+            <div class="wa-line" id="waToken"></div>
+            <button class="btn btn-green" style="margin-top:12px" onclick="saveWaIds()">Save</button>
+          </div>
+          <div class="card">
+            <div class="wa-h">2. Code message</div>
+            <div class="hint">Meta writes the words itself: "123456 is your verification code. For your security, do not share this code. This code expires in 10 minutes." with a Copy code button. Meta usually approves it within minutes.</div>
+            <div class="wa-line" id="waTemplates"></div>
+            <button class="btn btn-green" style="margin-top:12px" onclick="setUpWa()">Create code message</button>
+          </div>
+          <div class="card">
+            <div class="wa-h">3. Send a test code</div>
+            <div class="hint">Codes can go on for customers only after one test arrives. While you use Meta's test number, codes only reach the numbers you added under "To" in API Setup.</div>
+            <label for="waTestPhone">Your WhatsApp number</label>
+            <input type="text" id="waTestPhone" inputmode="numeric" maxlength="14" placeholder="10-digit number">
+            <button class="btn btn-green" style="margin-top:12px" id="waTestBtn" onclick="sendWaTest()">Send a test code</button>
+            <div class="wa-line" id="waTestResult"></div>
+          </div>
+          <div class="card">
+            <div class="wa-h">Help buttons in the app</div>
+            <div class="hint">Leave the WhatsApp number empty while your shop number is busy sending codes: the app's help buttons then say "Call us" and use the phone number.</div>
+            <label for="waHelpWa">WhatsApp number for customers</label>
+            <input type="text" id="waHelpWa" inputmode="numeric" maxlength="14" placeholder="Empty: no WhatsApp, Call us instead">
+            <label for="waHelpPhone">Phone number for calls</label>
+            <input type="text" id="waHelpPhone" inputmode="numeric" maxlength="14" placeholder="10-digit number">
+            <button class="btn btn-green" style="margin-top:12px" onclick="saveWaHelp()">Save</button>
+          </div>
+        </div>
       </div>
 
       <div class="page" id="page-customers">
@@ -925,6 +990,7 @@ async function showPage(p,el){
   if(p==="products"||p==="deleted")loadProducts();
   if(p==="alerts")loadAlertsPage();
   if(p==="suggestions")loadSuggestions();
+  if(p==="whatsapp")loadWhatsApp();
   if(p==="vendors")loadVendors();
   if(p==="customers")loadCustomers();
   if(p==="delivery"){loadDeliveryBoys();loadUnassignedOrders();}
@@ -2237,6 +2303,104 @@ async function adminCall(fn, args){
   const r = await res.json();
   if (r && r.ok === false && r.error === "login") { setToken(null); showLogin("Your login has ended. Please log in again."); throw new Error("login"); }
   return r;
+}
+// ── WhatsApp sign-in codes (supabase/19_whatsapp_codes.sql, function wa-code) ──
+const WA_FN = "https://lykhjuizzvurklywxflz.supabase.co/functions/v1/wa-code";
+async function waFn(action, extra){
+  const res = await fetch(WA_FN, { method: "POST", headers: { "Content-Type": "application/json", "x-staff-token": TOKEN || "" },
+                                   body: JSON.stringify({ action, ...(extra || {}) }) });
+  const r = await res.json().catch(() => ({}));
+  if (res.status === 401) { setToken(null); showLogin("Your login has ended. Please log in again."); throw new Error("login"); }
+  return r;
+}
+const waPhone = p => { const d = String(p || "").replace(/\D/g, "").slice(-10); return d.length === 10 ? `+91 ${d.slice(0,5)} ${d.slice(5)}` : ""; };
+const WA_LANG = { en: "English", kn: "Kannada" };
+const WA_STATUS = { APPROVED: "approved ✓", PENDING: "waiting for Meta…", REJECTED: "rejected ✗", PAUSED: "paused by Meta", DISABLED: "disabled by Meta", EXISTS: "created" };
+function renderWhatsApp(r){
+  const on = !!r.codes_on, working = !!r.working;
+  const state = !on ? `<span class="wa-pill wa-off">Off</span>Customers sign in with their phone number and name, without a code.`
+    : working ? `<span class="wa-pill wa-on">On</span>Customers confirm their number with a WhatsApp code before ordering.`
+    : `<span class="wa-pill wa-paused">Paused</span>Sending failed 3 times in a row, so customers sign in without a code for now. Codes come back by themselves 15 minutes after the last failure. Fix the problem below, then send a test code.`;
+  const stats = `Last 24 hours: ${Number(r.sent_24h) || 0} code${Number(r.sent_24h) === 1 ? "" : "s"} sent · ${Number(r.signed_in_24h) || 0} sign-in${Number(r.signed_in_24h) === 1 ? "" : "s"} · ${Number(r.failed_24h) || 0} failed`;
+  const num = r.number ? `Sending number: <b>${esc(r.number.display || "—")}</b>${r.number.name ? ` (${esc(r.number.name)})` : ""}${r.number.quality ? ` · quality ${esc(r.number.quality)}` : ""}` : "";
+  const err = r.last_error ? `<div class="wa-err">Last problem${r.last_error_at ? ` (${esc(timeLabel(r.last_error_at))})` : ""}: ${esc(r.last_error)}</div>` : "";
+  const metaErr = r.meta_error ? `<div class="wa-err">Meta says: ${esc(r.meta_error)}</div>` : "";
+  document.getElementById("waState").innerHTML = `<div>${state}</div><div class="hint" style="font-size:12px;margin-top:6px">${stats}${r.last_ok_at ? ` · last code sent ${esc(timeLabel(r.last_ok_at))}` : ""}</div>${num ? `<div class="wa-line">${num}</div>` : ""}${err}${metaErr}`;
+  document.getElementById("waOnBtn").style.display = on ? "none" : "";
+  document.getElementById("waOffBtn").style.display = on ? "" : "none";
+  const keep = (id, v) => { const el = document.getElementById(id); if (document.activeElement !== el) el.value = v || ""; };
+  keep("waPhoneId", r.phone_number_id); keep("waWabaId", r.waba_id);
+  keep("waHelpWa", r.help_whatsapp ? String(r.help_whatsapp).slice(-10) : ""); keep("waHelpPhone", r.help_phone ? String(r.help_phone).slice(-10) : "");
+  document.getElementById("waToken").innerHTML = r.token_saved
+    ? `<span class="wa-ok">✓ WhatsApp key saved in Supabase</span>`
+    : `<span style="color:#C62828;font-weight:700">✗ WhatsApp key not saved yet.</span> In Supabase → Edge Functions → Secrets, add <b>WHATSAPP_TOKEN</b> with the permanent token from Meta.`;
+  const ts = Array.isArray(r.templates) ? r.templates : [];
+  document.getElementById("waTemplates").innerHTML = !r.waba_id ? "Save the Meta details first."
+    : !r.token_saved ? "Save the WhatsApp key first."
+    : ts.length ? ts.map(t => `${esc(WA_LANG[t.lang] || t.lang)}: <b>${esc(WA_STATUS[t.status] || t.status.toLowerCase())}</b>${t.rejected_reason && t.rejected_reason !== "NONE" ? ` (${esc(t.rejected_reason)})` : ""}`).join("<br>")
+    : "Not created yet: tap <b>Create code message</b>.";
+}
+async function loadWhatsApp(){
+  const box = document.getElementById("waState");
+  box.innerHTML = '<span class="spinner"></span>Loading...';
+  try {
+    const r = await waFn("admin_status");
+    if (r && r.ok) renderWhatsApp(r);
+    else box.textContent = "Couldn't load the settings. Try again in a minute.";
+  } catch (e) { if (e.message !== "login") box.textContent = "Couldn't load the settings. Check your internet and try again."; }
+}
+const WA_SAVE_ERR = { bad_id: "IDs are numbers only. Copy them again from API Setup.", bad_phone: "Phone numbers need 10 digits.",
+  test_first: "Send a test code first. Codes go on only after one arrives.", not_set_up: "Save the Meta details first." };
+async function waSave(settings, okMsg){
+  try {
+    const r = await adminCall("admin_wa_save", { p_token: TOKEN, p_settings: settings });
+    if (r && r.ok) { if (okMsg) toast(okMsg); await loadWhatsApp(); return true; }
+    toast(WA_SAVE_ERR[r && r.error] || "Couldn't save. Try again.", "#E53935");
+  } catch (e) { if (e.message !== "login") toast("Couldn't save. Check your internet.", "#E53935"); }
+  return false;
+}
+function saveWaIds(){
+  const pid = document.getElementById("waPhoneId").value.trim(), waba = document.getElementById("waWabaId").value.trim();
+  if (!pid || !waba) { toast("Fill in both IDs.", "#E53935"); return; }
+  waSave({ phone_number_id: pid, waba_id: waba }, "✓ Meta details saved");
+}
+function saveWaHelp(){
+  const wa = document.getElementById("waHelpWa").value.trim(), call = document.getElementById("waHelpPhone").value.trim();
+  waSave({ help_whatsapp: wa, help_phone: call }, wa ? "✓ Help buttons open WhatsApp " + waPhone(wa) : "✓ Help buttons now say Call us");
+}
+async function setUpWa(){
+  try {
+    const r = await waFn("admin_setup");
+    if (r && r.ok) toast("✓ Code message created. Meta usually approves it within minutes.");
+    else if (r && r.error === "not_set_up") toast("Save the Meta details first.", "#E53935");
+    else {
+      const why = ((r && r.templates) || []).map(t => t.error).filter(Boolean)[0] || "Try again in a minute.";
+      toast("Couldn't create it: " + why, "#E53935");
+    }
+  } catch (e) { if (e.message !== "login") toast("Couldn't reach Meta. Check your internet.", "#E53935"); }
+  loadWhatsApp();
+}
+const WA_TEST_ERR = { wait: "A code went to this number less than 30 seconds ago. Wait a moment.", slow_down: "Too many codes for this number. Try again in an hour.",
+  bad_phone: "Enter a 10-digit mobile number.", not_set_up: "Save the Meta details first." };
+async function sendWaTest(){
+  const btn = document.getElementById("waTestBtn"), out = document.getElementById("waTestResult");
+  const phone = document.getElementById("waTestPhone").value.replace(/\D/g, "").slice(-10);
+  if (!/^[6-9]\d{9}$/.test(phone)) { toast("Enter a 10-digit mobile number.", "#E53935"); return; }
+  btn.disabled = true; out.innerHTML = '<span class="spinner"></span>Sending...';
+  try {
+    const r = await waFn("admin_test", { phone, lang: "en" });
+    if (r && r.ok) out.innerHTML = `<span class="wa-ok">✓ Sent to ${esc(waPhone(phone))}.</span> Check WhatsApp: the code should arrive in a few seconds.`;
+    else out.innerHTML = `<div class="wa-err">${esc(WA_TEST_ERR[r && r.error] || "It didn't go through.")}${r && r.detail ? `<br>Meta says: ${esc(r.detail)}` : ""}</div>`;
+  } catch (e) { out.innerHTML = e.message === "login" ? "" : `<div class="wa-err">Couldn't send. Check your internet.</div>`; }
+  finally { btn.disabled = false; loadWhatsApp(); }
+}
+async function switchWa(on){
+  if (on) {
+    const ok = await askConfirm("Turn on WhatsApp codes for customers?",
+      "From now on, customers confirm their number with a WhatsApp code before ordering. If sending ever fails, they can still order without one.", "Turn on", "green");
+    if (!ok) return;
+  }
+  waSave({ codes_on: !!on }, on ? "✓ WhatsApp codes are on" : "WhatsApp codes are off");
 }
 function showSuggestCount(n){ const el = document.getElementById("suggestCount"); if (el) el.textContent = n > 0 ? String(n) : ""; }
 async function refreshSuggestCount(){

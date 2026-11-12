@@ -1,11 +1,13 @@
 // ── FIRST OPEN ──
 // What a new customer sees the first time they open Royal Harvest:
-// welcome → phone → name → location → three quick questions → brand promise → shop.
+// welcome → phone → (WhatsApp code, when the shop has codes on) → name → location → three quick questions →
+// brand promise → shop.
 // Every step after the welcome can be skipped. Plus three home extras: the welcome
 // offer sheet, a one-time tip on the category tab, and a notice when the customer
 // is outside the delivery area.
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Bell, Check, MapPin, Tag, Truck, X, Globe } from "lucide-react";
+import { useCodeFlow } from "./CodeSignIn";
 
 const C = {
   basil: "#1A6B3C", basilDark: "#124D2A", haldi: "#F2B53A", gold: "#946500", ink: "#1E2B22",
@@ -36,6 +38,7 @@ const TXT = {
     back: "Back", skip: "Skip",
     phoneTitle: "What's your phone number?",
     phoneSub: "We'll send your order updates here.",
+    phoneSubCode: "We'll send a 6-digit code to it on WhatsApp, to confirm it's yours.",
     phonePh: "10-digit mobile number",
     phoneBad: "Enter a valid 10-digit mobile number",
     consent: "By continuing, you agree to our Terms and Privacy Policy.",
@@ -70,6 +73,7 @@ const TXT = {
     back: "ಹಿಂದೆ", skip: "ಬಿಟ್ಟುಬಿಡಿ",
     phoneTitle: "ನಿಮ್ಮ ಮೊಬೈಲ್ ನಂಬರ್ ಏನು?",
     phoneSub: "ಆರ್ಡರ್ ಮಾಹಿತಿಯನ್ನು ಈ ನಂಬರ್‌ಗೆ ಕಳುಹಿಸುತ್ತೇವೆ.",
+    phoneSubCode: "ಇದು ನಿಮ್ಮದೇ ಎಂದು ದೃಢೀಕರಿಸಲು ವಾಟ್ಸಾಪ್‌ನಲ್ಲಿ 6 ಅಂಕಿಯ ಕೋಡ್ ಕಳುಹಿಸುತ್ತೇವೆ.",
     phonePh: "10 ಅಂಕಿಯ ಮೊಬೈಲ್ ನಂಬರ್",
     phoneBad: "ಸರಿಯಾದ 10 ಅಂಕಿಯ ಮೊಬೈಲ್ ನಂಬರ್ ನಮೂದಿಸಿ",
     consent: "ಮುಂದುವರಿಯುವ ಮೂಲಕ ನಮ್ಮ ನಿಯಮಗಳು ಮತ್ತು ಗೌಪ್ಯತಾ ನೀತಿಗೆ ಒಪ್ಪುತ್ತೀರಿ.",
@@ -251,10 +255,10 @@ function Collage() {
   );
 }
 
-export function Onboarding({ lang, setLang, onSignIn, onSavePrefs, onLocation, onDone, alertsReady, onAlerts, onAlertsLater }) {
+export function Onboarding({ lang, setLang, onSignIn, onSavePrefs, onLocation, onDone, alertsReady, onAlerts, onAlertsLater,
+                            codesOn, onSendCode, onCodeSignIn }) {
   const t = TXT[lang] || TXT.en;
   const [step, setStep] = useState("welcome");
-  const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [household, setHousehold] = useState(null);
@@ -262,7 +266,19 @@ export function Onboarding({ lang, setLang, onSignIn, onSavePrefs, onLocation, o
   const [values, setValues] = useState([]);
   const userIdRef = useRef(null);
   const scrollRef = useRef(null);
+  // With WhatsApp codes on: phone -> code -> name (new customers only) -> location. Off: phone -> name -> location.
+  const flow = useCodeFlow({
+    lang,
+    sendCode: onSendCode || (async () => ({ ok: false, error: "off" })),
+    verifyCode: onCodeSignIn || (async () => null),
+    onDone: r => { userIdRef.current = r && r.token; setStep("location"); },
+    onFallback: () => setStep("name"), // codes aren't on right now
+  });
+  const { phone, setPhone } = flow;
   const validPhone = /^[6-9]\d{9}$/.test(phone);
+  const ct = flow.t;
+  const phoneNext = () => { if (!validPhone) return; if (codesOn) flow.send(); else setStep("name"); };
+  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = 0; }, [flow.step]);
 
   // Each step starts at the top, and the page behind doesn't scroll
   useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = 0; }, [step]);
@@ -339,31 +355,74 @@ export function Onboarding({ lang, setLang, onSignIn, onSavePrefs, onLocation, o
         <PrimaryButton onClick={() => setStep("phone")}>{t.start}</PrimaryButton>
       </>
     );
+  } else if (step === "phone" && codesOn && flow.step === "code") {
+    content = (
+      <>
+        <TopBar t={t} onBack={flow.changeNumber} onSkip={() => setStep("location")}/>
+        <div className="g-in" style={{ marginTop: 28 }}>
+          <h1 style={h1}>{ct.codeTitle}</h1>
+          <p style={sub}>{ct.codeSub(phone)}</p>
+          <p style={{ ...sub, fontSize: 13.5, marginTop: 6 }}>{ct.codeHint}</p>
+          <input type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]*" maxLength={6} autoFocus
+            value={flow.code} onChange={e => flow.setCode(e.target.value)} onKeyDown={e => { if (e.key === "Enter") flow.verifyNow(); }}
+            placeholder="••••••" aria-label={ct.codeLabel} disabled={flow.busy}
+            style={{ width: "100%", boxSizing: "border-box", height: 64, marginTop: 24, borderRadius: 16, background: "#fff",
+              border: `2px solid ${flow.error ? C.chili : flow.code ? C.basil : C.line}`, outline: "none", textAlign: "center",
+              fontSize: 30, fontWeight: 800, letterSpacing: 12, color: C.ink, fontFamily: "inherit", fontVariantNumeric: "tabular-nums" }}/>
+          {flow.error && <div role="alert" style={{ color: C.chili, fontSize: 13.5, marginTop: 8, fontWeight: 600 }}>{flow.error}</div>}
+          <PrimaryButton disabled={flow.code.length !== 6} busy={flow.busy} onClick={flow.verifyNow} style={{ marginTop: 24 }}>{ct.verify}</PrimaryButton>
+          <div style={{ textAlign: "center", marginTop: 16, fontSize: 14 }}>
+            {flow.waitLeft > 0
+              ? <span aria-live="polite" style={{ color: C.soil }}>{ct.resendIn(flow.waitLeft)}</span>
+              : <button className="g-reset" onClick={flow.resend} disabled={flow.busy} style={{ color: C.basil, fontWeight: 800, padding: "8px 6px" }}>{ct.resend}</button>}
+          </div>
+        </div>
+      </>
+    );
+  } else if (step === "phone" && codesOn && flow.step === "name") {
+    content = (
+      <>
+        <TopBar t={t} onSkip={() => setStep("location")}/>
+        <div className="g-in" style={{ marginTop: 28 }}>
+          <h1 style={h1}>{t.nameTitle}</h1>
+          <p style={sub}>{t.nameSub}</p>
+          <input type="text" autoComplete="name" autoCapitalize="words" autoFocus maxLength={40}
+            value={flow.name} onChange={e => flow.setName(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter" && flow.name.trim()) flow.submitName(); }}
+            placeholder={t.namePh} aria-label={t.nameTitle}
+            style={{ width: "100%", height: 58, marginTop: 24, borderRadius: 16, border: `2px solid ${flow.name ? C.basil : C.line}`, background: "#fff",
+              padding: "0 16px", fontSize: 18, fontWeight: 600, color: C.ink, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}/>
+          {flow.error && <div role="alert" style={{ color: C.chili, fontSize: 13.5, marginTop: 8, fontWeight: 600 }}>{flow.error}</div>}
+          <PrimaryButton disabled={!flow.name.trim()} busy={flow.busy} onClick={flow.submitName} style={{ marginTop: 24 }}>{t.cont}</PrimaryButton>
+        </div>
+      </>
+    );
   } else if (step === "phone") {
     content = (
       <>
         <TopBar t={t} onBack={() => setStep("welcome")} onSkip={() => setStep("location")}/>
         <div className="g-in" style={{ marginTop: 28 }}>
           <h1 style={h1}>{t.phoneTitle}</h1>
-          <p style={sub}>{t.phoneSub}</p>
+          <p style={sub}>{codesOn ? t.phoneSubCode : t.phoneSub}</p>
           <label style={{ display: "flex", alignItems: "center", height: 58, marginTop: 24, background: "#fff", borderRadius: 16,
             border: `2px solid ${phone ? C.basil : C.line}`, overflow: "hidden" }}>
             <span style={{ padding: "0 12px 0 16px", fontSize: 18, fontWeight: 700, color: C.ink, borderRight: `1px solid ${C.line}`, alignSelf: "stretch", display: "flex", alignItems: "center" }}>+91</span>
             <input type="tel" inputMode="numeric" pattern="[0-9]*" autoComplete="tel-national" autoFocus maxLength={10}
-              value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, "").slice(-10))}
-              onKeyDown={e => { if (e.key === "Enter" && validPhone) setStep("name"); }}
+              value={phone} onChange={e => setPhone(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") phoneNext(); }}
               placeholder={t.phonePh} aria-label={t.phoneTitle}
               style={{ flex: 1, minWidth: 0, height: "100%", border: "none", outline: "none", background: "none", padding: "0 14px",
                 fontSize: 19, fontWeight: 600, letterSpacing: 1.2, color: C.ink, fontFamily: "inherit" }}/>
           </label>
           {phone.length === 10 && !validPhone && <div role="alert" style={{ color: C.chili, fontSize: 13.5, marginTop: 8, fontWeight: 600 }}>{t.phoneBad}</div>}
+          {flow.error && <div role="alert" style={{ color: C.chili, fontSize: 13.5, marginTop: 8, fontWeight: 600 }}>{flow.error}</div>}
           <div style={{ display: "flex", gap: 8, alignItems: "flex-start", marginTop: 14, fontSize: 13, color: C.soil, lineHeight: 1.45 }}>
             <span style={{ width: 18, height: 18, borderRadius: 9, background: C.basil, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
               <Check size={12} strokeWidth={3.2}/>
             </span>
             {t.consent}
           </div>
-          <PrimaryButton disabled={!validPhone} onClick={() => setStep("name")} style={{ marginTop: 24 }}>{t.cont}</PrimaryButton>
+          <PrimaryButton disabled={!validPhone} busy={flow.busy} onClick={phoneNext} style={{ marginTop: 24 }}>{codesOn ? ct.getCode : t.cont}</PrimaryButton>
         </div>
       </>
     );
@@ -606,18 +665,18 @@ const AREA = {
   en: {
     title: "We're not in your area yet",
     text: "Royal Harvest delivers in Gadag, Betageri and Hulkoti for now. Ask us to come to your area and we'll let you know when we arrive.",
-    ask: "Request my area", look: "Meanwhile, take a look around", close: "Close",
+    ask: "Request my area", call: "Call us to ask", look: "Meanwhile, take a look around", close: "Close",
     msg: link => `Hi Royal Harvest, please start delivering in my area: ${link}`,
   },
   kn: {
     title: "ನಾವು ಇನ್ನೂ ನಿಮ್ಮ ಪ್ರದೇಶಕ್ಕೆ ಬಂದಿಲ್ಲ",
     text: "ಸದ್ಯಕ್ಕೆ ಗದಗ, ಬೆಟಗೇರಿ ಮತ್ತು ಹುಲಕೋಟಿಯಲ್ಲಿ ಮಾತ್ರ ಡೆಲಿವರಿ ಮಾಡುತ್ತೇವೆ. ನಿಮ್ಮ ಪ್ರದೇಶಕ್ಕೆ ಬರಲು ಕೇಳಿ, ನಾವು ಬಂದಾಗ ತಿಳಿಸುತ್ತೇವೆ.",
-    ask: "ನನ್ನ ಪ್ರದೇಶಕ್ಕೆ ವಿನಂತಿಸಿ", look: "ಅಲ್ಲಿಯವರೆಗೆ, ಒಮ್ಮೆ ನೋಡಿ", close: "ಮುಚ್ಚಿ",
+    ask: "ನನ್ನ ಪ್ರದೇಶಕ್ಕೆ ವಿನಂತಿಸಿ", call: "ಕರೆ ಮಾಡಿ ಕೇಳಿ", look: "ಅಲ್ಲಿಯವರೆಗೆ, ಒಮ್ಮೆ ನೋಡಿ", close: "ಮುಚ್ಚಿ",
     msg: link => `ನಮಸ್ಕಾರ ರಾಯಲ್ ಹಾರ್ವೆಸ್ಟ್, ದಯವಿಟ್ಟು ನನ್ನ ಪ್ರದೇಶಕ್ಕೂ ಡೆಲಿವರಿ ಆರಂಭಿಸಿ: ${link}`,
   },
 };
 
-export function AreaNotice({ lang, loc, shopWhatsApp, onClose }) {
+export function AreaNotice({ lang, loc, shopWhatsApp, shopPhone, onClose }) {
   const a = AREA[lang] || AREA.en;
   const link = loc ? `https://maps.google.com/?q=${loc.lat.toFixed(5)},${loc.lon.toFixed(5)}` : "";
   return (
@@ -630,8 +689,11 @@ export function AreaNotice({ lang, loc, shopWhatsApp, onClose }) {
         <div>
           <div style={{ fontSize: 15.5, fontWeight: 800, color: C.ink }}>{a.title}</div>
           <div style={{ fontSize: 13.5, color: "#5E5A4E", lineHeight: 1.45, marginTop: 3 }}>{a.text}</div>
-          <button className="g-reset g-tap" onClick={() => window.open(`https://wa.me/${shopWhatsApp}?text=${encodeURIComponent(a.msg(link))}`, "_blank")}
-            style={{ marginTop: 10, height: 38, padding: "0 16px", borderRadius: 12, background: C.ink, color: "#fff", fontSize: 14, fontWeight: 700 }}>{a.ask}</button>
+          <button className="g-reset g-tap" onClick={() => {
+              if (shopWhatsApp) window.open(`https://wa.me/${shopWhatsApp}?text=${encodeURIComponent(a.msg(link))}`, "_blank");
+              else window.location.href = `tel:+${shopPhone || "919035068924"}`;
+            }}
+            style={{ marginTop: 10, height: 38, padding: "0 16px", borderRadius: 12, background: C.ink, color: "#fff", fontSize: 14, fontWeight: 700 }}>{shopWhatsApp ? a.ask : a.call}</button>
         </div>
         <button className="g-reset" onClick={onClose} aria-label={a.close}
           style={{ position: "absolute", top: 8, right: 8, width: 32, height: 32, borderRadius: 16, display: "flex", alignItems: "center", justifyContent: "center", color: C.soil }}>
