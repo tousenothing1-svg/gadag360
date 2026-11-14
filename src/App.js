@@ -2872,12 +2872,17 @@ useEffect(() => {
 
           {/* GENERAL INFO */}
           {profileSection==="info" && <div className="space-y-3">
-            {[{title:"About Royal Harvest",body:"Royal Harvest delivers fresh fruits, vegetables and daily essentials to your doorstep in 20–30 min."},{title:"Service Areas",body:"Gadag · Betageri · Hulkoti"},{title:"Delivery Hours",body:"7:00 AM – 9:00 PM, all days including Sundays"},{title:"Contact",body:"📞 +91 90350 68924\n📍 Gadag-Betageri, Karnataka 582101"}].map((s,i)=>(
+            {[{title:"About Royal Harvest",body:"Royal Harvest delivers fresh fruits, vegetables and daily essentials to your doorstep in 20–30 min."},{title:"Service Areas",body:"Gadag · Betageri · Hulkoti"},{title:"Delivery Hours",body:"7:00 AM – 9:00 PM, all days including Sundays"},{title:"Contact",body:"Royal Harvest\n📍 Plot No 76, Naregal House, 2nd Cross, Gangi Madi Road, Taj Nagar, Gadag, Karnataka 582101\n📞 +91 90350 68924"}].map((s,i)=>(
               <div key={i} className="rounded-2xl p-4" style={{backgroundColor:panel,border:`1px solid ${line}`}}>
                 <div className="font-semibold text-sm mb-1">{s.title}</div>
                 <div className="text-xs whitespace-pre-line" style={{color:soil}}>{s.body}</div>
               </div>
             ))}
+            <div className="rounded-2xl p-4 text-xs" style={{backgroundColor:panel,border:`1px solid ${line}`,color:soil,lineHeight:2}}>
+              <a href="/privacy" target="_blank" rel="noreferrer" style={{color:basil,fontWeight:600}}>{lang==="kn"?"ಗೌಪ್ಯತಾ ನೀತಿ (Privacy Policy)":"Privacy Policy"}</a>{" · "}
+              <a href="/terms" target="_blank" rel="noreferrer" style={{color:basil,fontWeight:600}}>{lang==="kn"?"ಸೇವಾ ನಿಯಮಗಳು (Terms)":"Terms of Service"}</a>{" · "}
+              <a href="/refund" target="_blank" rel="noreferrer" style={{color:basil,fontWeight:600}}>{lang==="kn"?"ಡೆಲಿವರಿ, ರದ್ದು ಮತ್ತು ರಿಫಂಡ್":"Delivery, Cancellation & Refunds"}</a>
+            </div>
           </div>}
 
           {/* HELP & SUPPORT */}
